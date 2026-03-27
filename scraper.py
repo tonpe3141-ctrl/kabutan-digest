@@ -19,7 +19,7 @@ import time
 import os
 import warnings
 import requests
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from bs4 import BeautifulSoup
 warnings.filterwarnings("ignore")
 
@@ -160,8 +160,9 @@ def _get_services():
 
 def _format_content(articles: list[dict], target_date: date) -> str:
     """全記事を1つのテキストにまとめる（Claude参照用）"""
+    JST = timezone(timedelta(hours=9))
     date_label = target_date.strftime("%Y年%m月%d日")
-    now_str    = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str    = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     lines = [
         f"株探ダイジェスト — {date_label}",
         f"最終更新: {now_str}  |  取得記事数: {sum(1 for a in articles if a.get('body'))}件",
