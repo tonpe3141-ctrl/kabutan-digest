@@ -67,17 +67,17 @@ RANKING_PAGES = [
     {
         "label":    "売買代金ランキング",
         "url":      "https://kabutan.jp/warning/trading_value_ranking",
-        "max_rows": 20,
+        "max_rows": 30,
     },
     {
         "label":    "上昇率ランキング（今日）",
         "url":      "https://kabutan.jp/warning/?mode=2_1",
-        "max_rows": 20,
+        "max_rows": 30,
     },
     {
         "label":    "下落率ランキング（今日）",
         "url":      "https://kabutan.jp/warning/?mode=2_2",
-        "max_rows": 20,
+        "max_rows": 30,
     },
     {
         "label":    "東証【業種別】騰落ランキング",
@@ -185,7 +185,10 @@ def fetch_ranking_table(page_info: dict) -> dict:
     print(f"  [取得中] {label} ...")
     time.sleep(1)
     try:
-        res = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=False)
+        # shared_perpage=30 で30件表示（デフォルトは15件）
+        cookies = {"shared_perpage": "30"}
+        res = requests.get(url, headers=HEADERS, cookies=cookies, timeout=15,
+                           allow_redirects=False)
         if res.status_code != 200:
             print(f"    ⚠️  ステータスコード {res.status_code}")
             return {"label": label, "url": url, "headers": [], "rows": []}
