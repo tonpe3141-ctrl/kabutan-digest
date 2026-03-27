@@ -41,8 +41,9 @@ def _load_env() -> dict:
     return env
 
 _ENV = _load_env()
-GOOGLE_SERVICE_ACCOUNT_JSON = _ENV.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-GOOGLE_DRIVE_FOLDER_ID      = _ENV.get("GOOGLE_DRIVE_FOLDER_ID", "")
+# 環境変数を優先（GitHub Actions用）、なければ .env ファイルから読む
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") or _ENV.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+GOOGLE_DRIVE_FOLDER_ID      = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")      or _ENV.get("GOOGLE_DRIVE_FOLDER_ID", "")
 DRIVE_DOC_NAME = "株探ダイジェスト"   # Google Doc名（拡張子なし）
 
 # ==================== 株探スクレイピング設定 ====================
@@ -292,11 +293,16 @@ def save_config(data: dict):
 
 
 def load_config() -> dict:
+    config = {}
     try:
         with open(CONFIG_PATH) as f:
-            return json.load(f)
+            config = json.load(f)
     except Exception:
-        return {}
+        pass
+    # 環境変数を優先（GitHub Actions用）
+    if os.environ.get("KABUTAN_DOC_ID"):
+        config["doc_id"] = os.environ["KABUTAN_DOC_ID"]
+    return config
 
 
 if __name__ == "__main__":
