@@ -1,6 +1,6 @@
 """
 kabutan_scraper.py
-株探の昼刊・夕刊①②③を取得してGoogleドライブに保存するスクリプト
+株探の市況（明日の株式相場に向けて）・夕刊①②③を取得してGoogleドライブに保存するスクリプト
 
 記事URLの構造:
   https://kabutan.jp/news/marketnews/?b=n{YYYYMMDD}{NNNN}
@@ -51,12 +51,12 @@ NEWS_ARTICLE_URL = "https://kabutan.jp/news/marketnews/?b=n{date}{num:04d}"
 CONFIG_PATH     = os.path.expanduser("~/kabutan_digest/config.json")
 
 TARGET_PATTERNS = [
-    ("昼刊",  "話題株ピックアップ【昼刊】"),
+    ("市況",  "明日の株式相場に向けて"),
     ("夕刊①", "話題株ピックアップ【夕刊】（1）"),
     ("夕刊②", "話題株ピックアップ【夕刊】（2）"),
     ("夕刊③", "話題株ピックアップ【夕刊】（3）"),
 ]
-# 昼刊は前引け直後（~0400-0650）、夕刊は大引け後（~0700-0950）に掲載される
+# 市況は17:30頃、夕刊は大引け後（~0700-0950）に掲載される
 SCAN_START = 350
 SCAN_END   = 1000
 SCAN_SLEEP = 0.05   # スキャン時のリクエスト間隔（秒）
