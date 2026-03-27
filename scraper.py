@@ -59,7 +59,7 @@ TARGET_PATTERNS = [
 ]
 # 市況は17:30頃、夕刊は大引け後（~0700-0950）に掲載される
 SCAN_START = 350
-SCAN_END   = 1000
+SCAN_END   = 1500
 SCAN_SLEEP = 0.05   # スキャン時のリクエスト間隔（秒）
 
 HEADERS = {
