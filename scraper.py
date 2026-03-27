@@ -17,6 +17,7 @@ import sys
 import json
 import time
 import os
+import html as html_mod
 import warnings
 import requests
 from datetime import datetime, date, timezone, timedelta
@@ -61,6 +62,30 @@ TARGET_PATTERNS = [
 SCAN_START = 350
 SCAN_END   = 1500
 SCAN_SLEEP = 0.05   # スキャン時のリクエスト間隔（秒）
+
+# ==================== 市場概況設定 ====================
+MARKET_INDICES = [
+    {
+        "label": "日経平均",
+        "url":   "https://kabutan.jp/stock/?code=0000",
+        "type":  "kabutan",
+    },
+    {
+        "label": "TOPIX",
+        "url":   "https://kabutan.jp/stock/?code=0010",
+        "type":  "kabutan",
+    },
+    {
+        "label": "米ドル/円",
+        "url":   "https://kabutan.jp/stock/?code=0950",
+        "type":  "kabutan",
+    },
+    {
+        "label": "WTI原油",
+        "url":   "https://fu.minkabu.jp/chart/wti",
+        "type":  "wti",
+    },
+]
 
 # ==================== ランキング・決算ページ設定 ====================
 RANKING_PAGES = [
@@ -175,6 +200,86 @@ def fetch_article_content(url: str) -> dict:
         "url":          url,
     }
 
+# ==================== 市場概況スクレイピング ====================
+def _fetch_kabutan_index(info: dict) -> dict:
+    """kabutan.jp の指数・為替ページから終値・前日比・前日比率を取得"""
+    res  = requests.get(info["url"], headers=HEADERS, timeout=15)
+    soup = BeautifulSoup(res.text, "html.parser")
+    box  = soup.find("div", id="stockinfo_i1")
+    if not box:
+        return {**info, "close": None, "change": None, "change_pct": None}
+
+    close_el = box.find("span", class_="kabuka")
+    close = close_el.get_text(strip=True) if close_el else None
+
+    dds = box.find_all("dd")
+    change     = dds[0].get_text(strip=True) if len(dds) > 0 else None
+    change_pct = dds[1].get_text(strip=True).rstrip("%") if len(dds) > 1 else None
+    if change_pct:
+        change_pct = change_pct + "%"
+
+    return {**info, "close": close, "change": change, "change_pct": change_pct}
+
+
+def _fetch_wti(info: dict) -> dict:
+    """fu.minkabu.jp/chart/wti の ng-init から WTI 終値・前日比・前日比率を取得"""
+    res  = requests.get(info["url"], headers=HEADERS, timeout=15)
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    for el in soup.find_all(attrs={"ng-init": True}):
+        raw = el["ng-init"]
+        if "2NMX" not in raw:
+            continue
+        # HTML エンティティをデコードしてから JSON を抽出
+        decoded = html_mod.unescape(raw)
+        # init([...], {}) のような multi-arg 形式 → 最初の '[' から始まる部分をパース
+        bracket_pos = decoded.find("[")
+        if bracket_pos == -1:
+            continue
+        try:
+            items, _ = json.JSONDecoder().raw_decode(decoded, bracket_pos)
+        except json.JSONDecodeError:
+            continue
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code", "")
+            if "2NMX" in code and item.get("connect") == 1:
+                close      = item.get("close")
+                net_change = item.get("net_change")
+                pct        = item.get("percent_change")
+                def _fmt(v):
+                    return f"{v:+.2f}" if isinstance(v, (int, float)) else str(v) if v is not None else None
+                return {
+                    **info,
+                    "close":      str(close) if close is not None else None,
+                    "change":     _fmt(net_change),
+                    "change_pct": (f"{pct:+.2f}%" if isinstance(pct, (int, float)) else None),
+                }
+    return {**info, "close": None, "change": None, "change_pct": None}
+
+
+def fetch_market_overview() -> list[dict]:
+    """日経平均・TOPIX・米ドル/円・WTI原油の市場概況を取得する"""
+    print("[市場概況] 指数・為替・商品データを取得中...")
+    results = []
+    for info in MARKET_INDICES:
+        time.sleep(1)
+        try:
+            if info["type"] == "kabutan":
+                r = _fetch_kabutan_index(info)
+            else:
+                r = _fetch_wti(info)
+            status = r["close"] or "取得失敗"
+            print(f"  ✅ {info['label']}: {status}")
+            results.append(r)
+        except Exception as e:
+            print(f"  ❌ {info['label']}: {e}")
+            results.append({**info, "close": None, "change": None, "change_pct": None})
+    return results
+
+
 # ==================== ランキング・決算スクレイピング ====================
 def fetch_ranking_table(page_info: dict) -> dict:
     """株価注意報ページのテーブルを取得して行リストで返す"""
@@ -237,7 +342,8 @@ def _get_services():
 
 
 def _format_content(articles: list[dict], target_date: date,
-                    rankings: list[dict] = None) -> str:
+                    rankings: list[dict] = None,
+                    market_overview: list[dict] = None) -> str:
     """全記事＋ランキングデータを1つのテキストにまとめる（Claude参照用）"""
     JST = timezone(timedelta(hours=9))
     date_label = target_date.strftime("%Y年%m月%d日")
@@ -248,6 +354,19 @@ def _format_content(articles: list[dict], target_date: date,
         "=" * 60,
         "",
     ]
+
+    # ── 市場概況 ──────────────────────────────────────
+    if market_overview:
+        lines += [
+            "■ 市場概況",
+            "",
+        ]
+        for m in market_overview:
+            close  = m.get("close")      or "—"
+            change = m.get("change")     or "—"
+            pct    = m.get("change_pct") or "—"
+            lines.append(f"  {m['label']:<12}  終値: {close:<12}  前日比: {change:<10}  ({pct})")
+        lines += ["", "=" * 60, ""]
 
     # ── 夕刊・市況記事 ──────────────────────────────────
     for art in articles:
@@ -293,7 +412,8 @@ def _format_content(articles: list[dict], target_date: date,
 
 
 def save_to_drive(articles: list[dict], target_date: date,
-                  rankings: list[dict] = None) -> str:
+                  rankings: list[dict] = None,
+                  market_overview: list[dict] = None) -> str:
     """
     Google Doc「株探ダイジェスト」の内容を全削除して最新記事で上書き。
     config.json に doc_id が保存されている場合はそのドキュメントを使用する。
@@ -330,7 +450,7 @@ def save_to_drive(articles: list[dict], target_date: date,
     reqs.append({
         "insertText": {
             "location": {"index": 1},
-            "text": _format_content(articles, target_date, rankings),
+            "text": _format_content(articles, target_date, rankings, market_overview),
         }
     })
     docs.documents().batchUpdate(
@@ -375,6 +495,9 @@ def run(target_date: date = None):
         print("\n⚠️  取得できた記事がありません。終了します。")
         return
 
+    # 市場概況データ取得
+    market_overview = fetch_market_overview()
+
     # ランキング・決算データ取得
     print(f"\n[ランキング] 市場データを取得中...")
     rankings = [fetch_ranking_table(p) for p in RANKING_PAGES]
@@ -382,7 +505,7 @@ def run(target_date: date = None):
     # Google Drive に保存
     print(f"\n[Google Drive] {DRIVE_DOC_NAME} を保存中...")
     try:
-        drive_url = save_to_drive(articles, target_date, rankings)
+        drive_url = save_to_drive(articles, target_date, rankings, market_overview)
         save_config({"last_drive_url": drive_url, "last_date": target_date.isoformat()})
     except Exception as e:
         print(f"  ❌ Google Drive 保存エラー: {e}")
