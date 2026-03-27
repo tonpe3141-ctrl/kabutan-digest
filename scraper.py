@@ -62,6 +62,40 @@ SCAN_START = 350
 SCAN_END   = 1500
 SCAN_SLEEP = 0.05   # スキャン時のリクエスト間隔（秒）
 
+# ==================== ランキング・決算ページ設定 ====================
+RANKING_PAGES = [
+    {
+        "label":    "売買代金ランキング",
+        "url":      "https://kabutan.jp/warning/trading_value_ranking",
+        "max_rows": 20,
+    },
+    {
+        "label":    "上昇率ランキング（今日）",
+        "url":      "https://kabutan.jp/warning/?mode=2_1",
+        "max_rows": 20,
+    },
+    {
+        "label":    "下落率ランキング（今日）",
+        "url":      "https://kabutan.jp/warning/?mode=2_2",
+        "max_rows": 20,
+    },
+    {
+        "label":    "東証【業種別】騰落ランキング",
+        "url":      "https://kabutan.jp/warning/?mode=9_1",
+        "max_rows": 40,
+    },
+    {
+        "label":    "取引時間中 決算発表・業績修正",
+        "url":      "https://kabutan.jp/warning/?mode=4_2",
+        "max_rows": 200,
+    },
+    {
+        "label":    "取引終了後 決算発表・業績修正",
+        "url":      "https://kabutan.jp/warning/?mode=4_3",
+        "max_rows": 200,
+    },
+]
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
     "Accept-Language": "ja,en;q=0.9",
@@ -141,6 +175,47 @@ def fetch_article_content(url: str) -> dict:
         "url":          url,
     }
 
+# ==================== ランキング・決算スクレイピング ====================
+def fetch_ranking_table(page_info: dict) -> dict:
+    """株価注意報ページのテーブルを取得して行リストで返す"""
+    label    = page_info["label"]
+    url      = page_info["url"]
+    max_rows = page_info.get("max_rows", 20)
+
+    print(f"  [取得中] {label} ...")
+    time.sleep(1)
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=False)
+        if res.status_code != 200:
+            print(f"    ⚠️  ステータスコード {res.status_code}")
+            return {"label": label, "url": url, "headers": [], "rows": []}
+
+        soup  = BeautifulSoup(res.text, "html.parser")
+        table = soup.find("table", class_="stock_table")
+        if not table:
+            print(f"    ⚠️  テーブルが見つかりません")
+            return {"label": label, "url": url, "headers": [], "rows": []}
+
+        all_rows = []
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in tr.find_all(["th", "td"])]
+            cells = [c for c in cells if c]   # 空セル除去
+            if cells:
+                all_rows.append(cells)
+
+        if not all_rows:
+            return {"label": label, "url": url, "headers": [], "rows": []}
+
+        headers   = all_rows[0]
+        data_rows = all_rows[1 : max_rows + 1]
+        print(f"    ✅ {len(data_rows)} 行取得")
+        return {"label": label, "url": url, "headers": headers, "rows": data_rows}
+
+    except Exception as e:
+        print(f"    ❌ エラー: {e}")
+        return {"label": label, "url": url, "headers": [], "rows": []}
+
+
 # ==================== Google Drive / Docs 保存 ====================
 def _get_services():
     """Drive・Docs サービスを返す（サービスアカウント認証）"""
@@ -158,8 +233,9 @@ def _get_services():
     return drive, docs
 
 
-def _format_content(articles: list[dict], target_date: date) -> str:
-    """全記事を1つのテキストにまとめる（Claude参照用）"""
+def _format_content(articles: list[dict], target_date: date,
+                    rankings: list[dict] = None) -> str:
+    """全記事＋ランキングデータを1つのテキストにまとめる（Claude参照用）"""
     JST = timezone(timedelta(hours=9))
     date_label = target_date.strftime("%Y年%m月%d日")
     now_str    = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
@@ -169,6 +245,8 @@ def _format_content(articles: list[dict], target_date: date) -> str:
         "=" * 60,
         "",
     ]
+
+    # ── 夕刊・市況記事 ──────────────────────────────────
     for art in articles:
         if not art.get("body"):
             continue
@@ -184,10 +262,35 @@ def _format_content(articles: list[dict], target_date: date) -> str:
             "-" * 60,
             "",
         ]
+
+    # ── ランキング・決算データ ────────────────────────────
+    if rankings:
+        lines += [
+            "",
+            "=" * 60,
+            "■ 市場データ（ランキング・決算）",
+            "=" * 60,
+            "",
+        ]
+        for r in rankings:
+            if not r.get("rows"):
+                lines += [f"【{r['label']}】（データなし）", ""]
+                continue
+            lines.append(f"【{r['label']}】")
+            lines.append(f"URL: {r['url']}")
+            lines.append("")
+            if r.get("headers"):
+                lines.append("  ".join(r["headers"]))
+                lines.append("-" * 40)
+            for row in r["rows"]:
+                lines.append("  ".join(row))
+            lines += ["", "-" * 60, ""]
+
     return "\n".join(lines)
 
 
-def save_to_drive(articles: list[dict], target_date: date) -> str:
+def save_to_drive(articles: list[dict], target_date: date,
+                  rankings: list[dict] = None) -> str:
     """
     Google Doc「株探ダイジェスト」の内容を全削除して最新記事で上書き。
     config.json に doc_id が保存されている場合はそのドキュメントを使用する。
@@ -224,7 +327,7 @@ def save_to_drive(articles: list[dict], target_date: date) -> str:
     reqs.append({
         "insertText": {
             "location": {"index": 1},
-            "text": _format_content(articles, target_date),
+            "text": _format_content(articles, target_date, rankings),
         }
     })
     docs.documents().batchUpdate(
@@ -269,10 +372,14 @@ def run(target_date: date = None):
         print("\n⚠️  取得できた記事がありません。終了します。")
         return
 
+    # ランキング・決算データ取得
+    print(f"\n[ランキング] 市場データを取得中...")
+    rankings = [fetch_ranking_table(p) for p in RANKING_PAGES]
+
     # Google Drive に保存
     print(f"\n[Google Drive] {DRIVE_DOC_NAME} を保存中...")
     try:
-        drive_url = save_to_drive(articles, target_date)
+        drive_url = save_to_drive(articles, target_date, rankings)
         save_config({"last_drive_url": drive_url, "last_date": target_date.isoformat()})
     except Exception as e:
         print(f"  ❌ Google Drive 保存エラー: {e}")
