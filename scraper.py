@@ -52,7 +52,7 @@ NEWS_ARTICLE_URL = "https://kabutan.jp/news/marketnews/?b=n{date}{num:04d}"
 CONFIG_PATH     = os.path.expanduser("~/kabutan_digest/config.json")
 
 TARGET_PATTERNS = [
-    ("市況",  "明日の株式相場に向けて"),
+    ("市況",  "株式相場に向けて"),   # 月〜木:「明日の」、金・祝前日:「来週の」など
     ("夕刊①", "話題株ピックアップ【夕刊】（1）"),
     ("夕刊②", "話題株ピックアップ【夕刊】（2）"),
     ("夕刊③", "話題株ピックアップ【夕刊】（3）"),
