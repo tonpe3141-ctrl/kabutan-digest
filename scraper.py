@@ -288,6 +288,7 @@ def save_config(data: dict):
     except Exception:
         config = {}
     config.update(data)
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
