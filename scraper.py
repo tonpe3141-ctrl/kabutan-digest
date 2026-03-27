@@ -85,7 +85,7 @@ def fetch_article_urls(target_date: date) -> list[dict]:
         time.sleep(SCAN_SLEEP)
         url = NEWS_ARTICLE_URL.format(date=date_str, num=num)
         try:
-            res = session.get(url, timeout=8)
+            res = session.get(url, timeout=8, allow_redirects=False)
             if res.status_code != 200:
                 continue
             soup = BeautifulSoup(res.text, "html.parser")
