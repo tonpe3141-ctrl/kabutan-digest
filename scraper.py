@@ -1,15 +1,18 @@
 """
 kabutan_scraper.py
-株探の市況（明日の株式相場に向けて）・夕刊①②③を取得してGoogleドライブに保存するスクリプト
+株探の市況・昼刊・夕刊①②③などを取得してGoogleドライブに保存するスクリプト
 
 記事URLの構造:
   https://kabutan.jp/news/marketnews/?b=n{YYYYMMDD}{NNNN}
   日次の記事ページには昼刊・夕刊が含まれないため、
-  記事番号をスキャンして対象記事を探す。
+  番号をスキャンして対象記事を探す。
+
+モード:
+  morning (前場): 昼刊 + 前場指数 + 前場ランキング → Google Doc「株探ダイジェスト【前場】」
+  evening (後場): 昼刊 + 夕刊①②③ + 市況 + レーティング等 → Google Doc「株探ダイジェスト」
 
 Googleドライブ:
-  固定ファイル名「株探ダイジェスト.txt」に全記事を保存。
-  実行のたびに前回ファイルを削除して最新内容で上書き。
+  各モードの固定ドキュメントを実行のたびに上書き。
   Claudeデスクトップアプリからドライブ参照して要約・分析に利用する。
 """
 import re
@@ -19,6 +22,7 @@ import time
 import os
 import html as html_mod
 import warnings
+import argparse
 import requests
 from datetime import datetime, date, timezone, timedelta
 from bs4 import BeautifulSoup
@@ -45,16 +49,19 @@ _ENV = _load_env()
 # 環境変数を優先（GitHub Actions用）、なければ .env ファイルから読む
 GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") or _ENV.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 GOOGLE_DRIVE_FOLDER_ID      = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")      or _ENV.get("GOOGLE_DRIVE_FOLDER_ID", "")
-DRIVE_DOC_NAME = "株探ダイジェスト"   # Google Doc名（拡張子なし）
+DRIVE_DOC_NAME         = "株探ダイジェスト"           # 後場（evening）用 Google Doc 名
+DRIVE_MORNING_DOC_NAME = "株探ダイジェスト【前場】"    # 前場（morning）用 Google Doc 名
 
 # ==================== 株探スクレイピング設定 ====================
-BASE_URL        = "https://kabutan.jp"
+BASE_URL         = "https://kabutan.jp"
 NEWS_ARTICLE_URL = "https://kabutan.jp/news/marketnews/?b=n{date}{num:04d}"
-CONFIG_PATH     = os.path.expanduser("~/kabutan_digest/config.json")
+CONFIG_PATH      = os.path.expanduser("~/kabutan_digest/config.json")
 
+# 後場（evening）用パターン — 昼刊も含め1日分の完全ダイジェストにする
 TARGET_PATTERNS = [
-    ("市況",              "株式相場に向けて"),           # 月〜木:「明日の」、金・祝前日:「来週の」など
-    ("イチオシ決算",       "イチオシ決算"),               # 引け後決算まとめ記事
+    ("昼刊",              "話題株ピックアップ【昼刊】"),        # 前場終了後 12:30 頃
+    ("市況",              "株式相場に向けて"),                 # 月〜木:「明日の」、金・祝前日:「来週の」など
+    ("イチオシ決算",       "イチオシ決算"),                    # 引け後決算まとめ記事
     ("夕刊①",            "話題株ピックアップ【夕刊】（1）"),
     ("夕刊②",            "話題株ピックアップ【夕刊】（2）"),
     ("夕刊③",            "話題株ピックアップ【夕刊】（3）"),
@@ -62,7 +69,13 @@ TARGET_PATTERNS = [
     ("レーティング新規",   "レーティング日報【新規格付け】"),
     ("レーティング弱気",   "レーティング日報【弱気継続】"),
 ]
-# 市況は17:30頃、夕刊は大引け後（~0700-0950）に掲載される
+
+# 前場（morning）用パターン — 昼刊のみ
+MORNING_PATTERNS = [
+    ("昼刊", "話題株ピックアップ【昼刊】"),
+]
+
+# 市況は 17:30 頃、夕刊は大引け後（~07:00-09:50）に掲載される
 SCAN_START = 350
 SCAN_END   = 1500
 SCAN_SLEEP = 0.05   # スキャン時のリクエスト間隔（秒）
@@ -92,6 +105,7 @@ MARKET_INDICES = [
 ]
 
 # ==================== ランキング・決算ページ設定 ====================
+# 後場（evening）用: 全データ
 RANKING_PAGES = [
     {
         "label":    "売買代金ランキング",
@@ -125,20 +139,52 @@ RANKING_PAGES = [
     },
 ]
 
+# 前場（morning）用: 決算「取引終了後」を除く
+MORNING_RANKING_PAGES = [
+    {
+        "label":    "売買代金ランキング（前場）",
+        "url":      "https://kabutan.jp/warning/trading_value_ranking",
+        "max_rows": 30,
+    },
+    {
+        "label":    "上昇率ランキング（前場）",
+        "url":      "https://kabutan.jp/warning/?mode=2_1",
+        "max_rows": 30,
+    },
+    {
+        "label":    "下落率ランキング（前場）",
+        "url":      "https://kabutan.jp/warning/?mode=2_2",
+        "max_rows": 30,
+    },
+    {
+        "label":    "東証【業種別】騰落ランキング（前場）",
+        "url":      "https://kabutan.jp/warning/?mode=9_1",
+        "max_rows": 40,
+    },
+    {
+        "label":    "取引時間中 決算発表・業績修正（前場）",
+        "url":      "https://kabutan.jp/warning/?mode=4_2",
+        "max_rows": 100,
+    },
+]
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
     "Accept-Language": "ja,en;q=0.9",
 }
 
 # ==================== スクレイピング ====================
-def fetch_article_urls(target_date: date) -> list[dict]:
+def fetch_article_urls(target_date: date, patterns: list = None) -> list[dict]:
     """
-    指定日の記事番号をスキャンして対象4記事のURLを取得する。
+    指定日の記事番号をスキャンして対象記事のURLを取得する。
     昼刊・夕刊は日次一覧ページに載らないため、番号スキャン方式を使用。
+    patterns: TARGET_PATTERNS または MORNING_PATTERNS（省略時は TARGET_PATTERNS）
     """
+    if patterns is None:
+        patterns = TARGET_PATTERNS
     date_str = target_date.strftime("%Y%m%d")
     print(f"[スキャン] {date_str} の記事を検索中（記事番号 {SCAN_START}-{SCAN_END}）...")
-    found   = {label: None for label, _ in TARGET_PATTERNS}
+    found   = {label: None for label, _ in patterns}
     session = requests.Session()
     session.headers.update(HEADERS)
 
@@ -156,7 +202,7 @@ def fetch_article_urls(target_date: date) -> list[dict]:
             if not h1:
                 continue
             clean_title = re.sub(r"^【注目】", "", h1.get_text(strip=True))
-            for label, keyword in TARGET_PATTERNS:
+            for label, keyword in patterns:
                 if found[label] is None and keyword in clean_title:
                     found[label] = url
                     print(f"  ✅ [{label}] {clean_title[:60]} (記事番号: {num:04d})")
@@ -164,12 +210,12 @@ def fetch_article_urls(target_date: date) -> list[dict]:
         except Exception:
             pass
 
-    for label, keyword in TARGET_PATTERNS:
+    for label, keyword in patterns:
         if found[label] is None:
             print(f"  ⚠️  [{label}] 記事が見つかりませんでした（未掲載の可能性）")
 
     return [{"label": label, "keyword": keyword, "url": found[label]}
-            for label, keyword in TARGET_PATTERNS]
+            for label, keyword in patterns]
 
 
 def fetch_article_content(url: str) -> dict:
@@ -347,13 +393,20 @@ def _get_services():
 
 def _format_content(articles: list[dict], target_date: date,
                     rankings: list[dict] = None,
-                    market_overview: list[dict] = None) -> str:
+                    market_overview: list[dict] = None,
+                    mode: str = "evening") -> str:
     """全記事＋ランキングデータを1つのテキストにまとめる（Claude参照用）"""
     JST = timezone(timedelta(hours=9))
     date_label = target_date.strftime("%Y年%m月%d日")
     now_str    = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+
+    if mode == "morning":
+        doc_title = f"株探ダイジェスト【前場速報】— {date_label}"
+    else:
+        doc_title = f"株探ダイジェスト — {date_label}"
+
     lines = [
-        f"株探ダイジェスト — {date_label}",
+        doc_title,
         f"最終更新: {now_str}  |  取得記事数: {sum(1 for a in articles if a.get('body'))}件",
         "=" * 60,
         "",
@@ -372,7 +425,7 @@ def _format_content(articles: list[dict], target_date: date,
             lines.append(f"  {m['label']:<12}  終値: {close:<12}  前日比: {change:<10}  ({pct})")
         lines += ["", "=" * 60, ""]
 
-    # ── 夕刊・市況記事 ──────────────────────────────────
+    # ── 昼刊・夕刊・市況記事 ──────────────────────────────────
     for art in articles:
         if not art.get("body"):
             continue
@@ -417,25 +470,37 @@ def _format_content(articles: list[dict], target_date: date,
 
 def save_to_drive(articles: list[dict], target_date: date,
                   rankings: list[dict] = None,
-                  market_overview: list[dict] = None) -> str:
+                  market_overview: list[dict] = None,
+                  mode: str = "evening") -> str:
     """
-    Google Doc「株探ダイジェスト」の内容を全削除して最新記事で上書き。
-    config.json に doc_id が保存されている場合はそのドキュメントを使用する。
-    （ドキュメントはユーザーが作成しサービスアカウントに編集権限を付与済み）
-    戻り値: ドキュメントの URL
+    Google Doc の内容を全削除して最新記事で上書き。
+    morning モード: config の morning_doc_id を使用（「株探ダイジェスト【前場】」）
+    evening モード: config の doc_id を使用（「株探ダイジェスト」）
     """
     _, docs = _get_services()
 
-    # config.json から doc_id を取得
     config = load_config()
-    doc_id = config.get("doc_id")
-    if not doc_id:
-        raise ValueError(
-            "config.json に doc_id が設定されていません。\n"
-            "Google ドキュメントを作成してサービスアカウント "
-            "(garmin-uploader@gen-lang-client-0369566303.iam.gserviceaccount.com) "
-            "に編集権限を付与し、doc_id を config.json に保存してください。"
-        )
+    if mode == "morning":
+        doc_id   = config.get("morning_doc_id")
+        doc_name = DRIVE_MORNING_DOC_NAME
+        if not doc_id:
+            raise ValueError(
+                "config.json に morning_doc_id が設定されていません。\n"
+                "Google ドキュメント「株探ダイジェスト【前場】」を作成してサービスアカウント "
+                "(garmin-uploader@gen-lang-client-0369566303.iam.gserviceaccount.com) "
+                "に編集権限を付与し、~/kabutan_digest/config.json の morning_doc_id に "
+                "ドキュメントIDを設定してください。"
+            )
+    else:
+        doc_id   = config.get("doc_id")
+        doc_name = DRIVE_DOC_NAME
+        if not doc_id:
+            raise ValueError(
+                "config.json に doc_id が設定されていません。\n"
+                "Google ドキュメントを作成してサービスアカウント "
+                "(garmin-uploader@gen-lang-client-0369566303.iam.gserviceaccount.com) "
+                "に編集権限を付与し、doc_id を config.json に保存してください。"
+            )
 
     print(f"  📄 ドキュメントを更新 (ID: {doc_id})")
 
@@ -454,7 +519,7 @@ def save_to_drive(articles: list[dict], target_date: date,
     reqs.append({
         "insertText": {
             "location": {"index": 1},
-            "text": _format_content(articles, target_date, rankings, market_overview),
+            "text": _format_content(articles, target_date, rankings, market_overview, mode),
         }
     })
     docs.documents().batchUpdate(
@@ -464,22 +529,27 @@ def save_to_drive(articles: list[dict], target_date: date,
 
     doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
     print(f"  ✅ Google Drive 保存完了")
-    print(f"     ドキュメント名: {DRIVE_DOC_NAME}")
+    print(f"     ドキュメント名: {doc_name}")
     print(f"     URL: {doc_url}")
     return doc_url
 
 
 # ==================== メイン ====================
-def run(target_date: date = None):
+def run(target_date: date = None, mode: str = "evening"):
     if target_date is None:
         target_date = date.today()
 
+    mode_label    = "前場速報" if mode == "morning" else "後場ダイジェスト"
+    patterns      = MORNING_PATTERNS      if mode == "morning" else TARGET_PATTERNS
+    ranking_pages = MORNING_RANKING_PAGES if mode == "morning" else RANKING_PAGES
+    doc_name      = DRIVE_MORNING_DOC_NAME if mode == "morning" else DRIVE_DOC_NAME
+
     print(f"\n{'='*50}")
-    print(f"  株探ダイジェスト取得: {target_date.strftime('%Y年%m月%d日')}")
+    print(f"  株探ダイジェスト取得 [{mode_label}]: {target_date.strftime('%Y年%m月%d日')}")
     print(f"{'='*50}\n")
 
     # 記事 URL スキャン
-    articles_meta = fetch_article_urls(target_date)
+    articles_meta = fetch_article_urls(target_date, patterns)
 
     # 各記事の本文を取得
     articles = []
@@ -504,19 +574,26 @@ def run(target_date: date = None):
 
     # ランキング・決算データ取得
     print(f"\n[ランキング] 市場データを取得中...")
-    rankings = [fetch_ranking_table(p) for p in RANKING_PAGES]
+    rankings = [fetch_ranking_table(p) for p in ranking_pages]
 
     # Google Drive に保存
-    print(f"\n[Google Drive] {DRIVE_DOC_NAME} を保存中...")
+    print(f"\n[Google Drive] {doc_name} を保存中...")
     try:
-        drive_url = save_to_drive(articles, target_date, rankings, market_overview)
-        save_config({"last_drive_url": drive_url, "last_date": target_date.isoformat()})
+        drive_url = save_to_drive(articles, target_date, rankings, market_overview, mode)
+        if mode == "morning":
+            save_config({"morning_last_drive_url": drive_url,
+                         "morning_last_date": target_date.isoformat()})
+        else:
+            save_config({"last_drive_url": drive_url, "last_date": target_date.isoformat()})
     except Exception as e:
         print(f"  ❌ Google Drive 保存エラー: {e}")
         raise
 
     print(f"\n✅ 完了！ ({len(articles)} 件)")
-    print(f"   Claude デスクトップから「株探ダイジェスト」を Google Drive で検索して参照してください。")
+    if mode == "morning":
+        print(f"   Claude デスクトップから「株探ダイジェスト【前場】」を Google Drive で検索して参照してください。")
+    else:
+        print(f"   Claude デスクトップから「株探ダイジェスト」を Google Drive で検索して参照してください。")
 
 
 def save_config(data: dict):
@@ -541,15 +618,42 @@ def load_config() -> dict:
     # 環境変数を優先（GitHub Actions用）
     if os.environ.get("KABUTAN_DOC_ID"):
         config["doc_id"] = os.environ["KABUTAN_DOC_ID"]
+    if os.environ.get("KABUTAN_MORNING_DOC_ID"):
+        config["morning_doc_id"] = os.environ["KABUTAN_MORNING_DOC_ID"]
     return config
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="株探ダイジェスト取得スクリプト",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用例:
+  python3 scraper.py                          # 今日の後場ダイジェスト（デフォルト）
+  python3 scraper.py --mode morning           # 今日の前場速報
+  python3 scraper.py 20260408                 # 指定日の後場ダイジェスト
+  python3 scraper.py 20260408 --mode morning  # 指定日の前場速報
+        """,
+    )
+    parser.add_argument(
+        "date",
+        nargs="?",
+        help="取得日付 YYYYMMDD 形式（省略時は今日）",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["morning", "evening"],
+        default="evening",
+        help="取得モード: morning=前場速報, evening=後場ダイジェスト（デフォルト）",
+    )
+    args = parser.parse_args()
+
     target_date = date.today()
-    if len(sys.argv) > 1:
+    if args.date:
         try:
-            target_date = datetime.strptime(sys.argv[1], "%Y%m%d").date()
+            target_date = datetime.strptime(args.date, "%Y%m%d").date()
         except ValueError:
-            print(f"日付形式エラー: {sys.argv[1]}（例: 20260325）")
+            print(f"日付形式エラー: {args.date}（例: 20260408）")
             sys.exit(1)
-    run(target_date=target_date)
+
+    run(target_date=target_date, mode=args.mode)
