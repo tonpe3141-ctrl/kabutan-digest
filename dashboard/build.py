@@ -19,6 +19,7 @@ from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
 )
+
 from .sources import cnbc, tdnet, yahoojp
 
 
@@ -102,14 +103,21 @@ def build_preopen(target_date: date) -> dict:
 
     drivers = analyze.build_drivers(us, macro, sectors_us)
 
-    # 前営業日の大引けと、引け後の開示（今日の寄りで動くもの）
-    prev_close = prev_summary = None
+    # 前営業日の日経平均終値。初日は履歴が無いので CNBC の .N225 を使う
+    # （07:00 JST 時点では前営業日の大引け値が返る）。
+    prev_close = None
+    jp = _safe("日経平均(前日終値)", lambda: cnbc.fetch_symbols([".N225"]), {}) or {}
+    if jp.get(".N225", {}).get("last") is not None:
+        prev_close = jp[".N225"]["last"]
+        print(f"    ✅ 前営業日の日経平均終値: {prev_close:,.2f}")
+
+    prev_summary = None
     after_hours = []
     for hist in sessions:
         idx = (hist.get("taibike") or {}).get("indices") or {}
         nk = idx.get("nikkei")
         if nk and nk.get("close") is not None:
-            prev_close = nk["close"]
+            prev_close = prev_close or nk["close"]
             prev_summary = {"date": hist.get("date"), "indices": idx,
                             "session_shift": (hist.get("taibike") or {}).get("session_shift")}
             after_hours = (hist.get("taibike") or {}).get("after_hours") or []

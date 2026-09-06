@@ -40,7 +40,10 @@ def _quote(raw: dict) -> dict:
     # 市場が閉じていると change が "UNCH" になる。前日終値から自分で出す。
     if change is None and last is not None and prev is not None:
         change = last - prev
-    if change_pct is None and change is not None and prev:
+
+    # CNBC の change_pct は銘柄によって基準がずれることがある（米2年債で実測）。
+    # change と前日終値が揃っているときは、必ず自分で計算し直す。
+    if change is not None and prev:
         change_pct = change / prev * 100
 
     return {
