@@ -142,11 +142,15 @@ def build_preopen(target_date: date) -> dict:
 def build_session(target_date: date, slot: str) -> dict:
     print("  [CNBC] 日本の指数を取得中...")
     raw = _safe("日本指数", lambda: cnbc.fetch_spec(JP_INDICES), {}) or {}
+    # asof が対象日と違えば、市場が閉じていて前営業日の値が返っている
     indices = {k: {"label": v.get("label"), "close": v.get("last"),
                    "change": v.get("change"), "change_pct": v.get("change_pct"),
                    "high": v.get("high"), "low": v.get("low"),
-                   "open": v.get("open"), "asof": v.get("asof")}
+                   "open": v.get("open"), "asof": v.get("asof"),
+                   "stale": bool(v.get("asof") and v["asof"] != target_date.isoformat())}
                for k, v in raw.items()}
+    if any(v["stale"] for v in indices.values()):
+        print("    ⚠️  指数が対象日の値ではありません（休場、または取得タイミングが早い）")
 
     print("  [Yahoo] ランキングを取得中...")
     tables = {}

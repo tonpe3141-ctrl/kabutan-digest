@@ -531,7 +531,7 @@ function bindSheet() {
   $('wlAdd').addEventListener('click', () => {
     const input = $('wlInput');
     const code = input.value.trim().toUpperCase();
-    if (!/^[0-9]{4}[A-Z0-9]?$/.test(code)) { setStatus('証券コードは4桁（例: 7203）で入力してください', 'err'); return; }
+    if (!/^[0-9]{3}[0-9A-Z]$/.test(code)) { setStatus('証券コードは4桁（例: 7203）で入力してください', 'err'); return; }
     if (sheetCodes.includes(code)) { setStatus('すでに登録されています', 'err'); return; }
     if (sheetCodes.length >= 40) { setStatus('登録は40銘柄までです', 'err'); return; }
     sheetCodes.push(code);

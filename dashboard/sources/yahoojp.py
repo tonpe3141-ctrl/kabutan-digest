@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from ..http import get_text
 
 BASE = "https://finance.yahoo.co.jp"
-CODE_RE = re.compile(r"^[0-9]{4}[A-Z0-9]?$")
+CODE_RE = re.compile(r"^[0-9]{3}[0-9A-Z]$")
 
 
 def _num(text) -> float | None:
@@ -27,58 +27,59 @@ def _num(text) -> float | None:
         return None
 
 
+MARKET_RE = re.compile(r"^(東証|名証|福証|札証)")
+
+
 def _parse_row(cells: list, rank: int) -> dict | None:
     """1 行を {code,name,market,price,change,change_pct,volume} に正規化する。
 
-    セル構成（値上がり率など共通）:
+    列構成は実測で確認済み（値上がり率・値下がり率・出来高で共通）:
       [順位] [銘柄名, コード, 市場, 掲示板] [取引値, 日付] [前日比, 前日比率, %] [出来高, 株]
+    順位セルの数字を株価と取り違えたり、社名の「(株)」を出来高セルと
+    誤認したりしないよう、位置で読む。
     """
-    parts = [[s.strip() for s in c.stripped_strings] for c in cells]
-    code = name = market = None
-    price = change = change_pct = volume = None
+    parts = [[t.strip() for t in c.stripped_strings] for c in cells]
 
-    for group in parts:
-        for token in group:
-            if code is None and CODE_RE.match(token):
-                code = token
-                # コードと同じセル内の、コード以外の長い文字列が銘柄名
-                for other in group:
-                    if other != token and len(other) > 1 and other != "掲示板":
-                        if name is None or "証" in other:
-                            if "証" in other and len(other) <= 8:
-                                market = other
-                            elif name is None:
-                                name = other
-                break
-        if code:
+    # コードを含むセルを起点にする
+    idx = None
+    for i, group in enumerate(parts):
+        if any(CODE_RE.match(t) for t in group):
+            idx = i
             break
-
-    if code is None:
+    if idx is None:
         return None
 
-    # 数値セルを左から順に拾う（取引値 → 前日比・前日比率 → 出来高）
-    numeric_groups = [g for g in parts if any(_num(t) is not None for t in g)]
-    for group in numeric_groups:
-        nums = [_num(t) for t in group if _num(t) is not None]
-        joined = "".join(group)
-        if "%" in joined and change_pct is None:
-            if len(nums) >= 2:
-                change, change_pct = nums[0], nums[1]
-            elif nums:
-                change_pct = nums[0]
-            # 符号は結合テキストから拾う（_num が符号を落とすため）
-            m = re.search(r"([+\-])\s*[\d,.]+\s*%", joined)
-            if m and m.group(1) == "-":
-                change_pct = -abs(change_pct) if change_pct is not None else None
-                change = -abs(change) if change is not None else None
-        elif "株" in joined and volume is None:
-            volume = nums[0] if nums else None
-        elif price is None and nums:
-            price = nums[0]
+    group = parts[idx]
+    code = next(t for t in group if CODE_RE.match(t))
+    market = next((t for t in group if MARKET_RE.match(t)), None)
+    name = next((t for t in group
+                 if t != code and t != market and t != "掲示板" and len(t) > 1), None)
+
+    rest = parts[idx + 1:]
+    price = change = change_pct = volume = None
+
+    if len(rest) > 0 and rest[0]:
+        price = _num(rest[0][0])
+
+    if len(rest) > 1:
+        joined = "".join(rest[1])
+        nums = [_num(t) for t in rest[1] if _num(t) is not None]
+        if len(nums) >= 2:
+            change, change_pct = nums[0], nums[1]
+        elif nums:
+            change_pct = nums[0]
+        # _num は符号を落とすので、結合テキストから向きを取り直す
+        if "-" in joined or "−" in joined or "▲" in joined:
+            change = -abs(change) if change is not None else None
+            change_pct = -abs(change_pct) if change_pct is not None else None
+
+    if len(rest) > 2:
+        nums = [_num(t) for t in rest[2] if _num(t) is not None]
+        volume = nums[0] if nums else None
 
     return {"rank": rank, "code": code, "name": name, "market": market,
             "price": price, "change": change, "change_pct": change_pct,
-            "volume": volume, "raw": ["".join(g) for g in parts]}
+            "volume": volume}
 
 
 def fetch_ranking(page: dict) -> dict:
@@ -87,7 +88,8 @@ def fetch_ranking(page: dict) -> dict:
     rows: list[dict] = []
     used_url = None
 
-    for url in page["urls"]:
+    for candidate in page["urls"]:
+        url = candidate["url"]
         html = get_text(url, timeout=20)
         if not html:
             continue
@@ -107,11 +109,14 @@ def fetch_ranking(page: dict) -> dict:
         if parsed:
             rows = parsed[:page.get("max_rows", 20)]
             used_url = url
+            # 第1候補が落ちて代替を使ったときは、表示名も実態に合わせる
+            label = candidate["label"]
             break
 
     ok = bool(rows)
     print(f"    {'✅' if ok else '⚠️ '} {label}: {len(rows)} 行")
-    return {"key": page["key"], "label": label, "url": used_url or page["urls"][0],
+    return {"key": page["key"], "label": label,
+            "url": used_url or page["urls"][0]["url"],
             "rows": rows, "ok": ok}
 
 

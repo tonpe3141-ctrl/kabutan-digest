@@ -51,6 +51,10 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # 取得元のページ構造が変わるとパーサが黙って壊れるので、収集前に検査する
+      - name: パーサの回帰テスト
+        run: python tests/test_parsers.py
+
       - name: 実行する区分を決める
         id: slot
         env:
