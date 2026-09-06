@@ -4,6 +4,14 @@
   preopen … 07:00 JST 実行。米国市場を振り返り「今日の日本株の寄り」を組み立てる
   zenba   … 12:00 JST 実行。前場を振り返る
   taibike … 17:30 JST 実行。大引けまでを振り返る
+
+データ源について:
+  GitHub Actions のランナーからは株探・stooq・Yahoo Finance(米) がいずれも
+  クラウドIPを理由に拒否される（実測済み）。そのため
+    相場データ … CNBC のクォート API
+    日本株の物色 … Yahoo!ファイナンス（日本）のランキング
+    決算・開示 … TDnet（適時開示、一次情報）
+  の3つで構成している。詳細は README を参照。
 """
 
 SLOTS = ["preopen", "zenba", "taibike"]
@@ -14,42 +22,45 @@ SLOT_LABEL = {
     "taibike": "大引",
 }
 
-# ==================== 米国・グローバル市場（stooq） ====================
-# stooq のシンボル。日足 CSV を取得して直近終値と前日終値から騰落を出す。
+# ==================== 相場データ（CNBC） ====================
 US_INDICES = [
-    {"key": "spx",  "symbol": "^spx", "label": "S&P500",      "group": "index"},
-    {"key": "ndq",  "symbol": "^ndq", "label": "NASDAQ総合",   "group": "index"},
-    {"key": "dji",  "symbol": "^dji", "label": "NYダウ",       "group": "index"},
-    {"key": "sox",  "symbol": "^sox", "label": "SOX半導体",    "group": "index"},
-    {"key": "rut",  "symbol": "^rut", "label": "ラッセル2000", "group": "index"},
-    {"key": "vix",  "symbol": "^vix", "label": "VIX恐怖指数",  "group": "risk", "invert": True},
+    {"key": "spx",  "symbol": ".SPX",  "label": "S&P500",      "group": "index"},
+    {"key": "ndq",  "symbol": ".IXIC", "label": "NASDAQ総合",   "group": "index"},
+    {"key": "dji",  "symbol": ".DJI",  "label": "NYダウ",       "group": "index"},
+    {"key": "sox",  "symbol": ".SOX",  "label": "SOX半導体",    "group": "index"},
+    {"key": "rut",  "symbol": ".RUT",  "label": "ラッセル2000", "group": "index"},
+    {"key": "vix",  "symbol": ".VIX",  "label": "VIX恐怖指数",  "group": "risk"},
 ]
 
 MACRO_SYMBOLS = [
-    {"key": "usdjpy", "symbol": "usdjpy",  "label": "ドル/円",   "group": "fx",     "digits": 2},
-    {"key": "eurjpy", "symbol": "eurjpy",  "label": "ユーロ/円", "group": "fx",     "digits": 2},
-    {"key": "us10y",  "symbol": "10usy.b", "label": "米10年債",  "group": "rate",   "digits": 3, "unit": "%"},
-    {"key": "wti",    "symbol": "cl.f",    "label": "WTI原油",   "group": "commo",  "digits": 2},
-    {"key": "gold",   "symbol": "gc.f",    "label": "金",        "group": "commo",  "digits": 1},
+    {"key": "usdjpy", "symbol": "JPY=",  "label": "ドル/円",  "group": "fx",    "digits": 2},
+    {"key": "us10y",  "symbol": "US10Y", "label": "米10年債", "group": "rate",  "digits": 3, "unit": "%"},
+    {"key": "us2y",   "symbol": "US2Y",  "label": "米2年債",  "group": "rate",  "digits": 3, "unit": "%"},
+    {"key": "wti",    "symbol": "@CL.1", "label": "WTI原油",  "group": "commo", "digits": 2},
+    {"key": "gold",   "symbol": "@GC.1", "label": "金",       "group": "commo", "digits": 1},
 ]
-
-# 日経平均先物。stooq 上の呼称が変わることがあるので候補を順に試す。
-NIKKEI_FUTURES_CANDIDATES = ["nkd.f", "nk.f", "^nkx"]
 
 # 米国セクター ETF（セクターローテーションの観測に使う）
 US_SECTOR_ETFS = [
-    {"key": "smh",  "symbol": "smh.us",  "label": "半導体"},
-    {"key": "xlk",  "symbol": "xlk.us",  "label": "テクノロジー"},
-    {"key": "xlc",  "symbol": "xlc.us",  "label": "通信サービス"},
-    {"key": "xly",  "symbol": "xly.us",  "label": "一般消費財"},
-    {"key": "xlf",  "symbol": "xlf.us",  "label": "金融"},
-    {"key": "xli",  "symbol": "xli.us",  "label": "資本財"},
-    {"key": "xle",  "symbol": "xle.us",  "label": "エネルギー"},
-    {"key": "xlb",  "symbol": "xlb.us",  "label": "素材"},
-    {"key": "xlv",  "symbol": "xlv.us",  "label": "ヘルスケア"},
-    {"key": "xlp",  "symbol": "xlp.us",  "label": "生活必需品"},
-    {"key": "xlu",  "symbol": "xlu.us",  "label": "公益"},
-    {"key": "xlre", "symbol": "xlre.us", "label": "不動産"},
+    {"key": "smh",  "symbol": "SMH",  "label": "半導体"},
+    {"key": "xlk",  "symbol": "XLK",  "label": "テクノロジー"},
+    {"key": "xlc",  "symbol": "XLC",  "label": "通信サービス"},
+    {"key": "xly",  "symbol": "XLY",  "label": "一般消費財"},
+    {"key": "xlf",  "symbol": "XLF",  "label": "金融"},
+    {"key": "xli",  "symbol": "XLI",  "label": "資本財"},
+    {"key": "xle",  "symbol": "XLE",  "label": "エネルギー"},
+    {"key": "xlb",  "symbol": "XLB",  "label": "素材"},
+    {"key": "xlv",  "symbol": "XLV",  "label": "ヘルスケア"},
+    {"key": "xlp",  "symbol": "XLP",  "label": "生活必需品"},
+    {"key": "xlu",  "symbol": "XLU",  "label": "公益"},
+    {"key": "xlre", "symbol": "XLRE", "label": "不動産"},
+]
+
+# 日本の指数。日経平均先物は CNBC に無いため、想定オープンはモデル推計になる。
+JP_INDICES = [
+    {"key": "nikkei", "symbol": ".N225",     "label": "日経平均"},
+    {"key": "topix",  "symbol": ".TOPX",     "label": "TOPIX"},
+    {"key": "jpx400", "symbol": ".JPXNK400", "label": "JPX日経400"},
 ]
 
 # ==================== 米国 → 日本セクターの連想マップ ====================
@@ -81,56 +92,30 @@ SECTOR_LINKS = {
     "陸運業":                     {"xlp_pct": 0.35, "vix_pct": 0.15},
 }
 
-# ==================== 株探 ====================
-KABUTAN = "https://kabutan.jp"
-NEWS_ARTICLE_URL = "https://kabutan.jp/news/marketnews/?b=n{date}{num:04d}"
+# ==================== 日本株ランキング（Yahoo!ファイナンス） ====================
+# URL は候補を順に試す。Yahoo 側の仕様変更で片方が落ちても止まらないようにする。
+_Y = "https://finance.yahoo.co.jp/stocks/ranking"
 
-# 指数（株探の擬似コード）
-JP_INDICES = [
-    {"key": "nikkei", "code": "0000", "label": "日経平均"},
-    {"key": "topix",  "code": "0010", "label": "TOPIX"},
-    {"key": "growth", "code": "0516", "label": "グロース250"},
-]
-
-# 記事番号スキャンの範囲
-SCAN_START = 300
-SCAN_END = 1600
-
-# スロットごとに探す記事
-ARTICLE_PATTERNS = {
-    "zenba": [
-        ("昼刊", "話題株ピックアップ【昼刊】"),
-    ],
-    "taibike": [
-        ("昼刊",              "話題株ピックアップ【昼刊】"),
-        ("市況",              "株式相場に向けて"),
-        ("イチオシ決算",       "イチオシ決算"),
-        ("夕刊①",            "話題株ピックアップ【夕刊】（1）"),
-        ("夕刊②",            "話題株ピックアップ【夕刊】（2）"),
-        ("夕刊③",            "話題株ピックアップ【夕刊】（3）"),
-        ("レーティング最上位", "レーティング日報【最上位を継続】"),
-        ("レーティング新規",   "レーティング日報【新規格付け】"),
-        ("レーティング弱気",   "レーティング日報【弱気継続】"),
-    ],
-    "preopen": [],
-}
-
-# スロットごとに取るランキング／注意報ページ
 RANKING_PAGES = {
     "zenba": [
-        {"key": "value",   "label": "売買代金",     "url": "https://kabutan.jp/warning/trading_value_ranking", "max_rows": 20},
-        {"key": "gainer",  "label": "上昇率",       "url": "https://kabutan.jp/warning/?mode=2_1", "max_rows": 20},
-        {"key": "loser",   "label": "下落率",       "url": "https://kabutan.jp/warning/?mode=2_2", "max_rows": 20},
-        {"key": "sector",  "label": "業種別騰落",   "url": "https://kabutan.jp/warning/?mode=9_1", "max_rows": 40},
-        {"key": "kessan_intraday", "label": "取引時間中の決算・修正", "url": "https://kabutan.jp/warning/?mode=4_2", "max_rows": 60},
+        {"key": "value",  "label": "売買代金", "max_rows": 20,
+         "urls": [f"{_Y}/tradingValue?market=all&term=daily",
+                  f"{_Y}/turnover?market=all&term=daily",
+                  f"{_Y}/volume?market=all&term=daily"]},
+        {"key": "gainer", "label": "上昇率", "max_rows": 20,
+         "urls": [f"{_Y}/up?market=all&term=daily"]},
+        {"key": "loser",  "label": "下落率", "max_rows": 20,
+         "urls": [f"{_Y}/down?market=all&term=daily"]},
     ],
     "taibike": [
-        {"key": "value",   "label": "売買代金",     "url": "https://kabutan.jp/warning/trading_value_ranking", "max_rows": 20},
-        {"key": "gainer",  "label": "上昇率",       "url": "https://kabutan.jp/warning/?mode=2_1", "max_rows": 20},
-        {"key": "loser",   "label": "下落率",       "url": "https://kabutan.jp/warning/?mode=2_2", "max_rows": 20},
-        {"key": "sector",  "label": "業種別騰落",   "url": "https://kabutan.jp/warning/?mode=9_1", "max_rows": 40},
-        {"key": "kessan_intraday", "label": "取引時間中の決算・修正", "url": "https://kabutan.jp/warning/?mode=4_2", "max_rows": 60},
-        {"key": "kessan_after",    "label": "取引終了後の決算・修正", "url": "https://kabutan.jp/warning/?mode=4_3", "max_rows": 120},
+        {"key": "value",  "label": "売買代金", "max_rows": 20,
+         "urls": [f"{_Y}/tradingValue?market=all&term=daily",
+                  f"{_Y}/turnover?market=all&term=daily",
+                  f"{_Y}/volume?market=all&term=daily"]},
+        {"key": "gainer", "label": "上昇率", "max_rows": 20,
+         "urls": [f"{_Y}/up?market=all&term=daily"]},
+        {"key": "loser",  "label": "下落率", "max_rows": 20,
+         "urls": [f"{_Y}/down?market=all&term=daily"]},
     ],
     "preopen": [],
 }
@@ -141,3 +126,6 @@ DATA_DIR = "docs/data"
 HISTORY_DIR = "docs/data/history"
 WATCHLIST_PATH = "docs/data/watchlist.json"
 HISTORY_KEEP_DAYS = 60
+
+# スパークラインは外部から履歴が取れないため、自分の履歴から積み上げる
+SPARK_POINTS = 20

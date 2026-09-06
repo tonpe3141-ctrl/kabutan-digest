@@ -16,159 +16,180 @@ from datetime import date, datetime, timedelta
 
 from . import analyze, store
 from .config import (
-    ARTICLE_PATTERNS, MACRO_SYMBOLS, NIKKEI_FUTURES_CANDIDATES,
-    RANKING_PAGES, SLOTS, US_INDICES, US_SECTOR_ETFS,
+    JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
+    US_INDICES, US_SECTOR_ETFS,
 )
-from .sources import kabutan, stooq
+from .sources import cnbc, tdnet, yahoojp
 
 
 def _safe(label: str, fn, default=None):
     try:
         return fn()
     except Exception:
-        print(f"  ❌ {label} で例外: ", file=sys.stderr)
+        print(f"  ❌ {label} で例外:", file=sys.stderr)
         traceback.print_exc()
         return default
 
 
-def _fetch_tables(slot: str) -> dict:
-    pages = RANKING_PAGES.get(slot, [])
-    if not pages:
-        return {}
-    print("  [株探] ランキング・決算テーブルを取得中...")
-    out = {}
-    for page in pages:
-        table = _safe(page["label"], lambda p=page: kabutan.fetch_table(p))
-        if table:
-            out[page["key"]] = table
-    return out
+def _snapshot(*quote_maps: dict) -> dict:
+    """履歴に残す {key: 終値} のスナップショット。スパークラインの材料になる。"""
+    snap = {}
+    for m in quote_maps:
+        for key, q in (m or {}).items():
+            if q.get("last") is not None:
+                snap[key] = q["last"]
+    return snap
 
 
-def _fetch_watchlist(tables: dict, articles: list) -> list[dict]:
+def _attach_series(quote_maps: list[dict], sessions: list[dict], slot: str) -> None:
+    """過去の履歴から系列を組み立てて各銘柄に series を付ける。
+
+    CNBC は履歴を返さないので、自分が毎日残したスナップショットを使う。
+    日数が溜まるまでスパークラインは出ない（UI 側で 3 点未満は描画しない）。
+    """
+    past = []
+    for hist in reversed(sessions[:SPARK_POINTS]):     # 古い順に並べ直す
+        snap = (hist.get(slot) or {}).get("quotes")
+        if snap:
+            past.append(snap)
+    for m in quote_maps:
+        for key, q in (m or {}).items():
+            series = [p[key] for p in past if key in p]
+            if q.get("last") is not None:
+                series.append(q["last"])
+            if len(series) >= 3:
+                q["series"] = series
+
+
+def _fetch_watchlist(tables: dict, disclosures: list[dict]) -> list[dict]:
     codes = store.load_watchlist().get("codes", [])
     if not codes:
         return []
-    print(f"  [株探] ウォッチリスト {len(codes)} 銘柄を取得中...")
+    print(f"  [Yahoo] ウォッチリスト {len(codes)} 銘柄を取得中...")
     quotes = []
     for code in codes:
-        q = _safe(f"銘柄 {code}", lambda c=code: kabutan.fetch_stock(c))
+        q = _safe(f"銘柄 {code}", lambda c=code: yahoojp.fetch_stock(c))
         quotes.append(q or {"code": code, "name": None, "error": True})
-    return analyze.enrich_watchlist(quotes, tables, articles)
+
+    enriched = analyze.enrich_watchlist(quotes, tables, [])
+    # 適時開示に出ていればそれも貼る（決算・修正はウォッチリストで最重要）
+    by_code: dict[str, list[str]] = {}
+    for d in disclosures or []:
+        by_code.setdefault(d["code"], []).append(d.get("category") or "開示")
+    for item in enriched:
+        hits = by_code.get(item.get("code"))
+        if hits:
+            item["disclosures"] = sorted(set(hits))
+    return enriched
 
 
 def _compact_rows(rows: list[dict], limit: int = 30) -> list[dict]:
-    """履歴に残す用に、差分分析で使う列だけへ絞る。"""
     return [{"code": r.get("code"), "name": r.get("name"),
              "change_pct": r.get("change_pct")} for r in rows[:limit]]
 
 
-def _stale_days(asof: str | None, today: date) -> int | None:
-    if not asof:
-        return None
-    try:
-        return (today - datetime.strptime(asof, "%Y-%m-%d").date()).days
-    except ValueError:
-        return None
-
-
 # ==================== 寄り前 ====================
 def build_preopen(target_date: date) -> dict:
-    print("  [stooq] 米国指数を取得中...")
-    us = _safe("米国指数", lambda: stooq.fetch_many(US_INDICES, target_date), {}) or {}
-    print("  [stooq] 為替・金利・商品を取得中...")
-    macro = _safe("マクロ", lambda: stooq.fetch_many(MACRO_SYMBOLS, target_date), {}) or {}
-    print("  [stooq] 米国セクターETFを取得中...")
-    sectors_us = _safe("米セクター", lambda: stooq.fetch_many(US_SECTOR_ETFS, target_date), {}) or {}
-    futures = _safe("日経先物",
-                    lambda: stooq.fetch_first_available(NIKKEI_FUTURES_CANDIDATES, target_date))
+    print("  [CNBC] 米国指数を取得中...")
+    us = _safe("米国指数", lambda: cnbc.fetch_spec(US_INDICES), {}) or {}
+    print("  [CNBC] 為替・金利・商品を取得中...")
+    macro = _safe("マクロ", lambda: cnbc.fetch_spec(MACRO_SYMBOLS), {}) or {}
+    print("  [CNBC] 米国セクターETFを取得中...")
+    sectors_us = _safe("米セクター", lambda: cnbc.fetch_spec(US_SECTOR_ETFS), {}) or {}
+
+    sessions = store.previous_sessions(target_date, count=SPARK_POINTS)
+    _attach_series([us, macro, sectors_us], sessions, "preopen")
 
     drivers = analyze.build_drivers(us, macro, sectors_us)
 
-    # 前営業日の大引け（日経平均）を履歴から拾う
-    prev_close = None
-    prev_kessan = []
-    prev_summary = None
-    for hist in store.previous_sessions(target_date, count=5):
+    # 前営業日の大引けと、引け後の開示（今日の寄りで動くもの）
+    prev_close = prev_summary = None
+    after_hours = []
+    for hist in sessions:
         idx = (hist.get("taibike") or {}).get("indices") or {}
         nk = idx.get("nikkei")
-        if prev_close is None and nk and nk.get("close") is not None:
+        if nk and nk.get("close") is not None:
             prev_close = nk["close"]
             prev_summary = {"date": hist.get("date"), "indices": idx,
                             "session_shift": (hist.get("taibike") or {}).get("session_shift")}
-            prev_kessan = (hist.get("taibike") or {}).get("kessan_after") or []
+            after_hours = (hist.get("taibike") or {}).get("after_hours") or []
             break
-
-    implied = analyze.implied_open(drivers, prev_close, futures)
-    risk = analyze.risk_regime(us, macro)
-    outlook = analyze.sector_outlook(drivers)
-
-    watchlist = _fetch_watchlist({}, [])
 
     spx = us.get("spx") or {}
     return {
         "us": us,
         "macro": macro,
         "sectors_us": sectors_us,
-        "futures": futures,
-        "implied_open": implied,
-        "risk": risk,
-        "sector_outlook": outlook,
-        "carryover": {"prev_session": prev_summary,
-                      "after_hours_kessan": prev_kessan[:20]},
-        "watchlist": watchlist,
+        "implied_open": analyze.implied_open(drivers, prev_close, None),
+        "risk": analyze.risk_regime(us, macro),
+        "sector_outlook": analyze.sector_outlook(drivers),
+        "carryover": {"prev_session": prev_summary, "after_hours_kessan": after_hours[:20]},
+        "watchlist": _fetch_watchlist({}, after_hours),
         "freshness": {"us_asof": spx.get("asof"),
-                      "us_stale_days": _stale_days(spx.get("asof"), target_date)},
+                      "market_status": spx.get("market_status")},
     }
 
 
 # ==================== 前場 / 大引 ====================
 def build_session(target_date: date, slot: str) -> dict:
-    indices = _safe("指数", kabutan.fetch_indices, {}) or {}
-    tables = _fetch_tables(slot)
+    print("  [CNBC] 日本の指数を取得中...")
+    raw = _safe("日本指数", lambda: cnbc.fetch_spec(JP_INDICES), {}) or {}
+    indices = {k: {"label": v.get("label"), "close": v.get("last"),
+                   "change": v.get("change"), "change_pct": v.get("change_pct"),
+                   "high": v.get("high"), "low": v.get("low"),
+                   "open": v.get("open"), "asof": v.get("asof")}
+               for k, v in raw.items()}
 
-    hints = store.load_hints().get(slot, [])
-    articles, hit_numbers = _safe(
-        "記事",
-        lambda: kabutan.fetch_articles(target_date, ARTICLE_PATTERNS.get(slot, []), hints),
-        ([], []),
-    )
-    if hit_numbers:
-        store.save_hints(slot, hit_numbers)
+    print("  [Yahoo] ランキングを取得中...")
+    tables = {}
+    for page in RANKING_PAGES.get(slot, []):
+        t = _safe(page["label"], lambda p=page: yahoojp.fetch_ranking(p))
+        if t:
+            tables[page["key"]] = t
 
-    breadth = analyze.market_breadth(tables.get("sector"))
+    print("  [TDnet] 適時開示を取得中...")
+    disc = _safe("適時開示", lambda: tdnet.fetch_disclosures(target_date),
+                 {"rows": [], "ok": False}) or {"rows": [], "ok": False}
+    split = tdnet.split_by_session(disc.get("rows", []))
+    if split["intraday"]:
+        tables["kessan_intraday"] = {"key": "kessan_intraday",
+                                     "label": "場中の開示（決算・業績修正）",
+                                     "url": disc.get("url"), "rows": split["intraday"],
+                                     "ok": True}
+    if slot == "taibike" and split["after"]:
+        tables["kessan_after"] = {"key": "kessan_after",
+                                  "label": "引け後の開示（決算・業績修正）",
+                                  "url": disc.get("url"), "rows": split["after"],
+                                  "ok": True}
+
     nikkei_pct = (indices.get("nikkei") or {}).get("change_pct")
-    breadth_note = analyze.breadth_vs_index(breadth, nikkei_pct)
+    divergence = analyze.index_divergence(indices)
 
-    # 前営業日との比較（売買代金の顔ぶれ）
-    prev_sessions = store.previous_sessions(target_date, count=8)
+    sessions = store.previous_sessions(target_date, count=8)
     prev_value = None
-    for hist in prev_sessions:
+    for hist in sessions:
         rows = ((hist.get(slot) or {}).get("value_rows")
                 or (hist.get("taibike") or {}).get("value_rows"))
         if rows:
             prev_value = rows
             break
     value_rows = (tables.get("value") or {}).get("rows", [])
-    delta = analyze.ranking_delta(value_rows, prev_value)
     history_rows = [
         ((h.get(slot) or {}).get("value_rows") or (h.get("taibike") or {}).get("value_rows") or [])
-        for h in prev_sessions
+        for h in sessions
     ]
-    streak = analyze.streaks(value_rows, history_rows)
 
     payload = {
         "indices": indices,
         "tables": tables,
-        "breadth": breadth,
-        "breadth_note": breadth_note,
-        "ranking_delta": delta,
-        "streaks": streak,
-        "articles": articles,
+        "divergence": divergence,
+        "ranking_delta": analyze.ranking_delta(value_rows, prev_value),
+        "streaks": analyze.streaks(value_rows, history_rows),
+        "disclosure_summary": analyze.disclosure_summary(disc.get("rows", [])),
     }
 
     latest = store.load_latest()
     slots = latest.get("slots", {}) if latest.get("date") == target_date.isoformat() else {}
-
     if slot == "zenba":
         implied = ((slots.get("preopen") or {}).get("data") or {}).get("implied_open")
         payload["verify_open"] = analyze.verify_open(implied, nikkei_pct)
@@ -176,7 +197,8 @@ def build_session(target_date: date, slot: str) -> dict:
         zenba_idx = ((slots.get("zenba") or {}).get("data") or {}).get("indices")
         payload["session_shift"] = analyze.session_shift(zenba_idx, indices)
 
-    payload["watchlist"] = _fetch_watchlist(tables, articles)
+    payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []))
+    payload["_after_hours"] = split["after"]
     return payload
 
 
@@ -202,15 +224,19 @@ def run(slot: str, target_date: date | None = None) -> dict:
         hist_patch = {"preopen": {
             "implied_open": payload.get("implied_open"),
             "risk": payload.get("risk"),
+            "quotes": _snapshot(payload.get("us"), payload.get("macro"),
+                                payload.get("sectors_us")),
         }}
     else:
         payload = build_session(target_date, slot)
+        after_hours = payload.pop("_after_hours", [])
         hist_patch = {slot: {
             "indices": payload.get("indices"),
             "value_rows": _compact_rows((payload.get("tables", {}).get("value") or {}).get("rows", [])),
             "session_shift": payload.get("session_shift"),
-            "kessan_after": _compact_rows(
-                (payload.get("tables", {}).get("kessan_after") or {}).get("rows", []), limit=40),
+            "after_hours": after_hours[:40],
+            "quotes": {k: v["close"] for k, v in (payload.get("indices") or {}).items()
+                       if v.get("close") is not None},
         }}
 
     store.save_slot(target_date, slot, payload)
@@ -236,8 +262,7 @@ def main(argv=None):
         except ValueError:
             parser.error(f"日付形式が不正です: {args.date}（例: 20260906）")
 
-    slot = resolve_slot() if args.slot == "auto" else args.slot
-    run(slot, target_date)
+    run(resolve_slot() if args.slot == "auto" else args.slot, target_date)
 
 
 if __name__ == "__main__":

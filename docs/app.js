@@ -127,33 +127,6 @@ function barList(items, opts = {}) {
   }));
 }
 
-function heatmap(rows, limit = 24) {
-  const items = rows.filter((r) => r.name && isNum(r.change_pct)).slice(0, limit);
-  if (!items.length) return h('div', { class: 'empty', text: 'データなし' });
-  const cap = 3;
-  return h('div', { class: 'heat' }, items.map((r) => {
-    const v = r.change_pct;
-    const a = Math.min(1, Math.abs(v) / cap) * 0.85 + 0.08;
-    const cell = h('div', { class: 'heat__cell' }, [
-      h('div', { class: 'heat__name', text: r.name, title: r.name }),
-      h('div', { class: 'heat__val num', text: fmtPct(v, 1) }),
-    ]);
-    cell.style.background = v >= 0
-      ? `color-mix(in srgb, var(--up) ${(a * 100).toFixed(0)}%, transparent)`
-      : `color-mix(in srgb, var(--down) ${(a * 100).toFixed(0)}%, transparent)`;
-    cell.style.color = a > 0.55 ? '#fff' : 'var(--text)';
-    return cell;
-  }));
-}
-
-/* 決算テーブルなどの「発表内容」列だけを拾う（数値・コードは除く） */
-function descCells(row) {
-  return (row.raw || [])
-    .filter((c) => c && c !== row.code && c !== row.name &&
-                   !/^[+\-−▲△]?[\d,]+(\.\d+)?%?$/.test(c) && c.length <= 14)
-    .slice(-2);
-}
-
 function stockRows(rows, opts = {}) {
   const list = (rows || []).slice(0, opts.limit || 12);
   if (!list.length) return h('div', { class: 'empty', text: 'データなし' });
@@ -177,6 +150,29 @@ function stockRows(rows, opts = {}) {
                  target: '_blank', rel: 'noopener' }, inner)
       : h('div', { class: 'row' }, inner);
   }));
+}
+
+/* 適時開示（TDnet）の行。値動きではなく「何が出たか」を見せる */
+function disclosureRows(rows, limit) {
+  const list = (rows || []).slice(0, limit || 20);
+  if (!list.length) return h('div', { class: 'empty', text: '開示なし' });
+  return h('div', { class: 'rows' }, list.map((r) =>
+    h('a', {
+      class: 'row', href: `https://finance.yahoo.co.jp/quote/${encodeURIComponent(r.code)}.T`,
+      target: '_blank', rel: 'noopener',
+    }, [
+      h('div', { class: 'row__rank num', text: (r.time || '').slice(0, 5) }),
+      h('div', { class: 'row__main' }, [
+        h('div', { class: 'row__name', text: r.name || r.code }),
+        h('div', { class: 'row__meta' }, [h('span', { text: r.title || '' })]),
+      ]),
+      h('div', { class: 'row__right' }, [
+        r.category ? h('span', {
+          class: 'badge' + (r.category === '業績予想の修正' ? ' badge--warn' : ''),
+          text: r.category,
+        }) : null,
+      ]),
+    ])));
 }
 
 function accordion(title, badge, bodyText, url) {
@@ -275,9 +271,8 @@ function renderPreopen(d) {
 
   const co = d.carryover || {};
   if (co.after_hours_kessan && co.after_hours_kessan.length) {
-    out.push(card('前営業日の引け後 決算・業績修正', '今日の寄りで動きやすい',
-      stockRows(co.after_hours_kessan, { limit: 15 }),
-      null, true));
+    out.push(card('前営業日の引け後 開示', '今日の寄りで動きやすい',
+      disclosureRows(co.after_hours_kessan, 15), null, true));
   }
   if (co.prev_session && co.prev_session.session_shift) {
     out.push(card('前営業日の引け方', co.prev_session.date,
@@ -317,23 +312,19 @@ function renderSession(d, slot) {
   if (nk) {
     out.push(hero(`日経平均（${SLOT_LABEL[slot]}）`, fmtNum(nk.close, 2),
       fmtSigned(nk.change, 2) + '  ' + fmtPct(nk.change_pct), nk.change_pct,
-      d.breadth ? [
-        h('div', { class: 'num', text: `${d.breadth.up} / ${d.breadth.total} 業種が上昇` }),
-        h('div', { text: d.breadth.comment }),
+      d.divergence ? [
+        h('div', { class: 'badge badge--' + (d.divergence.tone === 'warn' ? 'warn' : 'accent'),
+                   text: d.divergence.label }),
+        h('div', { class: 'num', text: `日経 ${fmtPct(d.divergence.nikkei_pct)} / TOPIX ${fmtPct(d.divergence.topix_pct)}` }),
       ] : null, verdict, tone));
   }
 
-  out.push(card('指数', null, [
+  out.push(card('指数', (d.indices.nikkei || {}).asof || null, [
     indexTiles(d.indices),
-    d.breadth_note ? h('div', { class: 'card__note', text: d.breadth_note }) : null,
+    d.divergence ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
   ]));
 
   const t = d.tables || {};
-
-  if (t.sector && t.sector.rows && t.sector.rows.length) {
-    out.push(card('業種別 騰落', '東証33業種', heatmap(t.sector.rows),
-      d.breadth ? `上昇 ${d.breadth.up} / 下落 ${d.breadth.down} 業種（${d.breadth.up_ratio}% が上昇）` : null));
-  }
 
   if (t.value && t.value.rows && t.value.rows.length) {
     const dl = d.ranking_delta || {};
@@ -376,23 +367,22 @@ function renderSession(d, slot) {
     out.push(card('値動きの大きかった銘柄', seg, body, null, true));
   }
 
-  if (t.kessan_after && t.kessan_after.rows && t.kessan_after.rows.length) {
-    out.push(card('引け後の決算・業績修正', `${t.kessan_after.rows.length}件`,
-      stockRows(t.kessan_after.rows, { limit: 25, meta: (r) => descCells(r) }),
-      '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。', true));
-  }
-  if (t.kessan_intraday && t.kessan_intraday.rows && t.kessan_intraday.rows.length) {
-    out.push(card('取引時間中の決算・業績修正', `${t.kessan_intraday.rows.length}件`,
-      stockRows(t.kessan_intraday.rows, { limit: 15 }), null, true));
+  if (d.disclosure_summary) {
+    out.push(card('今日の適時開示', `${d.disclosure_summary.total}件`,
+      h('div', { class: 'chips' }, d.disclosure_summary.items.map((i) =>
+        h('span', { class: 'badge' + (i.label === '業績予想の修正' ? ' badge--warn' : ''),
+                    text: `${i.label} ${i.count}` }))),
+      d.disclosure_summary.headline));
   }
 
-  if (d.articles && d.articles.length) {
-    out.push(card('株探ニュース', null,
-      h('div', {}, d.articles.map((a) =>
-        accordion(a.label + '　' + (a.title || ''),
-                  a.published_at ? a.published_at.slice(11, 16) : null,
-                  a.body, a.url))),
-      null, true));
+  if (t.kessan_after && t.kessan_after.rows.length) {
+    out.push(card('引け後の開示', `${t.kessan_after.rows.length}件`,
+      disclosureRows(t.kessan_after.rows, 25),
+      '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。', true));
+  }
+  if (t.kessan_intraday && t.kessan_intraday.rows.length) {
+    out.push(card('場中の開示', `${t.kessan_intraday.rows.length}件`,
+      disclosureRows(t.kessan_intraday.rows, 15), null, true));
   }
 
   out.push(watchlistCard(d));
@@ -439,7 +429,7 @@ function watchlistCard(d) {
     const meta = [s.code];
     if (s.sector) meta.push(s.sector);
     (s.tags || []).forEach((t) => meta.push(t));
-    (s.mentions || []).forEach((m) => meta.push('📰 ' + m));
+    (s.disclosures || []).forEach((m) => meta.push('📄 ' + m));
     if (s.pending) meta.push('次回更新後に反映');
     const inner = [
       h('div', { class: 'row__rank' }, []),

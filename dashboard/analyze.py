@@ -199,46 +199,59 @@ def sector_outlook(drivers: dict, top_n: int = 6) -> dict:
     return {"tailwind": out[:top_n], "headwind": list(reversed(tail)), "all": out}
 
 
-# ==================== 市場の広がり（breadth） ====================
-def market_breadth(sector_table: dict | None) -> dict | None:
-    """東証33業種のうち何業種が上昇したか。指数だけでは見えない「広がり」を出す。"""
-    if not sector_table or not sector_table.get("rows"):
+# ==================== 市場の広がり ====================
+def index_divergence(indices: dict | None) -> dict | None:
+    """日経平均と TOPIX のズレから「上げの中身」を読む。
+
+    33業種別の騰落データがクラウドから取れないため、breadth の代わりに
+    採用銘柄数と加重方式の違う 2 指数の差で物色の広がりを測る。
+    日経平均は値がさ株の影響が大きく、TOPIX は時価総額加重で全銘柄が対象。
+    """
+    if not indices:
         return None
-    vals = [r["change_pct"] for r in sector_table["rows"] if r.get("change_pct") is not None]
-    if not vals:
+    nk = (indices.get("nikkei") or {}).get("change_pct")
+    tp = (indices.get("topix") or {}).get("change_pct")
+    if nk is None or tp is None:
         return None
-    up = sum(1 for v in vals if v > 0)
-    down = sum(1 for v in vals if v < 0)
-    total = len(vals)
-    ratio = up / total * 100 if total else 0
-    if ratio >= 75:
-        comment = "ほぼ全面高。広く買われている"
-    elif ratio >= 55:
-        comment = "上昇業種が優勢"
-    elif ratio > 45:
-        comment = "業種でまちまち。物色は選別的"
-    elif ratio > 25:
-        comment = "下落業種が優勢"
+
+    gap = nk - tp
+    if gap > 0.4:
+        label, tone = "値がさ主導", "warn"
+        comment = ("日経平均が TOPIX を大きく上回った。指数寄与度の高い一部の値がさ株が"
+                   "押し上げており、市場全体は見た目ほど強くない")
+    elif gap < -0.4:
+        label, tone = "広い物色", "neutral"
+        comment = ("TOPIX が日経平均を上回った。値がさ株以外にも買いが広がっており、"
+                   "内需・バリュー中心の相場")
     else:
-        comment = "ほぼ全面安。売りが広い"
-    return {"up": up, "down": down, "total": total,
-            "up_ratio": round(ratio, 1), "comment": comment}
+        label, tone = "素直", "neutral"
+        comment = "日経平均と TOPIX がほぼ揃って動いており、物色に偏りは小さい"
+
+    return {"nikkei_pct": round(nk, 2), "topix_pct": round(tp, 2),
+            "gap": round(gap, 2), "label": label, "tone": tone, "comment": comment}
 
 
-def breadth_vs_index(breadth: dict | None, index_pct: float | None) -> str | None:
-    """指数と広がりの乖離を指摘する。ここが実務で効く。"""
-    if not breadth or index_pct is None:
+def disclosure_summary(rows: list[dict] | None) -> dict | None:
+    """適時開示の内訳。決算シーズンかどうか、修正が多い日かが一目で分かる。"""
+    if not rows:
         return None
-    up_ratio = breadth["up_ratio"]
-    if index_pct > 0.3 and up_ratio < 45:
-        return "指数は上昇だが上昇業種は半分以下。値がさ株主導の「見かけの上げ」で、中身は弱い"
-    if index_pct < -0.3 and up_ratio > 55:
-        return "指数は下落だが上昇業種のほうが多い。指数寄与度の高い一部銘柄が足を引っ張っただけ"
-    if index_pct > 0.3 and up_ratio > 70:
-        return "指数・広がりとも強く、素直な全面高"
-    if index_pct < -0.3 and up_ratio < 30:
-        return "指数・広がりとも弱く、逃げ場のない全面安"
-    return None
+    counts: dict[str, int] = {}
+    for r in rows:
+        cat = r.get("category") or "その他"
+        counts[cat] = counts.get(cat, 0) + 1
+    items = sorted(counts.items(), key=lambda kv: -kv[1])
+
+    revisions = counts.get("業績予想の修正", 0)
+    if revisions >= 15:
+        headline = f"業績予想の修正が {revisions} 件と多い。決算シーズンのピーク圏"
+    elif revisions >= 5:
+        headline = f"業績予想の修正が {revisions} 件。個別に材料が出ている"
+    else:
+        headline = f"開示 {sum(counts.values())} 件。大きな業績修正は少ない"
+
+    return {"total": sum(counts.values()),
+            "items": [{"label": k, "count": v} for k, v in items],
+            "headline": headline}
 
 
 # ==================== 前場 → 後場 ====================
