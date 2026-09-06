@@ -1,0 +1,92 @@
+name: マーケットダッシュボード更新
+
+on:
+  schedule:
+    # cron は UTC 指定。JST = UTC+9。
+    - cron: "0 22 * * 0-4"    # 07:00 JST（月〜金） 寄り前：米国市場を振り返る
+    - cron: "0 3 * * 1-5"     # 12:00 JST 前場：前場を振り返る
+    - cron: "40 3 * * 1-5"    # 12:40 JST 前場の追い取り（昼刊は12:30頃掲載のため）
+    - cron: "30 8 * * 1-5"    # 17:30 JST 大引：大引けまでを振り返る
+
+  # ダッシュボードからウォッチリストを保存すると、この push で再取得が走る
+  push:
+    branches: [main]
+    paths:
+      - "docs/data/watchlist.json"
+
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "更新する区分"
+        type: choice
+        default: auto
+        options: [auto, preopen, zenba, taibike]
+      date:
+        description: "対象日 YYYYMMDD（省略時は今日）"
+        type: string
+        default: ""
+
+# 同時に走らせない（データファイルの push が衝突するため）
+concurrency:
+  group: dashboard-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 実行する区分を決める
+        id: slot
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SLOT: ${{ inputs.slot }}
+        run: |
+          case "$SCHEDULE" in
+            "0 22 * * 0-4") slot=preopen ;;
+            "0 3 * * 1-5")  slot=zenba ;;
+            "40 3 * * 1-5") slot=zenba ;;
+            "30 8 * * 1-5") slot=taibike ;;
+            *)              slot="${INPUT_SLOT:-auto}" ;;
+          esac
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+          echo "実行区分: $slot"
+
+      - name: データを収集して JSON を更新
+        run: |
+          args="--slot ${{ steps.slot.outputs.slot }}"
+          if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
+          python -m dashboard.build $args
+
+      - name: 変更をコミットして公開
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットしません。"
+            exit 0
+          fi
+          git commit -m "データ更新: ${{ steps.slot.outputs.slot }} ($(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M'))"
+          for i in 1 2 3 4; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            echo "push に失敗。$((2 ** i)) 秒待って再試行します。"
+            sleep $((2 ** i))
+          done
+          echo "push に失敗しました" >&2
+          exit 1

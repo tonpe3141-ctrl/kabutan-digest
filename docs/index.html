@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マーケットダッシュボード</title>
+<meta name="description" content="寄り前・前場・大引の3視点で日本株を振り返るダッシュボード">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="マーケット">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar__top">
+    <div>
+      <h1 class="appbar__title">マーケットダッシュボード</h1>
+      <div class="appbar__date" id="headDate">読み込み中…</div>
+    </div>
+    <div class="appbar__meta">
+      <span class="dot" id="freshDot"></span>
+      <span id="headUpdated">—</span>
+      <button class="btn btn--ghost" id="reloadBtn" style="padding:5px 9px;min-height:30px" aria-label="再読み込み">↻</button>
+    </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-preopen"  aria-controls="panel-preopen"  aria-selected="false">寄り前<span class="tab__time">07:00</span></button>
+    <button class="tab" role="tab" id="tab-zenba"    aria-controls="panel-zenba"    aria-selected="false">前場<span class="tab__time">12:00</span></button>
+    <button class="tab" role="tab" id="tab-taibike"  aria-controls="panel-taibike"  aria-selected="false">大引<span class="tab__time">17:30</span></button>
+  </div>
+  <div class="tabs__spacer"></div>
+</header>
+
+<main>
+  <section class="panel" id="panel-preopen" role="tabpanel" aria-labelledby="tab-preopen" hidden></section>
+  <section class="panel" id="panel-zenba"   role="tabpanel" aria-labelledby="tab-zenba"   hidden></section>
+  <section class="panel" id="panel-taibike" role="tabpanel" aria-labelledby="tab-taibike" hidden></section>
+</main>
+
+<footer>
+  <p>
+    出典: 株探（kabutan.jp）／stooq.com。数値は各サイトの掲載値を自動取得したもので、
+    正確性・即時性は保証されません。投資判断はご自身の責任でお願いします。
+  </p>
+  <p id="footMeta"></p>
+</footer>
+
+<dialog class="sheet" id="wlSheet">
+  <form method="dialog" class="sheet__inner">
+    <div class="sheet__head">
+      <h2 class="sheet__title">ウォッチリストを編集</h2>
+      <button class="btn btn--ghost" value="close" aria-label="閉じる">✕</button>
+    </div>
+
+    <div class="field">
+      <input id="wlInput" type="text" inputmode="numeric" autocomplete="off"
+             placeholder="証券コード（例: 7203）" maxlength="5">
+      <button type="button" class="btn btn--primary" id="wlAdd">追加</button>
+    </div>
+    <div class="editlist" id="wlList"></div>
+
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button type="button" class="btn btn--primary" id="wlSave" style="flex:1">保存して反映</button>
+      <button type="button" class="btn" id="wlSettings">連携設定</button>
+    </div>
+    <div class="status" id="wlStatus"></div>
+
+    <div id="wlSettingsBox" hidden>
+      <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+      <h3 style="font-size:13px;margin:0 0 6px">GitHub 連携（任意）</h3>
+      <p class="hint">
+        トークンを登録すると、このページから直接ウォッチリストを保存でき、
+        保存と同時にデータ再取得が走ります。未登録でも編集内容はこの端末に保存され、
+        次回の自動更新まで株価は「未取得」表示になります。<br>
+        推奨は <b>Fine-grained personal access token</b>／対象リポジトリを
+        <code>kabutan-digest</code> のみに限定／権限は <code>Contents: Read and write</code> だけ。
+        トークンはこの端末のブラウザ内にのみ保存されます。
+      </p>
+      <div class="field">
+        <input id="wlRepo" type="text" autocomplete="off" placeholder="owner/repo">
+      </div>
+      <div class="field">
+        <input id="wlToken" type="password" autocomplete="off" placeholder="github_pat_...">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn--primary" id="wlTokenSave">トークンを保存</button>
+        <button type="button" class="btn btn--danger" id="wlTokenClear">削除</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
