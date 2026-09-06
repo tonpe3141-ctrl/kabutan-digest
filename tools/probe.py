@@ -1,7 +1,9 @@
 """データ源の疎通診断。GitHub Actions のランナー上から実行して、
 どのエンドポイントが使えるかを実測するための使い捨てスクリプト。
 
-  python tools/probe.py
+第1回の診断で、株探・stooq・Yahoo Finance がいずれも
+クラウドIPからのアクセスを拒否することが判明した。
+第2回では「クラウドから使える代替ソース」を洗い出す。
 """
 import json
 import sys
@@ -12,55 +14,70 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 HEADERS = {"User-Agent": UA, "Accept-Language": "ja,en;q=0.9"}
 
 TARGETS = [
-    ("stooq 日足CSV(日付指定)", "https://stooq.com/q/d/l/?s=^spx&d1=20260801&d2=20260908&i=d"),
-    ("stooq 日足CSV(全期間)",   "https://stooq.com/q/d/l/?s=^spx&i=d"),
-    ("stooq スナップショット",  "https://stooq.com/q/l/?s=^spx&f=sd2t2ohlcv&h&e=csv"),
-    ("stooq com→pl",           "https://stooq.pl/q/d/l/?s=^spx&i=d"),
-    ("Yahoo chart ^GSPC",      "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1mo&interval=1d"),
-    ("Yahoo chart ^SOX",       "https://query1.finance.yahoo.com/v8/finance/chart/%5ESOX?range=1mo&interval=1d"),
-    ("Yahoo chart NKD=F(日経先物)", "https://query1.finance.yahoo.com/v8/finance/chart/NKD%3DF?range=1mo&interval=1d"),
-    ("Yahoo chart ^N225",      "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=1mo&interval=1d"),
-    ("Yahoo chart JPY=X",      "https://query1.finance.yahoo.com/v8/finance/chart/JPY%3DX?range=1mo&interval=1d"),
-    ("Yahoo chart ^TNX",       "https://query1.finance.yahoo.com/v8/finance/chart/%5ETNX?range=1mo&interval=1d"),
-    ("Yahoo chart XLK",        "https://query1.finance.yahoo.com/v8/finance/chart/XLK?range=1mo&interval=1d"),
-    ("Yahoo query2 ^GSPC",     "https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1mo&interval=1d"),
-    ("株探 日経平均",           "https://kabutan.jp/stock/?code=0000"),
-    ("株探 売買代金ランキング",  "https://kabutan.jp/warning/trading_value_ranking"),
-    ("株探 ニュース一覧",       "https://kabutan.jp/news/marketnews/"),
+    # ---- 日本株 ----
+    ("株探 トップ",            "https://kabutan.jp/", None),
+    ("日経公式 日経平均",       "https://indexes.nikkei.co.jp/nkave/index/profile?idx=nk225", None),
+    ("日経公式 アーカイブ",     "https://indexes.nikkei.co.jp/nkave/archives/data", None),
+    ("Yahoo!ファイナンス 日経", "https://finance.yahoo.co.jp/quote/998407.O", None),
+    ("Yahoo!ファイナンス 個別", "https://finance.yahoo.co.jp/quote/7203.T", None),
+    ("みんかぶ 個別",          "https://minkabu.jp/stock/7203", None),
+    ("JPX トップ",             "https://www.jpx.co.jp/", None),
+    ("トレーダーズ・ウェブ",    "https://www.traders.co.jp/market_jp/indices", None),
+
+    # ---- 米国・グローバル（キー不要） ----
+    ("CNBC クォート",
+     "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol"
+     "?symbols=.SPX|.IXIC|.DJI|.SOX|.VIX&requestMethod=itv&noform=1&partnerId=2"
+     "&fund=1&exthrs=1&output=json", "cnbc"),
+    ("Frankfurter 為替(ECB)",  "https://api.frankfurter.app/latest?from=USD&to=JPY", "json"),
+    ("exchangerate.host",      "https://api.exchangerate.host/latest?base=USD&symbols=JPY", "json"),
+    ("Twelve Data デモ",
+     "https://api.twelvedata.com/time_series?symbol=SPX&interval=1day&outputsize=5&apikey=demo", "json"),
+    ("Alpha Vantage デモ",
+     "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo", "json"),
+    ("FRED(キーなし=到達性確認)",
+     "https://api.stlouisfed.org/fred/series/observations?series_id=SP500&file_type=json", None),
+    ("Stooq(再確認)",          "https://stooq.com/q/d/l/?s=^spx&i=d", None),
 ]
 
 
-def probe(label: str, url: str) -> None:
+def probe(label: str, url: str, kind) -> None:
     try:
-        res = requests.get(url, headers=HEADERS, timeout=20, allow_redirects=True)
+        res = requests.get(url, headers=HEADERS, timeout=20)
     except Exception as e:
-        print(f"  ❌ {label}\n       例外: {type(e).__name__}: {e}")
+        print(f"  ❌ {label}\n       例外: {type(e).__name__}: {e}\n")
         return
 
     body = res.text or ""
-    ctype = res.headers.get("content-type", "")
-    print(f"  {'✅' if res.status_code == 200 else '❌'} {label}")
-    print(f"       status={res.status_code}  len={len(body)}  type={ctype}")
-    if res.history:
-        print(f"       リダイレクト: {' → '.join(str(h.status_code) for h in res.history)} → {res.url[:90]}")
-    snippet = body[:220].replace("\n", " | ")
-    print(f"       先頭: {snippet}")
+    # bot 対策ページを本文から判定する（200 でも中身が検証ページのことがある）
+    blocked = any(s in body[:2000] for s in
+                  ("Human Verification", "requires JavaScript to verify",
+                   "Access Denied", "Just a moment"))
+    ok = res.status_code == 200 and not blocked
+    mark = "✅" if ok else ("🚫" if blocked else "❌")
+    print(f"  {mark} {label}")
+    print(f"       status={res.status_code} len={len(body)} type={res.headers.get('content-type','')}"
+          + ("  ※bot対策ページ" if blocked else ""))
+    print(f"       先頭: {body[:170].replace(chr(10), ' | ')}")
 
-    # Yahoo の JSON なら、実際に終値が取り出せるかまで確認する
-    if "finance.yahoo.com" in url and res.status_code == 200:
+    if ok and kind == "json":
+        try:
+            print(f"       → JSON: {json.dumps(json.loads(body), ensure_ascii=False)[:260]}")
+        except Exception as e:
+            print(f"       → JSON 解析失敗: {e}")
+    if ok and kind == "cnbc":
         try:
             d = json.loads(body)
-            r = d["chart"]["result"][0]
-            closes = [c for c in r["indicators"]["quote"][0]["close"] if c is not None]
-            ts = r["timestamp"]
-            print(f"       → 終値 {len(closes)} 点 / 最新 {closes[-1]:.2f} / "
-                  f"通貨 {r['meta'].get('currency')} / 取引所 {r['meta'].get('exchangeName')}")
+            qs = d["FormattedQuoteResult"]["FormattedQuote"]
+            for q in qs:
+                print(f"       → {q.get('symbol'):<8} {q.get('last'):>12} "
+                      f"{q.get('change_pct')}  ({q.get('last_time')})")
         except Exception as e:
-            print(f"       → JSON 解析に失敗: {type(e).__name__}: {e}")
+            print(f"       → 解析失敗: {type(e).__name__}: {e}")
+    print()
 
 
 if __name__ == "__main__":
     print(f"requests {requests.__version__} / python {sys.version.split()[0]}\n")
-    for label, url in TARGETS:
-        probe(label, url)
-        print()
+    for t in TARGETS:
+        probe(*t)
