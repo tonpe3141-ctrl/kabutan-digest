@@ -20,15 +20,28 @@
 平日 07:00 / 12:00 / 12:40 / 17:30 JST に起動し、該当タブだけを更新する。
 
 ```
-dashboard/config.py     定数・米→日セクター連想マップ・取得対象ページ
+dashboard/config.py     定数・米→日セクター連想マップ・取得対象
 dashboard/http.py       リトライ／レート制御。例外を投げず None を返す
-dashboard/sources/      kabutan.py（株探）, stooq.py（米国・為替・商品）
-dashboard/analyze.py    想定オープン・リスク環境・セクター連想・breadth・差分
+dashboard/sources/      cnbc.py（相場）, yahoojp.py（ランキング）, tdnet.py（開示）
+dashboard/analyze.py    想定オープン・リスク環境・セクター連想・上げの中身・差分
 dashboard/store.py      latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py      スロット単位の実行エントリ
 docs/                   Pages のルート（index.html / app.js / style.css / data/）
-tools/gen_sample.py     ネットワークなしで UI を確認するためのサンプル生成
+tools/probe.py          データ源の疎通診断（取得が壊れたときの切り分け）
+tests/test_parsers.py   パーサの回帰テスト（更新の前に必ず走る）
 ```
+
+### データ源についての重要な前提
+
+**株探・stooq・Yahoo Finance(米) は GitHub Actions のランナーからは使えない。**
+いずれもクラウドIPを理由に拒否する（株探は `405 Human Verification`）。実測済み。
+自宅の回線からは取得できるので、ローカル実行と自動更新で挙動が変わる点に注意。
+
+自動更新が使うのは次の3つだけ:
+CNBC クォートAPI（相場）／Yahoo!ファイナンス（ランキング）／TDnet（適時開示）。
+
+取得が壊れたら、まず Actions の「データ源の疎通診断」を手動実行して、
+相手サイトの遮断なのかパーサの不具合なのかを切り分けること。
 
 ### 変更するときの約束
 
@@ -40,12 +53,18 @@ tools/gen_sample.py     ネットワークなしで UI を確認するための�
 - **配色は日本市場の慣習に従う。** 上昇=赤（`--up`）、下落=青（`--down`）。
 - **分析値は「予測」と言わない。** 想定オープンもセクター連想も、算出根拠を
   画面に併記したうえで相対的な並び順として提示する。
+- **パーサは位置で読む。** ランキング表はセル内テキストが連結される
+  （社名の「(株)」を出来高と誤認する等）。実測構造を `tests/` に固定してあるので、
+  変更したら必ず `python tests/test_parsers.py` を通すこと。
+- **ラベルは実態に合わせる。** 売買代金が取れず出来高にフォールバックしたら、
+  表示名も「出来高」に変える。
 
 ### 動作確認
 
 ```bash
+python tests/test_parsers.py                             # パーサの回帰テスト
 python -m dashboard.build --slot zenba --date 20260904   # 実データで単発実行
-python tools/gen_sample.py /tmp/md/data                  # UI 確認用サンプル
+python tools/probe.py                                    # データ源の疎通診断
 python -m http.server 8000 --directory docs
 ```
 

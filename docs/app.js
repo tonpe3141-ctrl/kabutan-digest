@@ -152,6 +152,15 @@ function stockRows(rows, opts = {}) {
   }));
 }
 
+/* 株価が動きやすい開示。自己株式取得や月次は件数が多く埋もれるので後回しにする */
+const MATERIAL = ['業績予想の修正', '決算短信', '配当予想の修正'];
+
+function splitMaterial(rows) {
+  const material = [], rest = [];
+  (rows || []).forEach((r) => (MATERIAL.includes(r.category) ? material : rest).push(r));
+  return { material, rest };
+}
+
 /* 適時開示（TDnet）の行。値動きではなく「何が出たか」を見せる */
 function disclosureRows(rows, limit) {
   const list = (rows || []).slice(0, limit || 20);
@@ -375,15 +384,24 @@ function renderSession(d, slot) {
       d.disclosure_summary.headline));
   }
 
-  if (t.kessan_after && t.kessan_after.rows.length) {
-    out.push(card('引け後の開示', `${t.kessan_after.rows.length}件`,
-      disclosureRows(t.kessan_after.rows, 25),
-      '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。', true));
-  }
-  if (t.kessan_intraday && t.kessan_intraday.rows.length) {
-    out.push(card('場中の開示', `${t.kessan_intraday.rows.length}件`,
-      disclosureRows(t.kessan_intraday.rows, 15), null, true));
-  }
+  const discCard = (table, title, note) => {
+    if (!table || !table.rows.length) return null;
+    const { material, rest } = splitMaterial(table.rows);
+    const body = [disclosureRows(material.length ? material : rest, 20)];
+    if (material.length && rest.length) {
+      body.push(h('details', { class: 'acc' }, [
+        h('summary', {}, [h('span', { text: `その他の開示 ${rest.length}件` })]),
+        disclosureRows(rest, 30),
+      ]));
+    }
+    return card(title, `${table.rows.length}件`, body, note, true);
+  };
+
+  const after = discCard(t.kessan_after, '引け後の開示',
+    '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。');
+  if (after) out.push(after);
+  const intraday = discCard(t.kessan_intraday, '場中の開示', null);
+  if (intraday) out.push(intraday);
 
   out.push(watchlistCard(d));
   return out;
