@@ -340,7 +340,9 @@ function renderSession(d, slot) {
     const newSet = new Set((dl.new || []).map((n) => n.code));
     const upSet = new Map((dl.rank_up || []).map((n) => [n.code, n]));
     const streakMap = new Map((d.streaks || []).map((s) => [s.code, s]));
-    out.push(card('売買代金 上位', '資金が向かった先',
+    const valueLabel = t.value.label || '売買代金';
+    out.push(card(valueLabel + ' 上位',
+      valueLabel === '売買代金' ? '資金が向かった先' : '商いが膨らんだ銘柄',
       stockRows(t.value.rows, {
         limit: 15,
         meta: (r) => {
