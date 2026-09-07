@@ -208,7 +208,33 @@ def preopen_commentary(data: dict) -> dict | None:
 
 
 # ==================== 前場・大引 ====================
-def _index_read(indices: dict, divergence: dict | None, slot: str) -> str | None:
+def _sector_read_jp(sectors: list[dict] | None) -> str | None:
+    """日経225採用銘柄の業種別平均から、どこが買われたかを一文にする。"""
+    if not sectors or len(sectors) < 6:
+        return None
+    # sectors は平均騰落率の降順。下位は末尾から悪い順に並べ直す
+    top = sectors[:3]
+    bottom = list(reversed(sectors[-3:]))
+    worst = bottom[0]
+    out = [f"業種別では{'、'.join(s['sector'] for s in top)}が上位"
+           f"（{top[0]['sector']} {_pct(top[0]['avg_pct'])}）"]
+    out.append(f"下位は{'、'.join(s['sector'] for s in bottom)}"
+               f"（{worst['sector']} {_pct(worst['avg_pct'])}）")
+    spread = top[0]["avg_pct"] - worst["avg_pct"]
+    if spread > 4:
+        out.append(f"上位と下位の差は {spread:.1f}ポイントと大きく、"
+                   "はっきりした業種の入れ替わりが起きている")
+    elif spread < 1.5:
+        out.append("業種間の差は小さく、全体が同じ方向に動いた")
+    best = top[0].get("best")
+    if best and best.get("change_pct") is not None:
+        out.append(f"{top[0]['sector']}を牽引したのは "
+                   f"{_clean_name(best['name'])}({best['code']}) の {_pct(best['change_pct'])}")
+    return _join(out)
+
+
+def _index_read(indices: dict, divergence: dict | None, slot: str,
+                breadth: dict | None = None) -> str | None:
     nk = indices.get("nikkei")
     if not nk or nk.get("change_pct") is None:
         return None
@@ -217,6 +243,9 @@ def _index_read(indices: dict, divergence: dict | None, slot: str) -> str | None
     move = ("大幅高" if p > 1.5 else "上昇" if p > 0.3 else
             "小動き" if p > -0.3 else "下落" if p > -1.5 else "大幅安")
     out = [f"日経平均は{label}時点で {nk['close']:,.2f}円（{_pct(p)}）と{move}"]
+    if breadth:
+        out.append(f"採用225銘柄のうち上昇は {breadth['up']}、下落は {breadth['down']}。"
+                   f"{breadth['comment']}")
     if divergence:
         out.append(divergence["comment"])
     return _join(out)
@@ -295,7 +324,9 @@ def session_commentary(data: dict, slot: str) -> dict | None:
                       + (f"（前場終値比 {nk['diff']:+,.0f}円）" if nk else ""))
 
     sections = [
-        _section("相場の総括", [_index_read(indices, divergence, slot)] + checks),
+        _section("相場の総括",
+                 [_index_read(indices, divergence, slot, data.get("breadth"))] + checks),
+        _section("業種の傾向", [_sector_read_jp(data.get("sectors_jp"))]),
         _section("資金がどこに向かったか", [_flow_read(tables, data.get("ranking_delta"),
                                                 data.get("streaks"))]),
         _section("値動きの両端", [_extremes_read(tables)]),

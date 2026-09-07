@@ -209,6 +209,36 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 0; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .heat__val { font-size: 12px; font-weight: 750; }
 
+/* 日経225ヒートマップ */
+.heat {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+}
+@media (min-width: 460px) { .heat { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 620px) { .heat { grid-template-columns: repeat(7, 1fr); } }
+.heat__cell {
+  border-radius: 7px; padding: 6px 3px; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  color: inherit; text-decoration: none;
+}
+.heat__name {
+  font-size: 9.5px; font-weight: 650; line-height: 1.2; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.heat__val { font-size: 11px; font-weight: 750; letter-spacing: -.02em; }
+.heat__group {
+  grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--text-dim);
+  margin: 8px 0 1px; padding-top: 6px; border-top: 1px solid var(--border);
+}
+.heat__group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.legend {
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  font-size: 10.5px; color: var(--text-faint); margin-top: 10px;
+}
+.legend__bar {
+  height: 7px; width: 116px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--down), var(--surface-2), var(--up));
+}
+
 /* リスト（銘柄） */
 .rows { display: flex; flex-direction: column; }
 .row {

@@ -82,6 +82,27 @@ def fetch_symbols(symbols: list[str]) -> dict:
     return out
 
 
+def fetch_jp_stocks(codes: list[str]) -> dict:
+    """日本の個別銘柄を証券コードで取得する。
+
+    CNBC では東証銘柄を「{コード}.T」で引ける（実測で確認）。
+    225銘柄でも 12件ずつのまとめ取りで20リクエスト程度に収まる。
+    戻り値は {証券コード: 値}。
+    """
+    if not codes:
+        return {}
+    quotes = fetch_symbols([f"{c}.T" for c in codes])
+    out = {}
+    for code in codes:
+        q = quotes.get(f"{code}.T")
+        if q is not None:
+            out[code] = {**q, "code": code}
+    missing = len(codes) - len(out)
+    print(f"    {'✅' if not missing else '⚠️ '} 個別銘柄: {len(out)}/{len(codes)} 件取得"
+          + (f"（{missing}件は取得できず）" if missing else ""))
+    return out
+
+
 def fetch_spec(specs: list[dict]) -> dict:
     """config の定義リスト（key/symbol/label…）を受け取り {key: 値} を返す。"""
     quotes = fetch_symbols([s["symbol"] for s in specs])

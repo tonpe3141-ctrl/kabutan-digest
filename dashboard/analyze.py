@@ -199,6 +199,66 @@ def sector_outlook(drivers: dict, top_n: int = 6) -> dict:
     return {"tailwind": out[:top_n], "headwind": list(reversed(tail)), "all": out}
 
 
+# ==================== 日経225の構成銘柄から見る中身 ====================
+def constituent_breadth(rows: list[dict] | None) -> dict | None:
+    """日経225の何銘柄が上がったか。指数の数字だけでは見えない広がりを測る。"""
+    vals = [r["change_pct"] for r in (rows or []) if r.get("change_pct") is not None]
+    if len(vals) < 50:
+        return None
+    up = sum(1 for v in vals if v > 0)
+    down = sum(1 for v in vals if v < 0)
+    flat = len(vals) - up - down
+    ratio = up / len(vals) * 100
+    if ratio >= 75:
+        comment = "採用銘柄の4分の3以上が上昇。広く買われている"
+    elif ratio >= 55:
+        comment = "上昇銘柄が優勢"
+    elif ratio > 45:
+        comment = "上昇と下落がほぼ拮抗。物色は選別的"
+    elif ratio > 25:
+        comment = "下落銘柄が優勢"
+    else:
+        comment = "採用銘柄の4分の3以上が下落。売りが広い"
+    return {"up": up, "down": down, "flat": flat, "total": len(vals),
+            "up_ratio": round(ratio, 1), "comment": comment}
+
+
+def sector_performance(rows: list[dict] | None, min_count: int = 2) -> list[dict]:
+    """業種ごとの平均騰落率。日経の業種区分で構成銘柄を束ねて単純平均する。
+
+    東証33業種の指数そのものはクラウドから取得できないため、
+    日経225採用銘柄を業種区分でまとめた代替指標として出す。
+    時価総額加重ではないので、指数の騰落率とは一致しない。
+    """
+    buckets: dict[str, list[dict]] = {}
+    for r in rows or []:
+        sector = r.get("sector")
+        if not sector or r.get("change_pct") is None:
+            continue
+        buckets.setdefault(sector, []).append(r)
+
+    out = []
+    for sector, items in buckets.items():
+        if len(items) < min_count:
+            continue
+        vals = [i["change_pct"] for i in items]
+        best = max(items, key=lambda i: i["change_pct"])
+        worst = min(items, key=lambda i: i["change_pct"])
+        out.append({
+            "sector": sector,
+            "avg_pct": round(sum(vals) / len(vals), 2),
+            "count": len(items),
+            "up": sum(1 for v in vals if v > 0),
+            "down": sum(1 for v in vals if v < 0),
+            "best": {"code": best["code"], "name": best.get("name"),
+                     "change_pct": best["change_pct"]},
+            "worst": {"code": worst["code"], "name": worst.get("name"),
+                      "change_pct": worst["change_pct"]},
+        })
+    out.sort(key=lambda s: -s["avg_pct"])
+    return out
+
+
 # ==================== 市場の広がり ====================
 def index_divergence(indices: dict | None) -> dict | None:
     """日経平均と TOPIX のズレから「上げの中身」を読む。

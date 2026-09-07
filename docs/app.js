@@ -199,6 +199,74 @@ function accordion(title, badge, bodyText, url) {
   ]);
 }
 
+/* 日経225ヒートマップ。並べ替えは騰落順と業種順を切り替えられる */
+function heatCell(r) {
+  const v = r.change_pct;
+  const cap = 4;                                     // ±4% で色を振り切らせる
+  const a = isNum(v) ? Math.min(1, Math.abs(v) / cap) * 0.82 + 0.10 : 0.06;
+  const cell = h('a', {
+    class: 'heat__cell', title: `${r.name || ''} ${r.code} ${fmtPct(v)}`,
+    href: `https://finance.yahoo.co.jp/quote/${encodeURIComponent(r.code)}.T`,
+    target: '_blank', rel: 'noopener',
+  }, [
+    h('div', { class: 'heat__name', text: r.name || r.code }),
+    h('div', { class: 'heat__val num', text: isNum(v) ? fmtPct(v, 1) : '—' }),
+  ]);
+  const token = !isNum(v) || v === 0 ? 'var(--flat)' : (v > 0 ? 'var(--up)' : 'var(--down)');
+  cell.style.background = `color-mix(in srgb, ${token} ${(a * 100).toFixed(0)}%, transparent)`;
+  cell.style.color = a > 0.5 ? '#fff' : 'var(--text)';
+  return cell;
+}
+
+function heatmapCard(rows, breadth) {
+  const list = (rows || []).filter((r) => isNum(r.change_pct));
+  if (list.length < 20) return null;
+
+  const body = h('div', {});
+  const seg = h('div', { class: 'seg' });
+  const draw = (mode) => {
+    body.textContent = '';
+    const grid = h('div', { class: 'heat' });
+    if (mode === 'sector') {
+      // 業種ごとにまとめ、業種の平均が高い順に並べる
+      const groups = new Map();
+      list.forEach((r) => {
+        const k = r.sector || 'その他';
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
+      });
+      [...groups.entries()]
+        .map(([k, v]) => [k, v, v.reduce((a, r) => a + r.change_pct, 0) / v.length])
+        .sort((a, b) => b[2] - a[2])
+        .forEach(([name, items, avg]) => {
+          grid.appendChild(h('div', { class: 'heat__group',
+                                      text: `${name}　${fmtPct(avg, 1)}` }));
+          items.sort((a, b) => b.change_pct - a.change_pct)
+               .forEach((r) => grid.appendChild(heatCell(r)));
+        });
+    } else {
+      [...list].sort((a, b) => b.change_pct - a.change_pct)
+               .forEach((r) => grid.appendChild(heatCell(r)));
+    }
+    body.appendChild(grid);
+    [...seg.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === mode)));
+  };
+  [['rank', '騰落順'], ['sector', '業種順']].forEach(([k, label]) => {
+    const b = h('button', { class: 'seg__btn', type: 'button', 'aria-pressed': 'false', text: label });
+    b.dataset.k = k;
+    b.addEventListener('click', () => draw(k));
+    seg.appendChild(b);
+  });
+  draw('rank');
+
+  return card('日経225 ヒートマップ', seg, [
+    body,
+    h('div', { class: 'legend' }, [
+      h('span', { text: '下落' }), h('div', { class: 'legend__bar' }), h('span', { text: '上昇' }),
+    ]),
+  ], breadth ? `上昇 ${breadth.up} / 下落 ${breadth.down}（${breadth.up_ratio}% が上昇）。${breadth.comment}` : null);
+}
+
 /* アナリスト分析。数値からルールベースで組み立てた文章を出す */
 function analysisCard(c) {
   if (!c || !c.sections || !c.sections.length) return null;
@@ -340,6 +408,7 @@ function renderSession(d, slot) {
         h('div', { class: 'badge badge--' + (d.divergence.tone === 'warn' ? 'warn' : 'accent'),
                    text: d.divergence.label }),
         h('div', { class: 'num', text: `日経 ${fmtPct(d.divergence.nikkei_pct)} / TOPIX ${fmtPct(d.divergence.topix_pct)}` }),
+        d.breadth ? h('div', { class: 'num', text: `225中 ${d.breadth.up} 銘柄が上昇` }) : null,
       ] : null, verdict, tone));
   }
 
@@ -351,6 +420,22 @@ function renderSession(d, slot) {
     // 見立てのカードで同じ指摘をしているときは繰り返さない
     (d.divergence && !analysis) ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
   ]));
+
+  if (d.sectors_jp && d.sectors_jp.length >= 4) {
+    const items = d.sectors_jp.map((x) => ({
+      label: `${x.sector}（${x.count}）`,
+      value: x.avg_pct,
+      sub: x.best && x.worst
+        ? `高 ${x.best.name || x.best.code} ${fmtPct(x.best.change_pct, 1)} ／ `
+          + `安 ${x.worst.name || x.worst.code} ${fmtPct(x.worst.change_pct, 1)}`
+        : null,
+    }));
+    out.push(card('業種別 騰落率', '日経225採用銘柄の平均', barList(items),
+      '日経の業種区分で採用銘柄をまとめた単純平均。時価総額加重の東証33業種指数とは一致しません。'));
+  }
+
+  const heat = heatmapCard(d.constituents, d.breadth);
+  if (heat) out.push(heat);
 
   const t = d.tables || {};
 

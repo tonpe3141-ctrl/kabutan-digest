@@ -20,7 +20,7 @@ from .config import (
     US_INDICES, US_SECTOR_ETFS,
 )
 
-from .sources import cnbc, tdnet, yahoojp
+from .sources import cnbc, nikkei225, tdnet, yahoojp
 
 
 def _safe(label: str, fn, default=None):
@@ -62,15 +62,26 @@ def _attach_series(quote_maps: list[dict], sessions: list[dict], slot: str) -> N
                 q["series"] = series
 
 
-def _fetch_watchlist(tables: dict, disclosures: list[dict]) -> list[dict]:
+def _fetch_watchlist(tables: dict, disclosures: list[dict],
+                     quotes_by_code: dict | None = None) -> list[dict]:
     codes = store.load_watchlist().get("codes", [])
     if not codes:
         return []
-    print(f"  [Yahoo] ウォッチリスト {len(codes)} 銘柄を取得中...")
+
+    # 日経225の取得ぶんに含まれていればそれを使い、足りない分だけ追加で引く
+    have = {c: q for c, q in (quotes_by_code or {}).items() if c in codes}
+    missing = [c for c in codes if c not in have]
+    if missing:
+        print(f"  [CNBC] ウォッチリスト {len(missing)} 銘柄を取得中...")
+        have.update(_safe("ウォッチリスト", lambda: cnbc.fetch_jp_stocks(missing), {}) or {})
+
     quotes = []
     for code in codes:
-        q = _safe(f"銘柄 {code}", lambda c=code: yahoojp.fetch_stock(c))
-        quotes.append(q or {"code": code, "name": None, "error": True})
+        q = have.get(code)
+        quotes.append({"code": code, "name": q.get("name"), "price": q.get("last"),
+                       "change": q.get("change"), "change_pct": q.get("change_pct"),
+                       "sector": q.get("sector")}
+                      if q else {"code": code, "name": None, "error": True})
 
     enriched = analyze.enrich_watchlist(quotes, tables, [])
     # 適時開示に出ていればそれも貼る（決算・修正はウォッチリストで最重要）
@@ -176,6 +187,26 @@ def build_session(target_date: date, slot: str) -> dict:
                                   "url": disc.get("url"), "rows": split["after"],
                                   "ok": True}
 
+    # 日経225の構成銘柄と、その値動き（ヒートマップと業種別の材料）
+    print("  [日経] 構成銘柄を取得中...")
+    components = _safe("構成銘柄", nikkei225.fetch_components, []) or []
+    quotes_by_code = {}
+    constituents = []
+    if components:
+        print("  [CNBC] 構成銘柄の株価を取得中...")
+        quotes_by_code = _safe(
+            "構成銘柄の株価",
+            lambda: cnbc.fetch_jp_stocks([c["code"] for c in components]), {}) or {}
+        for c in components:
+            q = quotes_by_code.get(c["code"])
+            if not q:
+                continue
+            constituents.append({
+                "code": c["code"], "name": c["name"], "sector": c["sector"],
+                "price": q.get("last"), "change": q.get("change"),
+                "change_pct": q.get("change_pct"),
+            })
+
     nikkei_pct = (indices.get("nikkei") or {}).get("change_pct")
     divergence = analyze.index_divergence(indices)
 
@@ -200,6 +231,9 @@ def build_session(target_date: date, slot: str) -> dict:
         "ranking_delta": analyze.ranking_delta(value_rows, prev_value),
         "streaks": analyze.streaks(value_rows, history_rows),
         "disclosure_summary": analyze.disclosure_summary(disc.get("rows", [])),
+        "constituents": constituents,
+        "sectors_jp": analyze.sector_performance(constituents),
+        "breadth": analyze.constituent_breadth(constituents),
     }
 
     latest = store.load_latest()
@@ -211,7 +245,7 @@ def build_session(target_date: date, slot: str) -> dict:
         zenba_idx = ((slots.get("zenba") or {}).get("data") or {}).get("indices")
         payload["session_shift"] = analyze.session_shift(zenba_idx, indices)
 
-    payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []))
+    payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []), quotes_by_code)
     payload["commentary"] = commentary.session_commentary(payload, slot)
     payload["_after_hours"] = split["after"]
     return payload
