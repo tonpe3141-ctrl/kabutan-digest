@@ -348,7 +348,8 @@ function renderSession(d, slot) {
 
   out.push(card('指数', (d.indices.nikkei || {}).asof || null, [
     indexTiles(d.indices),
-    d.divergence ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
+    // 見立てのカードで同じ指摘をしているときは繰り返さない
+    (d.divergence && !analysis) ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
   ]));
 
   const t = d.tables || {};

@@ -24,6 +24,7 @@ dashboard/config.py     定数・米→日セクター連想マップ・取得�
 dashboard/http.py       リトライ／レート制御。例外を投げず None を返す
 dashboard/sources/      cnbc.py（相場）, yahoojp.py（ランキング）, tdnet.py（開示）
 dashboard/analyze.py    想定オープン・リスク環境・セクター連想・上げの中身・差分
+dashboard/commentary.py 指標の組み合わせから相場の見立てを日本語で組み立てる
 dashboard/store.py      latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py      スロット単位の実行エントリ
 docs/                   Pages のルート（index.html / app.js / style.css / data/）
@@ -57,7 +58,11 @@ CNBC クォートAPI（相場）／Yahoo!ファイナンス（ランキング）
   （社名の「(株)」を出来高と誤認する等）。実測構造を `tests/` に固定してあるので、
   変更したら必ず `python tests/test_parsers.py` を通すこと。
 - **ラベルは実態に合わせる。** 売買代金が取れず出来高にフォールバックしたら、
-  表示名も「出来高」に変える。
+  表示名も「出来高」に変える。出来高（数量）は売買代金の代替にならない
+  （低位株が上位を占める）ので、フォールバックはあくまで最後の手段。
+- **見立ては外部の生成AIを使わない。** 数字にない話を書かないため、また
+  同じ数字から必ず同じ文章が出るようにするため、commentary.py はルールベースで書く。
+  矛盾する指摘を同時に出さないよう、条件は排他にすること。
 
 ### 動作確認
 

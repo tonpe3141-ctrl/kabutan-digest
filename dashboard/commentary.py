@@ -219,8 +219,6 @@ def _index_read(indices: dict, divergence: dict | None, slot: str) -> str | None
     out = [f"日経平均は{label}時点で {nk['close']:,.2f}円（{_pct(p)}）と{move}"]
     if divergence:
         out.append(divergence["comment"])
-        if divergence["label"] == "値がさ主導":
-            out.append("指数の数字ほど個別の体感は強くない点に注意")
     return _join(out)
 
 
