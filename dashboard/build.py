@@ -14,7 +14,7 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, store
+from . import analyze, commentary, store
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
@@ -124,7 +124,7 @@ def build_preopen(target_date: date) -> dict:
             break
 
     spx = us.get("spx") or {}
-    return {
+    payload = {
         "us": us,
         "macro": macro,
         "sectors_us": sectors_us,
@@ -136,6 +136,8 @@ def build_preopen(target_date: date) -> dict:
         "freshness": {"us_asof": spx.get("asof"),
                       "market_status": spx.get("market_status")},
     }
+    payload["commentary"] = commentary.preopen_commentary(payload)
+    return payload
 
 
 # ==================== 前場 / 大引 ====================
@@ -210,6 +212,7 @@ def build_session(target_date: date, slot: str) -> dict:
         payload["session_shift"] = analyze.session_shift(zenba_idx, indices)
 
     payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []))
+    payload["commentary"] = commentary.session_commentary(payload, slot)
     payload["_after_hours"] = split["after"]
     return payload
 

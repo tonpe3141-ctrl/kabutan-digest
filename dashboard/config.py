@@ -99,9 +99,10 @@ _Y = "https://finance.yahoo.co.jp/stocks/ranking"
 RANKING_PAGES = {
     "zenba": [
         {"key": "value",  "label": "売買代金", "max_rows": 20,
-         "urls": [{"url": f"{_Y}/tradingValue?market=all&term=daily", "label": "売買代金"},
-                  {"url": f"{_Y}/turnover?market=all&term=daily",    "label": "売買代金"},
-                  {"url": f"{_Y}/volume?market=all&term=daily",      "label": "出来高"}]},
+         # tradingValueHigh が正しいスラッグ（tradingValue/turnover は 400 を返す）。
+         # 出来高は代金の代替にならない（低位株が上位を占める）ので最後の手段。
+         "urls": [{"url": f"{_Y}/tradingValueHigh?market=all&term=daily", "label": "売買代金"},
+                  {"url": f"{_Y}/volume?market=all&term=daily",           "label": "出来高"}]},
         {"key": "gainer", "label": "上昇率", "max_rows": 20,
          "urls": [{"url": f"{_Y}/up?market=all&term=daily", "label": "上昇率"}]},
         {"key": "loser",  "label": "下落率", "max_rows": 20,
@@ -109,9 +110,10 @@ RANKING_PAGES = {
     ],
     "taibike": [
         {"key": "value",  "label": "売買代金", "max_rows": 20,
-         "urls": [{"url": f"{_Y}/tradingValue?market=all&term=daily", "label": "売買代金"},
-                  {"url": f"{_Y}/turnover?market=all&term=daily",    "label": "売買代金"},
-                  {"url": f"{_Y}/volume?market=all&term=daily",      "label": "出来高"}]},
+         # tradingValueHigh が正しいスラッグ（tradingValue/turnover は 400 を返す）。
+         # 出来高は代金の代替にならない（低位株が上位を占める）ので最後の手段。
+         "urls": [{"url": f"{_Y}/tradingValueHigh?market=all&term=daily", "label": "売買代金"},
+                  {"url": f"{_Y}/volume?market=all&term=daily",           "label": "出来高"}]},
         {"key": "gainer", "label": "上昇率", "max_rows": 20,
          "urls": [{"url": f"{_Y}/up?market=all&term=daily", "label": "上昇率"}]},
         {"key": "loser",  "label": "下落率", "max_rows": 20,

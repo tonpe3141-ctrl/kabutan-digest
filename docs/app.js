@@ -199,6 +199,18 @@ function accordion(title, badge, bodyText, url) {
   ]);
 }
 
+/* アナリスト分析。数値からルールベースで組み立てた文章を出す */
+function analysisCard(c) {
+  if (!c || !c.sections || !c.sections.length) return null;
+  return card('相場の見立て', c.method || null, [
+    h('p', { class: 'analysis__headline', text: c.headline || '' }),
+    h('div', {}, c.sections.map((s) => h('div', { class: 'analysis__sec' }, [
+      h('div', { class: 'analysis__t', text: s.title }),
+      h('div', { class: 'analysis__b', text: s.body }),
+    ]))),
+  ], '各カードの数値を組み合わせて機械的に文章化したもの。売買を推奨するものではありません。');
+}
+
 function hero(label, value, deltaText, deltaVal, aside, verdict, tone) {
   return h('section', { class: 'card hero' }, [
     h('div', { class: 'hero__label', text: label }),
@@ -238,6 +250,9 @@ function renderPreopen(d) {
     }
     out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral'));
   }
+
+  const preAnalysis = analysisCard(d.commentary);
+  if (preAnalysis) out.push(preAnalysis);
 
   if (d.risk) {
     out.push(card('リスク環境',
@@ -327,6 +342,9 @@ function renderSession(d, slot) {
         h('div', { class: 'num', text: `日経 ${fmtPct(d.divergence.nikkei_pct)} / TOPIX ${fmtPct(d.divergence.topix_pct)}` }),
       ] : null, verdict, tone));
   }
+
+  const analysis = analysisCard(d.commentary);
+  if (analysis) out.push(analysis);
 
   out.push(card('指数', (d.indices.nikkei || {}).asof || null, [
     indexTiles(d.indices),

@@ -256,6 +256,19 @@ details.acc[open] > summary::after { transform: rotate(-90deg); }
 }
 .acc__body a { color: var(--accent); }
 
+/* アナリスト分析 */
+.analysis__headline {
+  font-size: 16px; font-weight: 700; line-height: 1.45;
+  margin: 0 0 12px; letter-spacing: -.01em;
+}
+.analysis__sec { margin-top: 12px; }
+.analysis__sec:first-of-type { margin-top: 0; }
+.analysis__t {
+  font-size: 11.5px; font-weight: 700; color: var(--accent);
+  letter-spacing: .04em; margin-bottom: 3px;
+}
+.analysis__b { font-size: 13.5px; line-height: 1.8; color: var(--text); }
+
 /* 理由リスト */
 .reasons { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-dim); line-height: 1.7; }
 .reasons li { margin-bottom: 2px; }

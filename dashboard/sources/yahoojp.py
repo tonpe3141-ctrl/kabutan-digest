@@ -31,10 +31,13 @@ MARKET_RE = re.compile(r"^(東証|名証|福証|札証)")
 
 
 def _parse_row(cells: list, rank: int) -> dict | None:
-    """1 行を {code,name,market,price,change,change_pct,volume} に正規化する。
+    """1 行を {code,name,market,price,change,change_pct,metric} に正規化する。
+
+    metric は表によって中身が変わる（売買代金ランキングなら代金、
+    出来高ランキングなら株数）。何なのかは table の label が持つ。
 
     列構成は実測で確認済み（値上がり率・値下がり率・出来高で共通）:
-      [順位] [銘柄名, コード, 市場, 掲示板] [取引値, 日付] [前日比, 前日比率, %] [出来高, 株]
+      [順位] [銘柄名, コード, 市場, 掲示板] [取引値, 日付] [前日比, 前日比率, %] [指標, 単位]
     順位セルの数字を株価と取り違えたり、社名の「(株)」を出来高セルと
     誤認したりしないよう、位置で読む。
     """
@@ -56,7 +59,7 @@ def _parse_row(cells: list, rank: int) -> dict | None:
                  if t != code and t != market and t != "掲示板" and len(t) > 1), None)
 
     rest = parts[idx + 1:]
-    price = change = change_pct = volume = None
+    price = change = change_pct = metric = None
 
     if len(rest) > 0 and rest[0]:
         price = _num(rest[0][0])
@@ -75,11 +78,11 @@ def _parse_row(cells: list, rank: int) -> dict | None:
 
     if len(rest) > 2:
         nums = [_num(t) for t in rest[2] if _num(t) is not None]
-        volume = nums[0] if nums else None
+        metric = nums[0] if nums else None
 
     return {"rank": rank, "code": code, "name": name, "market": market,
             "price": price, "change": change, "change_pct": change_pct,
-            "volume": volume}
+            "metric": metric}
 
 
 def fetch_ranking(page: dict) -> dict:

@@ -64,7 +64,7 @@ def test_ranking():
     check("ヘッダ行を除いて3行", len(rows), 3)
     # 順位を株価と、社名の「(株)」を出来高と取り違えないこと
     check("社名に(株)を含む行", (rows[0]["code"], rows[0]["name"], rows[0]["price"],
-                          rows[0]["volume"]),
+                          rows[0]["metric"]),
           ("8918", "(株)ランド", 11.0, 371104600.0))
     check("マイナスの符号", (rows[1]["change"], rows[1]["change_pct"]), (-386.0, -21.69))
     check("英字を含む新形式コード", (rows[2]["code"], rows[2]["change_pct"]), ("607A", 33.76))
