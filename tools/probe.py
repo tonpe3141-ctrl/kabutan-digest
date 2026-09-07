@@ -3,70 +3,82 @@
 取得が全滅したときに、原因が「相手サイトの遮断」なのか
 「こちらのパーサの不具合」なのかを切り分けるために使う。
 Actions から「データ源の疎通診断」ワークフローを手動実行する。
+
+分かっていること:
+  🚫 株探 / stooq / Yahoo Finance(米) / みんかぶ / トレーダーズ … 拒否 or 404
+  ✅ CNBC / Yahoo!ファイナンス(日本) / TDnet / 日経新聞
 """
-import json
 import re
 import sys
 
 import requests
+from bs4 import BeautifulSoup
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 HEADERS = {"User-Agent": UA, "Accept-Language": "ja,en;q=0.9"}
-CNBC = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol"
-        "?symbols={syms}&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
 
 
 def get(url, timeout=35):
     try:
         return requests.get(url, headers=HEADERS, timeout=timeout)
     except Exception as e:
-        print(f"    ❌ 例外: {type(e).__name__}: {str(e)[:90]}")
+        print(f"    ❌ 例外: {type(e).__name__}: {str(e)[:100]}")
         return None
 
 
+def dump(label, url, max_len=800):
+    print(f"\n=== {label} ===\n    {url}")
+    r = get(url)
+    if r is None:
+        return None
+    body = r.text or ""
+    blocked = any(x in body[:2500] for x in
+                  ("Human Verification", "verify your browser", "Access Denied", "Just a moment"))
+    print(f"    status={r.status_code} len={len(body)}" + ("  ※bot対策" if blocked else ""))
+    if r.status_code != 200 or blocked:
+        print(f"    先頭: {body[:150]}")
+        return None
+    soup = BeautifulSoup(body, "html.parser")
+    t = soup.find("title")
+    print(f"    title: {t.get_text(strip=True) if t else '—'}")
+
+    # 記事一覧らしきリンクを拾う
+    links = []
+    for a in soup.find_all("a", href=True):
+        text = a.get_text(strip=True)
+        if 8 <= len(text) <= 60:
+            links.append((text, a["href"]))
+    uniq = []
+    seen = set()
+    for text, href in links:
+        if text in seen:
+            continue
+        seen.add(text)
+        uniq.append((text, href))
+    print(f"    リンク候補 {len(uniq)}件（先頭10）:")
+    for text, href in uniq[:10]:
+        print(f"      ・{text}  → {href[:70]}")
+
+    # 本文らしき段落
+    paras = [p.get_text(strip=True) for p in soup.find_all("p")]
+    paras = [p for p in paras if len(p) > 40]
+    if paras:
+        print(f"    本文段落 {len(paras)}件。先頭: {paras[0][:120]}")
+    return body
+
+
 print(f"python {sys.version.split()[0]}")
-print("########## 1. CNBC で日本の個別株が取れるか（ヒートマップ用） ##########")
-for fmt in ("{c}.T-JP", "{c}-JP", "{c}.T", "{c}.TO", "{c}"):
-    syms = [fmt.format(c=c) for c in ("7203", "9984", "8035", "285A")]
-    r = get(CNBC.format(syms="|".join(syms)))
-    if r is None or r.status_code != 200:
-        print(f"  ❌ 形式 {fmt:<10} status={r.status_code if r else 'なし'}")
-        continue
-    try:
-        qs = r.json()["FormattedQuoteResult"]["FormattedQuote"]
-    except Exception as e:
-        print(f"  ❌ 形式 {fmt:<10} 解析失敗 {e}")
-        continue
-    ok = [q for q in qs if q.get("last") not in (None, "")]
-    print(f"  {'✅' if ok else '❌'} 形式 {fmt:<10} 取得 {len(ok)}/{len(syms)}")
-    for q in qs[:4]:
-        print(f"       {q.get('symbol'):<12} {str(q.get('name'))[:22]:<24} "
-              f"last={q.get('last')!s:>10} chg%={q.get('change_pct')!s:>9} cur={q.get('currencyCode')}")
+print("########## 日本株の市況・相場振り返り記事の取得元 ##########")
 
-print("\n########## 2. Yahoo のランキング種別を一覧から拾う ##########")
-r = get("https://finance.yahoo.co.jp/stocks/ranking/up?market=all&term=daily")
-if r and r.status_code == 200:
-    slugs = sorted(set(re.findall(r"/stocks/ranking/([A-Za-z]+)", r.text)))
-    print(f"  見つかった種別 {len(slugs)}件: {slugs}")
-else:
-    print("  ❌ 一覧を取得できません")
-
-print("\n########## 3. 日経のマーケット配下のページ一覧 ##########")
-r = get("https://www.nikkei.com/markets/kabu/")
-if r and r.status_code == 200:
-    paths = sorted(set(re.findall(r"/markets/kabu/([a-z0-9_]+)/", r.text)))
-    print(f"  {len(paths)}件: {paths}")
-else:
-    print(f"  status={r.status_code if r else 'なし'}")
-
-print("\n########## 4. 東証33業種の候補 ##########")
-for label, url in [
-    ("日経 業種別株価", "https://www.nikkei.com/markets/kabu/gyoshubetsu/"),
-    ("日経 東証業種別", "https://www.nikkei.com/markets/kabu/tosho33/"),
-    ("JPX 指数一覧", "https://www.jpx.co.jp/markets/indices/line-up/index.html"),
-]:
-    r = get(url, timeout=25)
-    print(f"  {'✅' if r is not None and r.status_code == 200 else '❌'} {label:<16} "
-          f"status={r.status_code if r else 'なし'}"
-          + (f" len={len(r.text)}" if r is not None else ""))
+dump("Yahoo!ニュース 経済", "https://news.yahoo.co.jp/categories/business")
+dump("Yahoo!ファイナンス 市況記事一覧",
+     "https://finance.yahoo.co.jp/news/marketnews")
+dump("Yahoo!ファイナンス トップ", "https://finance.yahoo.co.jp/")
+dump("NHK 経済カテゴリ", "https://www3.nhk.or.jp/news/catnew.html")
+dump("NHK ビジネス特集トップ", "https://www3.nhk.or.jp/news/word/0000378.html")
+dump("Reuters Japan マーケット", "https://jp.reuters.com/markets/japan")
+dump("Bloomberg Japan マーケット", "https://www.bloomberg.co.jp/markets")
+dump("日経 マーケット速報", "https://www.nikkei.com/markets/kabu/")
+dump("共同通信 経済", "https://www.kyodo.co.jp/economy/")
+dump("時事通信 経済", "https://www.jiji.com/jc/list?g=eco")
