@@ -36,14 +36,40 @@ fi
 
 ## STEP 1: 対象データを読む
 
-`docs/data/latest.json` を読み、`date` と `slots.{SLOT}` を確認してください。
+**「今日の日付」を自分で計算して比較しないこと。** このコンテナの既定タイムゾーンは
+UTC で、JST とは日付が最大9時間ずれる（例: UTC 22:36 は JST では翌日 07:36）。
+`date` コマンドをそのまま使うと日付判定を誤り、届いているデータを
+「まだ届いていない」と誤判定してスキップしてしまう。
 
-- `slots.{SLOT}` が存在しない、または `date` が今日（JST）でない場合
-  → **データがまだ届いていません。** 何も書き換えず、「{SLOT} のデータが
-  まだ無いためスキップしました」とだけ報告して終了してください。
-  次の定時実行を待てば十分で、無理に待機・再試行する必要はありません。
+代わりに、次の Python を実行して**その出力の指示にそのまま従う**こと:
 
-存在すれば `slots.{SLOT}.data` の中身、特に以下を把握してください:
+```bash
+python3 <<'PYEOF'
+import json
+from datetime import datetime, timezone
+
+with open("docs/data/latest.json", encoding="utf-8") as f:
+    data = json.load(f)
+
+slot = (data.get("slots") or {}).get("{SLOT}")
+if not slot:
+    print("SKIP: slots.{SLOT} が存在しません")
+else:
+    updated_at = datetime.fromisoformat(slot["updated_at"])
+    age_h = (datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc)).total_seconds() / 3600
+    if age_h > 20:
+        print(f"SKIP: 最終更新から {age_h:.1f} 時間経過しており古すぎます（updated_at={slot['updated_at']}）")
+    else:
+        print(f"OK: 最終更新から {age_h:.1f} 時間（updated_at={slot['updated_at']}）。続行してください")
+PYEOF
+```
+
+出力が `SKIP:` で始まった場合 → **データがまだ届いていない、または古すぎます。**
+何も書き換えず、その理由をそのまま報告して終了してください。
+次の定時実行を待てば十分で、無理に待機・再試行する必要はありません。
+
+出力が `OK:` で始まった場合のみ、続けて `slots.{SLOT}.data` の中身、
+特に以下を把握してください:
 
 - 寄り前（preopen）: `us`（米国指数）, `macro`（為替・金利・商品）,
   `sectors_us`（米セクターETF）, `implied_open`（想定オープン）, `risk`,
