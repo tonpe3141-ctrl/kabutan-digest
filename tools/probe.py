@@ -82,3 +82,16 @@ dump("Bloomberg Japan マーケット", "https://www.bloomberg.co.jp/markets")
 dump("日経 マーケット速報", "https://www.nikkei.com/markets/kabu/")
 dump("共同通信 経済", "https://www.kyodo.co.jp/economy/")
 dump("時事通信 経済", "https://www.jiji.com/jc/list?g=eco")
+
+print("\n########## 深掘り: Yahoo!ファイナンス AIマーケット記事 ##########")
+dump("AIマーケット記事1", "https://finance.yahoo.co.jp/news/ai-market/detail/2959")
+dump("AIマーケット記事2", "https://finance.yahoo.co.jp/news/ai-market/detail/2956")
+dump("ヘッドライン一覧", "https://finance.yahoo.co.jp/news/headline")
+
+print("\n########## 深掘り: 時事通信・NHKの記事本文 ##########")
+r = get("https://www.jiji.com/jc/list?g=eco")
+if r:
+    m = re.search(r'href="(/jc/article\?k=[^"]+)"', r.text)
+    if m:
+        dump("時事 記事本文サンプル", "https://www.jiji.com" + m.group(1))
+dump("NHK 記事本文サンプル", "https://news.web.nhk/newsweb/na/nd-20260908de48891")
