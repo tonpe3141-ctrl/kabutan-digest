@@ -1,13 +1,5 @@
-"""データ源の疎通診断ツール。
-
-取得が全滅したときに、原因が「相手サイトの遮断」なのか
-「こちらのパーサの不具合」なのかを切り分けるために使う。
-Actions から「データ源の疎通診断」ワークフローを手動実行する。
-
-分かっていること:
-  🚫 株探 / stooq / Yahoo Finance(米) / みんかぶ / トレーダーズ … 拒否 or 404
-  ✅ CNBC / Yahoo!ファイナンス(日本) / TDnet / 日経新聞
-"""
+"""データ源の疎通診断ツール（相場振り返り記事の本文抽出方法を確定）。"""
+import json
 import re
 import sys
 
@@ -23,75 +15,73 @@ def get(url, timeout=35):
     try:
         return requests.get(url, headers=HEADERS, timeout=timeout)
     except Exception as e:
-        print(f"    ❌ 例外: {type(e).__name__}: {str(e)[:100]}")
+        print(f"    例外: {e}")
         return None
 
 
-def dump(label, url, max_len=800):
+def inspect(label, url):
     print(f"\n=== {label} ===\n    {url}")
     r = get(url)
-    if r is None:
-        return None
-    body = r.text or ""
-    blocked = any(x in body[:2500] for x in
-                  ("Human Verification", "verify your browser", "Access Denied", "Just a moment"))
-    print(f"    status={r.status_code} len={len(body)}" + ("  ※bot対策" if blocked else ""))
-    if r.status_code != 200 or blocked:
-        print(f"    先頭: {body[:150]}")
-        return None
-    soup = BeautifulSoup(body, "html.parser")
-    t = soup.find("title")
-    print(f"    title: {t.get_text(strip=True) if t else '—'}")
+    if r is None or r.status_code != 200:
+        print(f"    status={r.status_code if r else 'なし'}")
+        return
+    html = r.text
+    print(f"    len={len(html)}")
 
-    # 記事一覧らしきリンクを拾う
-    links = []
-    for a in soup.find_all("a", href=True):
-        text = a.get_text(strip=True)
-        if 8 <= len(text) <= 60:
-            links.append((text, a["href"]))
-    uniq = []
-    seen = set()
-    for text, href in links:
-        if text in seen:
-            continue
-        seen.add(text)
-        uniq.append((text, href))
-    print(f"    リンク候補 {len(uniq)}件（先頭10）:")
-    for text, href in uniq[:10]:
-        print(f"      ・{text}  → {href[:70]}")
+    m = re.search(r'__PRELOADED_STATE__\s*=\s*(\{.*?\})\s*;?\s*</script>', html, re.S)
+    if not m:
+        print("    __PRELOADED_STATE__ 見つからず。他のJSON埋め込みを探索:")
+        for key in re.findall(r'(\w+)\s*=\s*\{"', html):
+            pass
+        # __NEXT_DATA__ 形式も試す
+        m2 = re.search(r'id="__NEXT_DATA__"[^>]*>(\{.*?\})</script>', html, re.S)
+        if m2:
+            print("    __NEXT_DATA__ が見つかりました")
+            m = m2
+    if not m:
+        print("    JSON埋め込みなし。<article>/<main>から抽出を試みる:")
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in ("article", "main"):
+            el = soup.find(tag)
+            if el:
+                text = el.get_text("\n", strip=True)
+                print(f"    <{tag}> 文字数={len(text)} 先頭300字: {text[:300]}")
+        return
 
-    # 本文らしき段落
-    paras = [p.get_text(strip=True) for p in soup.find_all("p")]
-    paras = [p for p in paras if len(p) > 40]
-    if paras:
-        print(f"    本文段落 {len(paras)}件。先頭: {paras[0][:120]}")
-    return body
+    try:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        print(f"    JSON解析失敗: {e}")
+        print(f"    先頭500字: {m.group(1)[:500]}")
+        return
+
+    print(f"    トップレベルキー: {list(data.keys())}")
+
+    # 記事本文らしきキーを再帰的に探す
+    def walk(obj, path="", depth=0, hits=None):
+        if hits is None:
+            hits = []
+        if depth > 6:
+            return hits
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if isinstance(v, str) and len(v) > 200:
+                    hits.append((f"{path}.{k}", v[:200]))
+                else:
+                    walk(v, f"{path}.{k}", depth + 1, hits)
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj[:20]):
+                walk(v, f"{path}[{i}]", depth + 1, hits)
+        return hits
+
+    hits = walk(data)
+    print(f"    長文フィールド候補 {len(hits)}件:")
+    for path, snippet in hits[:8]:
+        print(f"      {path}: {snippet[:150]}")
 
 
 print(f"python {sys.version.split()[0]}")
-print("########## 日本株の市況・相場振り返り記事の取得元 ##########")
-
-dump("Yahoo!ニュース 経済", "https://news.yahoo.co.jp/categories/business")
-dump("Yahoo!ファイナンス 市況記事一覧",
-     "https://finance.yahoo.co.jp/news/marketnews")
-dump("Yahoo!ファイナンス トップ", "https://finance.yahoo.co.jp/")
-dump("NHK 経済カテゴリ", "https://www3.nhk.or.jp/news/catnew.html")
-dump("NHK ビジネス特集トップ", "https://www3.nhk.or.jp/news/word/0000378.html")
-dump("Reuters Japan マーケット", "https://jp.reuters.com/markets/japan")
-dump("Bloomberg Japan マーケット", "https://www.bloomberg.co.jp/markets")
-dump("日経 マーケット速報", "https://www.nikkei.com/markets/kabu/")
-dump("共同通信 経済", "https://www.kyodo.co.jp/economy/")
-dump("時事通信 経済", "https://www.jiji.com/jc/list?g=eco")
-
-print("\n########## 深掘り: Yahoo!ファイナンス AIマーケット記事 ##########")
-dump("AIマーケット記事1", "https://finance.yahoo.co.jp/news/ai-market/detail/2959")
-dump("AIマーケット記事2", "https://finance.yahoo.co.jp/news/ai-market/detail/2956")
-dump("ヘッドライン一覧", "https://finance.yahoo.co.jp/news/headline")
-
-print("\n########## 深掘り: 時事通信・NHKの記事本文 ##########")
-r = get("https://www.jiji.com/jc/list?g=eco")
-if r:
-    m = re.search(r'href="(/jc/article\?k=[^"]+)"', r.text)
-    if m:
-        dump("時事 記事本文サンプル", "https://www.jiji.com" + m.group(1))
-dump("NHK 記事本文サンプル", "https://news.web.nhk/newsweb/na/nd-20260908de48891")
+inspect("AIマーケット記事(米雇用)", "https://finance.yahoo.co.jp/news/ai-market/detail/2959")
+inspect("AIマーケット記事(日経+2.21%)", "https://finance.yahoo.co.jp/news/ai-market/detail/2956")
+inspect("フィスコ配信記事(前日に動いた銘柄)",
+        "https://finance.yahoo.co.jp/news/detail/e8226f7a4eca8fb48509a5e85c2e39")
