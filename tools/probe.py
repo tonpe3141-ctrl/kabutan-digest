@@ -6,8 +6,7 @@ Actions から「データ源の疎通診断」ワークフローを手動実行
 
 分かっていること:
   🚫 株探 / stooq / Yahoo Finance(米) / みんかぶ / トレーダーズ … 拒否 or 404
-  ✅ CNBC / Yahoo!ファイナンス(日本) / TDnet / 日経新聞
-  ⚠️ Yahoo の tradingValue は 400（そのランキング種別は存在しない）
+  ✅ CNBC / Yahoo!ファイナンス(日本) / TDnet / 日経新聞 / 日経インデックス
 """
 import re
 import sys
@@ -28,51 +27,57 @@ def get(url, timeout=40):
         return None
 
 
-def dump_all_tables(label, url, max_tables=14):
-    """ページ内の全テーブルを、直前の見出しとあわせて出す。"""
+def dump(label, url, max_tables=8, rows=4):
     print(f"\n=== {label} ===\n    {url}")
     r = get(url)
     if r is None:
-        return
-    print(f"    status={r.status_code} len={len(r.text)}")
-    if r.status_code != 200:
-        return
-    soup = BeautifulSoup(r.text, "html.parser")
+        return None
+    body = r.text or ""
+    blocked = any(x in body[:2500] for x in ("Human Verification", "verify your browser"))
+    print(f"    status={r.status_code} len={len(body)}" + ("  ※bot対策" if blocked else ""))
+    if r.status_code != 200 or blocked:
+        print(f"    先頭: {body[:120]}")
+        return None
+    soup = BeautifulSoup(body, "html.parser")
     t = soup.find("title")
     print(f"    title: {t.get_text(strip=True) if t else '—'}")
-
-    for i, tbl in enumerate(soup.find_all("table")[:max_tables]):
-        # 直前の見出しを遡って探す
+    tables = soup.find_all("table")
+    print(f"    table 数: {len(tables)}")
+    for i, tbl in enumerate(tables[:max_tables]):
         heading = ""
-        for prev in tbl.find_all_previous(["h1", "h2", "h3", "h4", "caption", "span"], limit=25):
+        for prev in tbl.find_all_previous(["h1", "h2", "h3", "h4", "caption"], limit=12):
             txt = prev.get_text(strip=True)
-            if txt and 2 <= len(txt) <= 24:
+            if txt and 2 <= len(txt) <= 26:
                 heading = txt
                 break
-        rows = tbl.find_all("tr")[:3]
-        print(f"    ── table{i}  見出し候補: 「{heading}」  行数={len(tbl.find_all('tr'))}")
-        for tr in rows:
+        trs = tbl.find_all("tr")
+        print(f"    ── table{i} 「{heading}」 行数={len(trs)}")
+        for tr in trs[:rows]:
             cells = []
             for c in tr.find_all(["th", "td"]):
                 parts = [x.strip() for x in c.stripped_strings]
                 cells.append(parts if len(parts) > 1 else (parts[0] if parts else ""))
-            print(f"         {str(cells)[:190]}")
+            print(f"         {str(cells)[:185]}")
+    codes = re.findall(r"[/=](\d{3}[0-9A-Z])(?:\.T|\b)", body)
+    if codes:
+        u = list(dict.fromkeys(codes))
+        print(f"    コードらしき文字列: {len(u)}種 例 {u[:12]}")
+    return body
 
 
 print(f"python {sys.version.split()[0]}")
-print("########## 1. 日経のランキングページ 全テーブル ##########")
-dump_all_tables("日経 ランキングトップ", "https://www.nikkei.com/markets/ranking/")
-dump_all_tables("日経 売買代金(推測URL)", "https://www.nikkei.com/markets/ranking/page/?bd=baibaidaikin")
 
-print("\n########## 2. Yahoo のランキング種別スラッグ探索 ##########")
-for slug in ("turnover", "amount", "tradingvalue", "tradingValue", "value",
-             "dealValue", "tradingValueHigh", "volume", "up"):
-    url = f"https://finance.yahoo.co.jp/stocks/ranking/{slug}?market=all&term=daily"
-    r = get(url, timeout=25)
-    if r is None:
-        continue
-    title = ""
-    if r.status_code == 200:
-        m = re.search(r"<title>([^<]+)</title>", r.text)
-        title = m.group(1) if m else ""
-    print(f"  {'✅' if r.status_code == 200 else '❌'} {slug:<18} status={r.status_code}  {title}")
+print("\n########## 1. 日経225の構成銘柄（ヒートマップ用） ##########")
+dump("日経公式 構成銘柄", "https://indexes.nikkei.co.jp/nkave/index/component?idx=nk225", rows=5)
+dump("日経公式 寄与度", "https://indexes.nikkei.co.jp/nkave/topic/contribution?idx=nk225")
+dump("日経 銘柄一覧", "https://www.nikkei.com/markets/kabu/nidxprice/")
+
+print("\n########## 2. 業種別の騰落率 ##########")
+for label, url in [
+    ("Yahoo 業種一覧", "https://finance.yahoo.co.jp/stocks/sectors"),
+    ("Yahoo 業種別ランキング",
+     "https://finance.yahoo.co.jp/stocks/ranking/industry?market=all&term=daily"),
+    ("日経 業種別", "https://www.nikkei.com/markets/kabu/gyoshu/"),
+    ("日経 東証業種別指数", "https://www.nikkei.com/markets/kabu/japanidx/"),
+]:
+    dump(label, url, max_tables=4, rows=5)
