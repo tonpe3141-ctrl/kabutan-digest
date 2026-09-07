@@ -17,6 +17,7 @@ from dashboard.sources.cnbc import _num, _quote            # noqa: E402
 from dashboard.sources.tdnet import (  # noqa: E402
     _classify, _is_fund, _normalize_code,
 )
+from dashboard.sources.news import _parse_article          # noqa: E402
 from dashboard.sources.yahoojp import _parse_row           # noqa: E402
 
 failures: list[str] = []
@@ -143,11 +144,39 @@ def test_slot():
     check("auto 17:35", resolve_slot(at(17, 35)), "taibike")
 
 
+# ==================== 相場振り返り記事（Yahoo AIマーケット） ====================
+ARTICLE_HTML = """<html><body>
+<article>
+<div>マーケットAIトピックス</div>
+<div>市場心理</div>
+<h1>日経平均+2.21%でAI関連主導の戻り</h1>
+<span>9/7 11:55更新</span>
+<div>影響銘柄</div>
+<span>アドテスト</span><span>レーザテク</span><span>東エレク</span>
+<p>東京市場は指数高とAIテーマが相場を牽引。</p>
+<p>日経平均は+2.21%（66,460.11円）と大幅高で、TOPIX（+0.62%）を上回る伸び。</p>
+</article>
+</body></html>"""
+
+
+def test_news():
+    print("\nYahoo AIマーケット記事")
+    art = _parse_article(ARTICLE_HTML, "https://finance.yahoo.co.jp/news/ai-market/detail/2956")
+    check("先頭のボイラープレートを除去", art is not None and "マーケットAIトピックス" not in art["body"],
+          True)
+    check("category", art["category"], "市場心理")
+    check("headline", art["headline"], "日経平均+2.21%でAI関連主導の戻り")
+    check("timestamp", art["timestamp"], "9/7 11:55更新")
+    check("本文に影響銘柄と数値が両方入る",
+          ("影響銘柄" in art["body"] and "66,460.11円" in art["body"]), True)
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
     test_tdnet()
     test_slot()
+    test_news()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

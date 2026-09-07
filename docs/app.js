@@ -267,16 +267,32 @@ function heatmapCard(rows, breadth) {
   ], breadth ? `上昇 ${breadth.up} / 下落 ${breadth.down}（${breadth.up_ratio}% が上昇）。${breadth.comment}` : null);
 }
 
-/* アナリスト分析。数値からルールベースで組み立てた文章を出す */
-function analysisCard(c) {
+/* アナリスト分析。ai_commentary（Claudeによる分析）があればそれを、
+   無ければ commentary（ルールベースの機械的な文章化）を表示する */
+function analysisCard(ruleBased, ai) {
+  const c = ai && ai.sections && ai.sections.length ? ai : ruleBased;
   if (!c || !c.sections || !c.sections.length) return null;
-  return card('相場の見立て', c.method || null, [
+
+  const isAi = c === ai;
+  const note = isAi
+    ? '生成AIによる分析です。数値データと相場振り返り記事をもとに作成していますが、'
+      + '誤りを含む可能性があります。売買を推奨するものではありません。'
+    : '各カードの数値を組み合わせて機械的に文章化したもの。売買を推奨するものではありません。'
+      + '（AI分析は準備中です）';
+
+  const body = [
     h('p', { class: 'analysis__headline', text: c.headline || '' }),
     h('div', {}, c.sections.map((s) => h('div', { class: 'analysis__sec' }, [
       h('div', { class: 'analysis__t', text: s.title }),
       h('div', { class: 'analysis__b', text: s.body }),
     ]))),
-  ], '各カードの数値を組み合わせて機械的に文章化したもの。売買を推奨するものではありません。');
+  ];
+  if (isAi && Array.isArray(c.sources) && c.sources.length) {
+    body.push(h('div', { class: 'analysis__srcs' }, c.sources.map((src) =>
+      h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
+  }
+
+  return card('相場の見立て', isAi ? (c.method || 'AI分析') : '簡易分析', body, note);
 }
 
 function hero(label, value, deltaText, deltaVal, aside, verdict, tone) {
@@ -319,7 +335,7 @@ function renderPreopen(d) {
     out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral'));
   }
 
-  const preAnalysis = analysisCard(d.commentary);
+  const preAnalysis = analysisCard(d.commentary, d.ai_commentary);
   if (preAnalysis) out.push(preAnalysis);
 
   if (d.risk) {
@@ -412,7 +428,7 @@ function renderSession(d, slot) {
       ] : null, verdict, tone));
   }
 
-  const analysis = analysisCard(d.commentary);
+  const analysis = analysisCard(d.commentary, d.ai_commentary);
   if (analysis) out.push(analysis);
 
   out.push(card('指数', (d.indices.nikkei || {}).asof || null, [

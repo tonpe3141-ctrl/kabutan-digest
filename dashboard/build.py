@@ -20,7 +20,7 @@ from .config import (
     US_INDICES, US_SECTOR_ETFS,
 )
 
-from .sources import cnbc, nikkei225, tdnet, yahoojp
+from .sources import cnbc, news, nikkei225, tdnet, yahoojp
 
 
 def _safe(label: str, fn, default=None):
@@ -102,6 +102,9 @@ def _compact_rows(rows: list[dict], limit: int = 30) -> list[dict]:
 
 # ==================== 寄り前 ====================
 def build_preopen(target_date: date) -> dict:
+    print("  [Yahoo] 相場振り返り記事を取得中...")
+    market_news = _safe("市況記事", lambda: news.fetch_market_topics(6), []) or []
+
     print("  [CNBC] 米国指数を取得中...")
     us = _safe("米国指数", lambda: cnbc.fetch_spec(US_INDICES), {}) or {}
     print("  [CNBC] 為替・金利・商品を取得中...")
@@ -147,7 +150,16 @@ def build_preopen(target_date: date) -> dict:
         "freshness": {"us_asof": spx.get("asof"),
                       "market_status": spx.get("market_status")},
     }
+    payload["news"] = market_news
     payload["commentary"] = commentary.preopen_commentary(payload)
+    # バックアップ実行（07:35 等）で上書きされても、Routine が既に書いた
+    # ai_commentary を消さないよう同日分があれば引き継ぐ
+    latest = store.load_latest()
+    if latest.get("date") == target_date.isoformat():
+        payload["ai_commentary"] = ((latest.get("slots", {}).get("preopen") or {})
+                                    .get("data") or {}).get("ai_commentary")
+    else:
+        payload["ai_commentary"] = None
     return payload
 
 
@@ -171,6 +183,9 @@ def build_session(target_date: date, slot: str) -> dict:
         t = _safe(page["label"], lambda p=page: yahoojp.fetch_ranking(p))
         if t:
             tables[page["key"]] = t
+
+    print("  [Yahoo] 相場振り返り記事を取得中...")
+    market_news = _safe("市況記事", lambda: news.fetch_market_topics(6), []) or []
 
     print("  [TDnet] 適時開示を取得中...")
     disc = _safe("適時開示", lambda: tdnet.fetch_disclosures(target_date),
@@ -234,6 +249,7 @@ def build_session(target_date: date, slot: str) -> dict:
         "constituents": constituents,
         "sectors_jp": analyze.sector_performance(constituents),
         "breadth": analyze.constituent_breadth(constituents),
+        "news": market_news,
     }
 
     latest = store.load_latest()
@@ -247,6 +263,8 @@ def build_session(target_date: date, slot: str) -> dict:
 
     payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []), quotes_by_code)
     payload["commentary"] = commentary.session_commentary(payload, slot)
+    # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary を消さない
+    payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
     payload["_after_hours"] = split["after"]
     return payload
 
