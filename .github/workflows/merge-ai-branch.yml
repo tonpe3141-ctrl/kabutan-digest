@@ -1,0 +1,53 @@
+name: AI分析ブランチの自動マージ
+
+# Claude Routine（AI分析タスク）はこのプラットフォームの安全機構により
+# main へ直接 push できず、claude/* ブランチに push する（実測で確認済み）。
+# 人手を介さず1日3回運用するため、docs/data/latest.json だけを触る
+# 変更に限って自動でマージする。少しでも想定外なら見送り、手動対応に回す
+# （tools/verify_ai_merge.py が判定する）。
+
+on:
+  push:
+    branches:
+      - "claude/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard-data
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: マージしてよいか検査する
+        id: verify
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          git fetch origin "$BRANCH" main
+          if python3 tools/verify_ai_merge.py "$BRANCH"; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: マージして push し、ブランチを削除する
+        if: steps.verify.outputs.ok == 'true'
+        run: |
+          BRANCH="${{ steps.verify.outputs.branch }}"
+          git merge --ff-only "origin/$BRANCH"
+          for i in 1 2 3 4; do
+            git push origin HEAD:main && break
+            echo "push に失敗。$((2 ** i)) 秒待って再試行します。"
+            sleep $((2 ** i))
+          done
+          git push origin --delete "$BRANCH" || echo "ブランチ削除に失敗しましたが致命的ではありません"
