@@ -215,6 +215,24 @@ def build_session(target_date: date, slot: str) -> dict:
 
 
 # ==================== エントリポイント ====================
+def adjust_slot(slot: str, now: datetime | None = None) -> str:
+    """cron が遅れて発火したときに、実際の時刻と矛盾する区分を補正する。
+
+    GitHub の schedule はベストエフォートで、混雑時は数時間ずれる
+    （2026-09-07 に「12:40 JST」の cron が 17:36 JST に発火した実測あり）。
+    そのまま前場として保存すると、大引けの数字が前場タブに入ってしまう。
+
+    寄り前は前夜の米国市場の終値を見るだけなので、遅れても内容は変わらない。
+    補正するのは前場だけでよい。
+    """
+    now = now or store.now_jst()
+    minutes = now.hour * 60 + now.minute
+    if slot == "zenba" and minutes >= 15 * 60:
+        print(f"  ⚠️  前場の実行が {now:%H:%M} まで遅れているため、大引として扱います")
+        return "taibike"
+    return slot
+
+
 def resolve_slot(now: datetime | None = None) -> str:
     now = now or store.now_jst()
     minutes = now.hour * 60 + now.minute
@@ -227,6 +245,7 @@ def resolve_slot(now: datetime | None = None) -> str:
 
 def run(slot: str, target_date: date | None = None) -> dict:
     target_date = target_date or store.now_jst().date()
+    slot = adjust_slot(slot)
     print(f"\n{'=' * 52}")
     print(f"  マーケットダッシュボード  slot={slot}  date={target_date}")
     print(f"{'=' * 52}\n")

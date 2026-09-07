@@ -1,4 +1,4 @@
-"""パーサの回帰テスト（ネットワーク不要）。
+"""パーサとスロット判定の回帰テスト（ネットワーク不要）。
 
   python tests/test_parsers.py
 
@@ -103,10 +103,34 @@ def test_tdnet():
     check("対象外は None", _classify("代表取締役の異動に関するお知らせ"), None)
 
 
+# ==================== スロットの補正 ====================
+def test_slot():
+    from datetime import datetime, timedelta, timezone
+
+    from dashboard.build import adjust_slot, resolve_slot
+
+    JST = timezone(timedelta(hours=9))
+    at = lambda h, m: datetime(2026, 9, 7, h, m, tzinfo=JST)   # noqa: E731
+
+    print("\nスロットの補正")
+    check("定刻の前場はそのまま", adjust_slot("zenba", at(12, 5)), "zenba")
+    check("12:40 の追い取りもそのまま", adjust_slot("zenba", at(12, 40)), "zenba")
+    check("14:59 まではまだ前場", adjust_slot("zenba", at(14, 59)), "zenba")
+    # GitHub の cron が数時間遅れた場合。大引けの値を前場タブに入れない
+    check("15:00 以降の前場は大引に倒す", adjust_slot("zenba", at(17, 36)), "taibike")
+    check("寄り前は遅れても寄り前", adjust_slot("preopen", at(10, 30)), "preopen")
+    check("大引はそのまま", adjust_slot("taibike", at(18, 5)), "taibike")
+
+    check("auto 07:05", resolve_slot(at(7, 5)), "preopen")
+    check("auto 12:05", resolve_slot(at(12, 5)), "zenba")
+    check("auto 17:35", resolve_slot(at(17, 35)), "taibike")
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
     test_tdnet()
+    test_slot()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
