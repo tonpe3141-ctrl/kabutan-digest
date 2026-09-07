@@ -14,7 +14,9 @@ from bs4 import BeautifulSoup
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dashboard.sources.cnbc import _num, _quote            # noqa: E402
-from dashboard.sources.tdnet import _classify, _normalize_code  # noqa: E402
+from dashboard.sources.tdnet import (  # noqa: E402
+    _classify, _is_fund, _normalize_code,
+)
 from dashboard.sources.yahoojp import _parse_row           # noqa: E402
 
 failures: list[str] = []
@@ -101,6 +103,21 @@ def test_tdnet():
     check("決算短信", _classify("2026年10月期 第3四半期決算短信〔日本基準〕（連結）"), "決算短信")
     check("自己株式取得", _classify("自己株式の取得に関するお知らせ"), "自己株式取得")
     check("対象外は None", _classify("代表取締役の異動に関するお知らせ"), None)
+
+    # ETF は名称にも表題にも ETF の語が無いことがある（Global X など）ので
+    # ブランド名の先頭一致と、期間を日付範囲で書く決算短信の形式でも判定する
+    period = "2026年7月期（2026年1月25日～2026年7月24日）決算短信"
+    check("Global X（名称に ETF の語なし）", _is_fund("ＧＸウラニウム", period), True)
+    check("期間が日付範囲の決算短信", _is_fund("なんとかファンド", period), True)
+    check("iFree の分配金", _is_fund("ｉＦＦリート", "iFreeETFの収益分配金分配のお知らせ"), True)
+    check("NEXT FUNDS", _is_fund("ＮＦ・日経225", "決算短信"), True)
+    check("事業会社の決算短信は残す",
+          _is_fund("萩原工業", "2026年10月期 第3四半期決算短信〔日本基準〕（連結）"), False)
+    check("事業会社の業績修正は残す",
+          _is_fund("旭コンクリ", "2027年3月期第２四半期（中間期）及び通期業績予想の修正に関するお知らせ"),
+          False)
+    check("紛らわしい社名は落とさない",
+          _is_fund("シンプレクスＨＤ", "2026年3月期 第2四半期決算短信〔日本基準〕（連結）"), False)
 
 
 # ==================== スロットの補正 ====================

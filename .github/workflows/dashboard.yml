@@ -83,11 +83,15 @@ jobs:
           if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
           python -m dashboard.build $args
 
+      # 古い app.js をブラウザが掴んだままにならないよう内容ハッシュを打つ
+      - name: 静的ファイルにハッシュを付ける
+        run: python tools/stamp_assets.py
+
       - name: 変更をコミットして公開
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data
+          git add docs
           if git diff --cached --quiet; then
             echo "変更なし。コミットしません。"
             exit 0

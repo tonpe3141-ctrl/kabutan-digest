@@ -16,18 +16,44 @@ from ..http import get
 LIST_URL = "https://www.release.tdnet.info/inbs/I_list_{page:03d}_{date}.html"
 
 # ETF・ETN・投資信託の開示は個別株の物色と関係がないので落とす。
-# （収益分配金の告知が毎日大量に出るため、これを混ぜると個別の材料が埋もれる）
-FUND_NAME_RE = re.compile(
-    r"(ETF|ＥＴＦ|ETN|ＥＴＮ|上場投信|投信|投資信託|ｉＦ|ｉシェアーズ|"
-    r"ＭＡＸＩＳ|ＮＥＸＴ\s?ＦＵＮＤＳ|ダイワ上場|上場インデックス)")
-FUND_TITLE_RE = re.compile(
-    r"(ETF|ＥＴＦ|ETN|ＥＴＮ|上場投信|投資信託|収益分配金|"
-    r"受益権|信託財産|償還|運用報告書)")
+# （収益分配金や決算短信が毎日まとめて出るため、これを混ぜると個別の材料が埋もれる）
+#
+# 判定は3つの手がかりを併用する。名称だけだと Global X のように
+# 「ＧＸ超短期米国債」など ETF と分かる語を含まない銘柄を取りこぼすため。
+
+# 1) 運用会社ごとのブランド名。先頭一致に限定して誤爆を避ける
+#    （例: シンプレクス・ホールディングス(4373) は事業会社なので入れない）
+FUND_BRAND_RE = re.compile(
+    r"^(ＧＸ|GX|グローバルＸ"
+    r"|ｉＦ|iF|ｉシェアーズ|ｉＳ"
+    r"|ＭＡＸＩＳ|MAXIS|ＭＸＳ"
+    r"|ＮＥＸＴ|NEXT|ＮＦ[・･]"
+    r"|ダイワ上場|上場インデックス|上場ＩＮ"
+    r"|Ｔｒａｃｅｒｓ|ＮＺＡＭ|ＳＭＤＡＭ|ＳＭＴ"
+    r"|楽天ＥＴＦ|ＷＴ|ＷｉｓｄｏｍＴｒｅｅ)")
+
+# 2) 名称・表題のどこかに現れる、ファンドであることを示す語
+FUND_WORD_RE = re.compile(
+    r"(ETF|ＥＴＦ|ETN|ＥＴＮ|上場投信|投信|投資信託|受益権|信託財産"
+    r"|収益分配金|運用報告書|償還)")
+
+# 3) ETF の決算短信に特有の、期間を日付範囲で書く形式
+#    例: 2026年7月期（2026年1月25日～2026年7月24日）決算短信
+#    事業会社は「第3四半期決算短信〔日本基準〕（連結）」と書くので衝突しない
+FUND_PERIOD_RE = re.compile(
+    r"（\s*\d{4}年\d{1,2}月\d{1,2}日\s*[～〜~－-]\s*\d{4}年\d{1,2}月\d{1,2}日\s*）")
 
 
 def _is_fund(name: str, title: str) -> bool:
     """ETF・ETN・投資信託の開示かどうか。"""
-    return bool(FUND_NAME_RE.search(name or "") or FUND_TITLE_RE.search(title or ""))
+    name, title = name or "", title or ""
+    if FUND_BRAND_RE.match(name):
+        return True
+    if FUND_WORD_RE.search(name) or FUND_WORD_RE.search(title):
+        return True
+    if "決算短信" in title and FUND_PERIOD_RE.search(title):
+        return True
+    return False
 
 
 # 表題から「相場が動く開示」だけを拾うための分類
