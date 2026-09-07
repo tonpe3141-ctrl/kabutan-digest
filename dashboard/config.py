@@ -98,7 +98,7 @@ _Y = "https://finance.yahoo.co.jp/stocks/ranking"
 
 RANKING_PAGES = {
     "zenba": [
-        {"key": "value",  "label": "売買代金", "max_rows": 20,
+        {"key": "value",  "label": "売買代金", "max_rows": 30,
          # tradingValueHigh が正しいスラッグ（tradingValue/turnover は 400 を返す）。
          # 出来高は代金の代替にならない（低位株が上位を占める）ので最後の手段。
          "urls": [{"url": f"{_Y}/tradingValueHigh?market=all&term=daily", "label": "売買代金"},
@@ -109,7 +109,7 @@ RANKING_PAGES = {
          "urls": [{"url": f"{_Y}/down?market=all&term=daily", "label": "下落率"}]},
     ],
     "taibike": [
-        {"key": "value",  "label": "売買代金", "max_rows": 20,
+        {"key": "value",  "label": "売買代金", "max_rows": 30,
          # tradingValueHigh が正しいスラッグ（tradingValue/turnover は 400 を返す）。
          # 出来高は代金の代替にならない（低位株が上位を占める）ので最後の手段。
          "urls": [{"url": f"{_Y}/tradingValueHigh?market=all&term=daily", "label": "売買代金"},

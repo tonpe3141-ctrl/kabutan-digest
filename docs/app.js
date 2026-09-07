@@ -363,7 +363,7 @@ function renderSession(d, slot) {
     out.push(card(valueLabel + ' 上位',
       valueLabel === '売買代金' ? '資金が向かった先' : '商いが膨らんだ銘柄',
       stockRows(t.value.rows, {
-        limit: 15,
+        limit: 30,
         meta: (r) => {
           const m = [];
           if (newSet.has(r.code)) m.push('🆕 新規ランクイン');

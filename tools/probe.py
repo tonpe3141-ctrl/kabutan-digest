@@ -3,81 +3,70 @@
 取得が全滅したときに、原因が「相手サイトの遮断」なのか
 「こちらのパーサの不具合」なのかを切り分けるために使う。
 Actions から「データ源の疎通診断」ワークフローを手動実行する。
-
-分かっていること:
-  🚫 株探 / stooq / Yahoo Finance(米) / みんかぶ / トレーダーズ … 拒否 or 404
-  ✅ CNBC / Yahoo!ファイナンス(日本) / TDnet / 日経新聞 / 日経インデックス
 """
+import json
 import re
 import sys
 
 import requests
-from bs4 import BeautifulSoup
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 HEADERS = {"User-Agent": UA, "Accept-Language": "ja,en;q=0.9"}
+CNBC = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol"
+        "?symbols={syms}&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
 
 
-def get(url, timeout=40):
+def get(url, timeout=35):
     try:
         return requests.get(url, headers=HEADERS, timeout=timeout)
     except Exception as e:
-        print(f"    ❌ 例外: {type(e).__name__}: {str(e)[:100]}")
+        print(f"    ❌ 例外: {type(e).__name__}: {str(e)[:90]}")
         return None
-
-
-def dump(label, url, max_tables=8, rows=4):
-    print(f"\n=== {label} ===\n    {url}")
-    r = get(url)
-    if r is None:
-        return None
-    body = r.text or ""
-    blocked = any(x in body[:2500] for x in ("Human Verification", "verify your browser"))
-    print(f"    status={r.status_code} len={len(body)}" + ("  ※bot対策" if blocked else ""))
-    if r.status_code != 200 or blocked:
-        print(f"    先頭: {body[:120]}")
-        return None
-    soup = BeautifulSoup(body, "html.parser")
-    t = soup.find("title")
-    print(f"    title: {t.get_text(strip=True) if t else '—'}")
-    tables = soup.find_all("table")
-    print(f"    table 数: {len(tables)}")
-    for i, tbl in enumerate(tables[:max_tables]):
-        heading = ""
-        for prev in tbl.find_all_previous(["h1", "h2", "h3", "h4", "caption"], limit=12):
-            txt = prev.get_text(strip=True)
-            if txt and 2 <= len(txt) <= 26:
-                heading = txt
-                break
-        trs = tbl.find_all("tr")
-        print(f"    ── table{i} 「{heading}」 行数={len(trs)}")
-        for tr in trs[:rows]:
-            cells = []
-            for c in tr.find_all(["th", "td"]):
-                parts = [x.strip() for x in c.stripped_strings]
-                cells.append(parts if len(parts) > 1 else (parts[0] if parts else ""))
-            print(f"         {str(cells)[:185]}")
-    codes = re.findall(r"[/=](\d{3}[0-9A-Z])(?:\.T|\b)", body)
-    if codes:
-        u = list(dict.fromkeys(codes))
-        print(f"    コードらしき文字列: {len(u)}種 例 {u[:12]}")
-    return body
 
 
 print(f"python {sys.version.split()[0]}")
+print("########## 1. CNBC で日本の個別株が取れるか（ヒートマップ用） ##########")
+for fmt in ("{c}.T-JP", "{c}-JP", "{c}.T", "{c}.TO", "{c}"):
+    syms = [fmt.format(c=c) for c in ("7203", "9984", "8035", "285A")]
+    r = get(CNBC.format(syms="|".join(syms)))
+    if r is None or r.status_code != 200:
+        print(f"  ❌ 形式 {fmt:<10} status={r.status_code if r else 'なし'}")
+        continue
+    try:
+        qs = r.json()["FormattedQuoteResult"]["FormattedQuote"]
+    except Exception as e:
+        print(f"  ❌ 形式 {fmt:<10} 解析失敗 {e}")
+        continue
+    ok = [q for q in qs if q.get("last") not in (None, "")]
+    print(f"  {'✅' if ok else '❌'} 形式 {fmt:<10} 取得 {len(ok)}/{len(syms)}")
+    for q in qs[:4]:
+        print(f"       {q.get('symbol'):<12} {str(q.get('name'))[:22]:<24} "
+              f"last={q.get('last')!s:>10} chg%={q.get('change_pct')!s:>9} cur={q.get('currencyCode')}")
 
-print("\n########## 1. 日経225の構成銘柄（ヒートマップ用） ##########")
-dump("日経公式 構成銘柄", "https://indexes.nikkei.co.jp/nkave/index/component?idx=nk225", rows=5)
-dump("日経公式 寄与度", "https://indexes.nikkei.co.jp/nkave/topic/contribution?idx=nk225")
-dump("日経 銘柄一覧", "https://www.nikkei.com/markets/kabu/nidxprice/")
+print("\n########## 2. Yahoo のランキング種別を一覧から拾う ##########")
+r = get("https://finance.yahoo.co.jp/stocks/ranking/up?market=all&term=daily")
+if r and r.status_code == 200:
+    slugs = sorted(set(re.findall(r"/stocks/ranking/([A-Za-z]+)", r.text)))
+    print(f"  見つかった種別 {len(slugs)}件: {slugs}")
+else:
+    print("  ❌ 一覧を取得できません")
 
-print("\n########## 2. 業種別の騰落率 ##########")
+print("\n########## 3. 日経のマーケット配下のページ一覧 ##########")
+r = get("https://www.nikkei.com/markets/kabu/")
+if r and r.status_code == 200:
+    paths = sorted(set(re.findall(r"/markets/kabu/([a-z0-9_]+)/", r.text)))
+    print(f"  {len(paths)}件: {paths}")
+else:
+    print(f"  status={r.status_code if r else 'なし'}")
+
+print("\n########## 4. 東証33業種の候補 ##########")
 for label, url in [
-    ("Yahoo 業種一覧", "https://finance.yahoo.co.jp/stocks/sectors"),
-    ("Yahoo 業種別ランキング",
-     "https://finance.yahoo.co.jp/stocks/ranking/industry?market=all&term=daily"),
-    ("日経 業種別", "https://www.nikkei.com/markets/kabu/gyoshu/"),
-    ("日経 東証業種別指数", "https://www.nikkei.com/markets/kabu/japanidx/"),
+    ("日経 業種別株価", "https://www.nikkei.com/markets/kabu/gyoshubetsu/"),
+    ("日経 東証業種別", "https://www.nikkei.com/markets/kabu/tosho33/"),
+    ("JPX 指数一覧", "https://www.jpx.co.jp/markets/indices/line-up/index.html"),
 ]:
-    dump(label, url, max_tables=4, rows=5)
+    r = get(url, timeout=25)
+    print(f"  {'✅' if r is not None and r.status_code == 200 else '❌'} {label:<16} "
+          f"status={r.status_code if r else 'なし'}"
+          + (f" len={len(r.text)}" if r is not None else ""))
