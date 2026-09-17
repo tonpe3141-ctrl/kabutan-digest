@@ -21,6 +21,7 @@ const HISTORY_DAYS = 15;            // 履歴タブと発掘タブが読み込�
 
 let DATA = null;
 let LEDGER = null;                  // docs/data/ledger.json（サーバ側の台帳。あれば優先）
+let WEEKLY = null;                  // docs/data/weekly.json（金曜の週報）
 let HIST = { dates: [], byDate: new Map(), loaded: false };
 let activeSlot = null;
 let activeView = 'today';
@@ -393,10 +394,17 @@ function summaryCard(d, slot) {
     if (tp) stats.push(stat('TOPIX', fmtPct(tp.change_pct), fmtNum(tp.close, 2), cls(tp.change_pct)));
     if (br) stats.push(stat('225中 上昇', `${br.up}`, `下落 ${br.down}`, br.up > br.down ? 'up' : br.up < br.down ? 'down' : 'flat'));
     if (d.divergence) chips.push(h('span', { class: 'badge badge--' + (d.divergence.tone === 'warn' ? 'warn' : 'accent'), text: d.divergence.label }));
-    const sj = d.sectors_jp || [];
+    const s33 = ((d.sectors33 || {}).rows || []);
+    const sj = s33.length >= 20 ? s33.map((r) => ({ sector: r.sector })) : (d.sectors_jp || []);
     if (sj.length) {
       chips.push(h('span', { class: 'badge badge--up', text: '強い: ' + sj.slice(0, 2).map((s) => s.sector).join('・') }));
       chips.push(h('span', { class: 'badge badge--down', text: '弱い: ' + sj.slice(-2).reverse().map((s) => s.sector).join('・') }));
+    }
+    const tf = ((d.theme_flow || {}).top || []).slice(0, 2).map((t) => '#' + t.theme);
+    if (tf.length) chips.push(h('span', { class: 'badge badge--accent', text: 'テーマ: ' + tf.join(' ') }));
+    const lt = d.ledger_today;
+    if (lt && lt.added && lt.added.length) {
+      chips.push(h('span', { class: 'badge badge--warn', text: '候補入り: ' + lt.added.slice(0, 3).map((a) => a.name).join('・') }));
     }
     if (slot === 'zenba' && d.verify_open) {
       chips.push(h('span', { class: 'badge', text: `寄り前想定 ${fmtPct(d.verify_open.expected_pct)} → 実際 ${fmtPct(d.verify_open.actual_pct)}` }));
@@ -439,6 +447,102 @@ function noData(slot) {
     h('p', { class: 'hint', text: '自動更新が走ると表示されます。上の時間帯ボタンに実際の更新時刻を出しています。' +
       (others.length ? `　いまは「${others.map((s) => SLOT_LABEL[s]).join('」「')}」が読めます。` : '') }),
   ]);
+}
+
+
+/* ==================== 東証33業種・テーマ・時間軸・株探 ==================== */
+function sectors33Card(sec) {
+  const rows = (sec && sec.rows) || [];
+  if (rows.length < 20) return null;
+  const mk = (r) => ({
+    label: r.sector, value: r.change_pct,
+    sub: (r.leaders || []).map((l) => l.name).join('・') || null,
+  });
+  const all = rows.map(mk);
+  const short = all.slice(0, 6).concat([{ gap: true }], all.slice(-6));
+  const sub = isNum(sec.up) ? `上昇 ${sec.up} / 下落 ${sec.down} 業種` : (sec.timestamp || null);
+  const pr = sec.prime;
+  return card('東証33業種 騰落率', sub,
+    foldable((n) => barList(n >= all.length ? all : short), all.length, short.length, '全33業種'),
+    (pr ? `プライム ${pr.total}銘柄中 上昇 ${pr.up} / 下落 ${pr.down}。` : '') +
+    '出典: 株探「本日の【業種】騰落ランキング」（Yahoo!ファイナンス配信）。業種名の下は上昇率上位の銘柄。',
+    false, 'sec-sector33');
+}
+
+function themeCard(flow) {
+  const top = (flow && flow.top) || [];
+  if (!top.length) return null;
+  const streak = new Map(((flow && flow.streaks) || []).map((s) => [s.theme, s.days]));
+  const rows = h('div', { class: 'rows' }, top.map((t, i) => {
+    const meta = [h('span', { text: `${t.count}銘柄` })];
+    if (streak.get(t.theme) > 1) meta.push(h('span', { class: 'tag', text: `${streak.get(t.theme)}日連続` }));
+    if (!t.was_top) meta.push(h('span', { class: 'tag tag--warn', text: '初動' }));
+    meta.push(h('span', { text: (t.names || []).join('・') }));
+    return h('div', { class: 'row' }, [
+      h('div', { class: 'row__rank num', text: String(i + 1) }),
+      h('div', { class: 'row__main' }, [
+        h('div', { class: 'row__name', text: '#' + t.theme }),
+        h('div', { class: 'row__meta' }, meta),
+      ]),
+      h('div', { class: 'row__right' }, [
+        h('div', { class: 'row__delta num ' + cls(t.avg_pct), text: isNum(t.avg_pct) ? fmtPct(t.avg_pct) : '—' }),
+      ]),
+    ]);
+  }));
+  const unknown = (flow.unknown_codes || []).length;
+  return card('テーマ別の資金の向き', `辞書 ${flow.dictionary_size || 0}銘柄`, rows,
+    '売買代金上位・上昇率上位・年初来高値更新の銘柄を、銘柄→テーマ辞書で束ねた集計。' +
+    `平均は束ねた銘柄の騰落率。辞書で束ねられた割合 ${Math.round((flow.coverage || 0) * 100)}%` +
+    (unknown ? `、未登録 ${unknown}銘柄（AIが記事を読んで辞書に追記します）` : '') + '。', true, 'sec-theme');
+}
+
+function trendCard(tr) {
+  const rows = (tr && tr.rows) || [];
+  if (rows.length < 4) return null;
+  const fmt = (v) => (isNum(v) ? fmtPct(v, 1) : '—');
+  const mk = (r) => h('div', { class: 'row' }, [
+    h('div', { class: 'row__rank' }, []),
+    h('div', { class: 'row__main' }, [
+      h('div', { class: 'row__name', text: r.sector }),
+      h('div', { class: 'row__meta' }, [
+        h('span', { class: 'num', text: `今日 ${fmt(r.d0)}` }),
+        h('span', { class: 'num', text: `20日 ${fmt(r.d20)}` }),
+        r.label ? h('span', { class: 'tag', text: r.label }) : null,
+      ]),
+    ]),
+    h('div', { class: 'row__right' }, [
+      h('div', { class: 'row__price', style: 'font-size:10.5px;color:var(--text-faint);font-weight:500', text: '5日' }),
+      h('div', { class: 'row__delta num ' + cls(r.d5), text: fmt(r.d5) }),
+    ]),
+  ]);
+  const short = rows.slice(0, 5).concat(rows.slice(-5));
+  return card('業種の時間軸', `${tr.days}営業日`,
+    foldable((n) => h('div', { class: 'rows' }, (n >= rows.length ? rows : short).map(mk)), rows.length, short.length, '全業種'),
+    tr.note, true, 'sec-trend');
+}
+
+function kabutanCards(kb) {
+  const out = [];
+  const heads = (kb && kb.headlines) || [];
+  const arts = (kb && kb.articles) || [];
+  if (heads.length) {
+    out.push(card('株探の見出し', `${heads.length}本`,
+      foldable((n) => h('div', { class: 'rows' }, heads.slice(0, n).map((x) => {
+        const inner = [
+          h('div', { class: 'row__rank num', text: (x.published || '').slice(11, 16) }),
+          h('div', { class: 'row__main' }, [h('div', { class: 'row__name', style: 'white-space:normal', text: x.title })]),
+          h('div', { class: 'row__right' }, []),
+        ];
+        return x.url ? h('a', { class: 'row', href: x.url, target: '_blank', rel: 'noopener' }, inner) : h('div', { class: 'row' }, inner);
+      })), heads.length, 8, '全件'),
+      '株探の記事見出し（Google ニュース経由）。本文は株探で読む。見出しの左は配信時刻。', true, 'sec-kabutan'));
+  }
+  if (arts.length) {
+    out.push(card('株探の記事', `${arts.length}本`,
+      h('div', {}, arts.map((a) => accordion(a.headline || '（見出しなし）', a.timestamp || null, a.body, a.url, 'Yahoo!ファイナンスで開く'))),
+      null, true, out.length ? null : 'sec-kabutan'));
+  }
+  return out;
 }
 
 /* ==================== 今日: 寄り前 ==================== */
@@ -508,6 +612,7 @@ function renderPreopen(d) {
       h('p', { class: 'hint', style: 'font-size:13px;color:var(--text-dim);margin:0', text: co.prev_session.session_shift.verdict })));
   }
 
+  kabutanCards(d.kabutan).forEach((c) => out.push(c));
   const news = newsCard(d.news);
   if (news) out.push(news);
   out.push(watchlistCard(d, 'sec-watch'));
@@ -546,6 +651,9 @@ function renderSession(d, slot) {
     verdict ? h('div', { class: 'hero__verdict is-' + tone, text: verdict }) : null,
   ], null, false, 'sec-index'));
 
+  const s33 = sectors33Card(d.sectors33);
+  if (s33) out.push(s33);
+
   if (d.sectors_jp && d.sectors_jp.length >= 4) {
     const mk = (x) => ({
       label: `${x.sector}（${x.count}）`, value: x.avg_pct,
@@ -554,10 +662,15 @@ function renderSession(d, slot) {
     });
     const all = d.sectors_jp.map(mk);
     const short = all.slice(0, 5).concat([{ gap: true }], all.slice(-5));
-    out.push(card('業種別 騰落率', '225採用銘柄の平均',
+    out.push(card(s33 ? '日経225採用銘柄の業種平均' : '業種別 騰落率', '225採用銘柄の平均',
       foldable((n) => barList(n >= all.length ? all : short), all.length, short.length, `全${all.length}業種`),
-      '日経の業種区分で採用銘柄をまとめた単純平均。時価総額加重の東証33業種指数とは一致しません。', false, 'sec-sector'));
+      '日経の業種区分で採用銘柄をまとめた単純平均。時価総額加重の東証33業種指数とは一致しません。', false, s33 ? 'sec-sector225' : 'sec-sector33'));
   }
+
+  const theme = themeCard(d.theme_flow);
+  if (theme) out.push(theme);
+  const tr = trendCard(d.sector_trend);
+  if (tr) out.push(tr);
 
   const heat = heatmapCard(d.constituents, d.breadth);
   if (heat) out.push(heat);
@@ -599,6 +712,30 @@ function renderSession(d, slot) {
     out.push(card('値動きの大きかった銘柄', seg, body, null, true, 'sec-moves'));
   }
 
+  if (t.ytd_high && t.ytd_high.rows && t.ytd_high.rows.length) {
+    const rows = t.ytd_high.rows;
+    out.push(card('年初来高値を更新した銘柄', `${rows.length}銘柄`,
+      foldable((n) => stockRows(rows, { limit: n, meta: (r) => [r.market, isNum(r.metric) ? `前高値 ${fmtPrice(r.metric)}` : null].filter(Boolean).map((m) => h('span', { text: m })) }), rows.length, 8, '全件'),
+      '右の％は前営業日までの年初来高値をどれだけ上抜けたか（前日比ではない）。ETF・REIT は除外。', true, 'sec-ytd'));
+  }
+  if (t.vol_surge && t.vol_surge.rows && t.vol_surge.rows.length) {
+    const rows = t.vol_surge.rows;
+    out.push(card('出来高が急増した銘柄', `${rows.length}銘柄`,
+      foldable((n) => h('div', { class: 'rows' }, rows.slice(0, n).map((r, i) => h('a', { class: 'row', href: stockUrl(r.code), target: '_blank', rel: 'noopener' }, [
+        h('div', { class: 'row__rank num', text: String(i + 1) }),
+        h('div', { class: 'row__main' }, [
+          h('div', { class: 'row__name', text: cleanName(r.name) || r.code }),
+          h('div', { class: 'row__meta' }, [h('span', { text: r.code }), r.market ? h('span', { text: r.market }) : null,
+            isNum(r.volume) ? h('span', { text: `出来高 ${fmtNum(r.volume, 0)}` }) : null]),
+        ]),
+        h('div', { class: 'row__right' }, [
+          isNum(r.price) ? h('div', { class: 'row__price num', text: fmtPrice(r.price) }) : null,
+          h('div', { class: 'row__delta num', text: isNum(r.metric) ? `×${fmtNum(r.metric, 1)}` : '—' }),
+        ]),
+      ]))), rows.length, 8, '全件'),
+      '右は前日出来高に対する倍率。ETF・REIT は除外。低位株や小型株が多いので、売買代金上位との重なりを見る。', true, 'sec-volsurge'));
+  }
+
   const discCard = (table, title, note, id) => {
     if (!table || !table.rows.length) return null;
     const material = table.rows.filter((r) => MATERIAL.includes(r.category));
@@ -621,6 +758,7 @@ function renderSession(d, slot) {
   const intraday = discCard(t.kessan_intraday, '場中の開示', null, after ? 'sec-disc2' : 'sec-disc');
   if (intraday) out.push(intraday);
 
+  kabutanCards(d.kabutan).forEach((c) => out.push(c));
   const news = newsCard(d.news);
   if (news) out.push(news);
   out.push(watchlistCard(d, 'sec-watch'));
@@ -789,7 +927,7 @@ function renderDiscover() {
       out.push(card('追跡を終えた候補', `${closed.length}銘柄`,
         foldable((n) => h('div', {}, closed.slice(0, n).map(ledgerRow)), closed.length, 8, '全件'), null, true));
     }
-    if (LEDGER.stats) {
+    if (LEDGER.stats && Array.isArray(LEDGER.stats.by_signal) && LEDGER.stats.by_signal.length) {
       out.push(card('シグナル別の成績', LEDGER.stats.asof ? fmtDate(LEDGER.stats.asof) + ' 時点' : null,
         h('div', { class: 'rows' }, (LEDGER.stats.by_signal || []).map((s) => h('div', { class: 'row' }, [
           h('div', { class: 'row__rank' }, []),
@@ -825,21 +963,34 @@ function renderDiscover() {
     ]));
   }
 
-  // 業種の時間軸: 履歴から日経の終値と各日の顔ぶれの変化
-  const sessions = histSessions();
-  const closes = sessions.map((s) => ((s.taibike || {}).indices || {}).nikkei).filter((n) => n && isNum(n.close)).map((n) => n.close);
-  if (closes.length >= 3) {
-    const first = closes[0], last = closes[closes.length - 1];
-    out.push(card(`日経平均 ${closes.length}営業日の推移`, fmtPct((last / first - 1) * 100) + ' の変化',
-      h('div', { class: 'tiles' }, [tile('始点', fmtNum(first, 0), fmtDate(sessions.find((s) => ((s.taibike || {}).indices || {}).nikkei)?.date), 0, null),
-        tile('終点', fmtNum(last, 0), fmtPct((last / first - 1) * 100), (last / first - 1) * 100, closes)])));
-  }
   return out;
 }
 
 /* ==================== 履歴 ==================== */
+function weeklyCard() {
+  const w = WEEKLY;
+  if (!w || !Array.isArray(w.sections) || !w.sections.length) return null;
+  return card('週報', w.week_end ? fmtDate(w.week_end) + ' まで' : null, [
+    h('p', { class: 'analysis__headline', text: w.headline || '' }),
+    h('div', {}, w.sections.map((s) => h('div', { class: 'analysis__sec' }, [
+      h('div', { class: 'analysis__t', text: s.title }),
+      h('div', { class: 'analysis__b', text: s.body }),
+    ]))),
+  ], (w.method || 'Claude による週次総括') + '。売買を推奨するものではありません。');
+}
+
 function renderHistory() {
   const out = [];
+  const wk = weeklyCard();
+  if (wk) out.push(wk);
+  const sess = latestSession() || {};
+  const it = sess.index_trend;
+  if (it && Array.isArray(it.series) && it.series.length >= 3) {
+    out.push(card('日経平均の推移', `${it.series.length}営業日`, h('div', { class: 'tiles' }, [
+      tile('5日', isNum(it.d5) ? fmtPct(it.d5) : '—', '', it.d5, null),
+      tile('20日', isNum(it.d20) ? fmtPct(it.d20) : '—', '', it.d20, it.series),
+    ])));
+  }
   if (!HIST.loaded) {
     out.push(h('section', { class: 'card' }, [h('p', { class: 'empty', text: '履歴を読み込み中…' })]));
     return out;
@@ -1067,8 +1218,9 @@ function bindSheet() {
 const JUMP_LABELS = [
   ['sec-summary', '要点'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
   ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'], ['sec-outlook', '連想'], ['sec-ussector', '米セクター'],
-  ['sec-sector', '業種'], ['sec-heat', 'ヒートマップ'], ['sec-value', '売買代金'], ['sec-moves', '値動き'],
-  ['sec-disc', '開示'], ['sec-news', 'ニュース'], ['sec-watch', 'ウォッチ'],
+  ['sec-sector33', '業種'], ['sec-theme', 'テーマ'], ['sec-trend', '時間軸'], ['sec-heat', 'ヒートマップ'],
+  ['sec-value', '売買代金'], ['sec-moves', '値動き'], ['sec-ytd', '高値更新'], ['sec-volsurge', '出来高'],
+  ['sec-disc', '開示'], ['sec-kabutan', '株探'], ['sec-news', 'ニュース'], ['sec-watch', 'ウォッチ'],
 ];
 
 function drawSlotBar() {
@@ -1192,10 +1344,12 @@ async function loadHistory() {
 }
 
 async function load() {
-  const [latest, ledger] = await Promise.all([fetchJson('data/latest.json'), fetchJson('data/ledger.json')]);
+  const [latest, ledger, weekly] = await Promise.all([
+    fetchJson('data/latest.json'), fetchJson('data/ledger.json'), fetchJson('data/weekly.json')]);
   if (latest) DATA = latest;
   else if (!DATA) { DATA = { slots: {} }; $('headDate').textContent = 'データを読み込めませんでした'; }
   LEDGER = ledger;
+  WEEKLY = weekly;
   if (!activeSlot) activeSlot = defaultSlot();
   render();
   await loadHistory();

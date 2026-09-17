@@ -108,6 +108,12 @@ def select_headlines(items: list[dict], slot: str, since_hours: int = 30,
 # ==================== 2. Yahoo!ファイナンス配信の株探記事（本文） ====================
 _CODE_LINES = re.compile(r"\n<\n([0-9]{3}[0-9A-Z])\n>\n")
 _TIME_RE = re.compile(r"^\d{1,2}:\d{2}$")
+_DATE_LINE = re.compile(r"^\[\d{4}年\d{1,2}月\d{1,2}日\]$")
+
+# 本文を読む価値の高い記事の型（上ほど優先）。ランキング羅列系は後回し
+ARTICLE_PRIORITY = [r"日経平均 大引け", r"マ[－ー]ケット日報", r"東京株式（大引け）", r"東京株式（前引け）",
+                    r"日経平均 前引け", r"【業種】騰落ランキング", r"明日の株式相場", r"ストップ高／ストップ安",
+                    r"投資部門別", r"上方修正|増額修正", r"決算速報", r"増資・売り出し", r"信用規制", r"PTS"]
 
 
 def _list_yahoo(category: str, page: int) -> list[dict]:
@@ -164,6 +170,9 @@ def parse_yahoo_article(html: str, url: str) -> dict | None:
         if l.startswith(("関連ニュース", "最終更新", "【一緒によく見られる銘柄】")):
             break
         body_lines.append(l)
+    # 末尾の定型（"[2026年9月17日]" / "株探ニュース（minkabu PRESS）" / "株探ニュース"）を落とす
+    while body_lines and (body_lines[-1].startswith(PROVIDER) or _DATE_LINE.match(body_lines[-1])):
+        body_lines.pop()
     body = "\n".join(body_lines).strip()
     if not body:
         return None
@@ -172,7 +181,7 @@ def parse_yahoo_article(html: str, url: str) -> dict | None:
 
 
 def fetch_articles(categories=("market", "stocks"), max_pages: int = 3,
-                   limit: int = 8) -> list[dict]:
+                   limit: int = 12) -> list[dict]:
     """Yahoo!ファイナンスに配信された株探ニュースの本文を新しい順に返す。"""
     found: list[dict] = []
     seen = set()
@@ -186,6 +195,10 @@ def fetch_articles(categories=("market", "stocks"), max_pages: int = 3,
                     continue
                 seen.add(r["url"])
                 found.append(r)
+    # 読む価値の高い型を先に、同じ型なら一覧の順（新しい順）で
+    def _prio(r):
+        return next((i for i, p in enumerate(ARTICLE_PRIORITY) if re.search(p, r["title"])), len(ARTICLE_PRIORITY))
+    found.sort(key=_prio)
     articles = []
     for r in found[:limit]:
         html = get_text(r["url"], timeout=20)
@@ -207,3 +220,78 @@ def fetch_for_slot(slot: str) -> dict:
     articles = fetch_articles()
     return {"headlines": picked, "articles": articles,
             "headline_count": len(headlines), "ok": bool(picked or articles)}
+
+
+# ==================== 3. 東証33業種の騰落（株探「【業種】騰落ランキング」記事） ====================
+SECTORS33 = [
+    "水産・農林業", "鉱業", "建設業", "食料品", "繊維製品", "パルプ・紙", "化学", "医薬品",
+    "石油・石炭製品", "ゴム製品", "ガラス・土石製品", "鉄鋼", "非鉄金属", "金属製品", "機械",
+    "電気機器", "輸送用機器", "精密機器", "その他製品", "電気・ガス業", "陸運業", "海運業",
+    "空運業", "倉庫・運輸関連業", "情報・通信業", "卸売業", "小売業", "銀行業",
+    "証券、商品先物取引業", "保険業", "その他金融業", "不動産業", "サービス業",
+]
+_SECTOR_ALT = "|".join(re.escape(n).replace("、", "[、・]") for n in
+                       sorted(SECTORS33, key=len, reverse=True)) + r"|証券業|倉庫・運輸業"
+# 上位銘柄の名前には符号付きの数値（次の業種の率）を含めない。行が連結されているため
+_SECTOR_ROW = re.compile(r"(" + _SECTOR_ALT + r")[\s　]+([+\-−]?\d+\.\d+)[\s　]*"
+                         r"((?:[^<\n+\-−]{1,20}<[0-9]{3}[0-9A-Z]>、?)*)")
+_STOCK_TAG = re.compile(r"([^<、\n+\-−]{1,20})<([0-9]{3}[0-9A-Z])>")
+_SUMMARY = re.compile(r"値上がり[：:]\s*(\d+)\s*業種[\s　]+値下がり[：:]\s*(\d+)\s*業種")
+_PRIME = re.compile(r"東証プライム[：:]\s*(\d+)銘柄[\s　]+値上がり[：:]\s*(\d+)\s*銘柄[\s　]+値下がり[：:]\s*(\d+)")
+
+
+def parse_sector_ranking(body: str) -> dict | None:
+    """「本日の【業種】騰落ランキング」の本文から東証33業種の前日比率を取り出す。
+
+    行の形: 海運業　　+3.09　商船三井<9104>、川崎汽<9107>、郵船<9101>その他製品　+2.88　…
+    業種名の直後に率、その後に上位3銘柄が続く。行が連結されているので業種名で区切る。
+    """
+    if not body:
+        return None
+    rows = []
+    for m in _SECTOR_ROW.finditer(body):
+        name = m.group(1).replace("、", "・")
+        if name == "証券業":
+            name = "証券・商品先物取引業"
+        if name == "倉庫・運輸業":
+            name = "倉庫・運輸関連業"
+        try:
+            pct = float(m.group(2).replace("−", "-"))
+        except ValueError:
+            continue
+        leaders = [{"name": n.strip("　 "), "code": c} for n, c in _STOCK_TAG.findall(m.group(3) or "")]
+        rows.append({"sector": name, "change_pct": pct, "leaders": leaders[:3]})
+    if len(rows) < 20:
+        return None
+    seen, uniq = set(), []
+    for r in rows:
+        if r["sector"] in seen:
+            continue
+        seen.add(r["sector"])
+        uniq.append(r)
+    uniq.sort(key=lambda r: r["change_pct"], reverse=True)
+    out = {"rows": uniq, "source": "株探ニュース（東証33業種、Yahoo!ファイナンス配信）"}
+    m = _SUMMARY.search(body)
+    if m:
+        out["up"], out["down"] = int(m.group(1)), int(m.group(2))
+    m = _PRIME.search(body)
+    if m:
+        out["prime"] = {"total": int(m.group(1)), "up": int(m.group(2)), "down": int(m.group(3))}
+    return out
+
+
+def sectors33_from_articles(articles: list[dict], session: str | None = None) -> dict | None:
+    """記事一覧から業種騰落ランキング記事を探して解析する。session は "大引け"/"前引け" 等。"""
+    for a in articles or []:
+        h = a.get("headline") or ""
+        if "【業種】騰落ランキング" not in h:
+            continue
+        if session and session not in h:
+            continue
+        parsed = parse_sector_ranking(a.get("body") or "")
+        if parsed:
+            parsed["headline"] = h
+            parsed["url"] = a.get("url")
+            parsed["timestamp"] = a.get("timestamp")
+            return parsed
+    return None

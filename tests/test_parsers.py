@@ -171,12 +171,208 @@ def test_news():
           ("影響銘柄" in art["body"] and "66,460.11円" in art["body"]), True)
 
 
+# ==================== 株探ニュース（配信先経由） ====================
+from datetime import date, datetime, timedelta, timezone  # noqa: E402
+
+from dashboard.sources.kabutan_news import (  # noqa: E402
+    parse_sector_ranking, parse_yahoo_article, select_headlines,
+)
+from dashboard import ledger as ledger_mod, themes as themes_mod, trend  # noqa: E402
+
+# Actions 上で実測した Yahoo!ファイナンス記事ページの <article> 構造を写したもの
+KABUTAN_ARTICLE_HTML = """<html><body><article>
+<h1>本日の【増資・売り出し】銘柄　(17日大引け後 発表分)</h1>
+<time>18:40</time><span>配信</span>
+<div>現在値</div>
+<dl><dt>ＮＡＮＯＨＤ</dt><dd>99</dd><dd>+3</dd></dl>
+<p>Cyntecを割当先とする313万9700株の第三者割当増資を実施する。発行価格は99円。</p>
+<p>[2026年9月17日]</p>
+<p>株探ニュース（minkabu PRESS）</p>
+<p>株探ニュース</p>
+<div>関連ニュース</div><a>ＮＡＮＯＨＤの【トレンドシグナル】はこちらから</a>
+<p>最終更新: 9/17(木) 18:40</p>
+</article></body></html>"""
+
+SECTOR_BODY = (
+    "・15時35分現在の東証プライム市場における業種別の騰落率ランキング\n"
+    "●東証33業種　　　　　　　　値上がり：　28 業種　　値下がり：　 5 業種\n"
+    "東証プライム：1548銘柄　　値上がり：1285 銘柄　　値下がり： 233 銘柄　　変わらず他：　30 銘柄\n"
+    "東証33業種　　　 前日比率　 【株価】上昇率／下落率　上位3銘柄\n"
+    "海運業　　　　　 　 +3.09 　商船三井<9104>、川崎汽<9107>、郵船<9101>"
+    "その他製品　　　 　 +2.88 　任天堂<7974>、タカラトミー<7867>、ミズノ<8022>"
+    "医薬品　　　　　 　 +2.61 　ネクセラ<4565>、住友ファーマ<4506>、東和薬品<4553>"
+    "鉄鋼　　　　　　 　 +2.26 　菱製鋼<5632>、合同鉄<5410>、日本製鉄<5401>"
+    "保険業　　　　　 　 +2.12 　東京海上<8766>、アニコムＨＤ<8715>、ＳＯＭＰＯ<8630>"
+    "銀行業　　　　　 　 +1.90 　ちゅうぎん<5832>、めぶきＦＧ<7167>、ひろぎん<7337>"
+    "電気・ガス業　　 　 +1.75 　北海電<9509>、東電ＨＤ<9501>、九州電<9508>"
+    "建設業　　　　　 　 +1.60 　誠建設<8995>、大末建<1814>、東急建<1720>"
+    "小売業　　　　　 　 +1.55 　ＧＥＮＤＡ<9166>、ヨネックス<7906>、しまむら<8227>"
+    "食料品　　　　　 　 +1.40 　神戸物産<3038>、明治ＨＤ<2269>、味の素<2802>"
+    "陸運業　　　　　 　 +1.30 　東急<9005>、京成<9009>、ＪＲ東日本<9020>"
+    "不動産業　　　　 　 +1.25 　霞ヶ関Ｃ<3498>、レオパレス<8848>、三井不<8801>"
+    "化学　　　　　　 　 +1.10 　三菱ケミＧ<4188>、レゾナック<4004>、信越化<4063>"
+    "機械　　　　　　 　 +1.00 　クボテック<7709>、芝浦機<6104>、ダイキン<6367>"
+    "情報・通信業　　 　 +0.95 　ＮＴＴ<9432>、ＫＤＤＩ<9433>、ＳＢ<9434>"
+    "サービス業　　　 　 +0.90 　ベイカレント<6532>、リクルート<6098>、ＳＭＳ<2175>"
+    "卸売業　　　　　 　 +0.85 　三菱商<8058>、三井物<8031>、伊藤忠<8001>"
+    "輸送用機器　　　 　 +0.60 　トヨタ<7203>、ホンダ<7267>、三菱自<7211>"
+    "精密機器　　　　 　 +0.50 　ＨＯＹＡ<7741>、テルモ<4543>、オリンパス<7733>"
+    "その他金融業　　 　 +0.40 　オリックス<8591>、三菱ＨＣ<8593>、ＪＰＸ<8697>"
+    "証券、商品先物取引業 　 -0.30 　野村<8604>、大和<8601>、ＳＢＩ<8473>"
+    "電気機器　　　　 　 -0.55 　太陽誘電<6976>、イビデン<4062>、ＴＤＫ<6762>"
+    "非鉄金属　　　　 　 -1.94 　三井金属<5706>、ＪＸ金属<5016>、住友鉱<5713>"
+    "鉱業　　　　　　 　 -2.10 　ＩＮＰＥＸ<1605>、石油資源<1662>、三井松島<1518>"
+)
+
+
+def test_kabutan():
+    print("\n株探ニュース（配信先経由）")
+    art = parse_yahoo_article(KABUTAN_ARTICLE_HTML, "https://finance.yahoo.co.jp/news/detail/x")
+    check("見出し", art["headline"], "本日の【増資・売り出し】銘柄　(17日大引け後 発表分)")
+    check("時刻", art["timestamp"], "18:40")
+    check("本文は株価引用ブロックを飛ばして始まる", art["body"].startswith("Cyntec"), True)
+    check("末尾の定型（日付・配信元）を落とす", ("株探ニュース" in art["body"] or "[2026年" in art["body"]), False)
+
+    sec = parse_sector_ranking(SECTOR_BODY)
+    check("33業種を全部読める（サンプルは24業種）", sec is not None and len(sec["rows"]), 24)
+    check("上昇トップ", sec["rows"][0]["sector"], "海運業")
+    check("上昇トップの率", sec["rows"][0]["change_pct"], 3.09)
+    check("上位銘柄", sec["rows"][0]["leaders"][0], {"name": "商船三井", "code": "9104"})
+    check("下落トップ", sec["rows"][-1]["sector"], "鉱業")
+    check("証券の表記ゆれを正規化", any(r["sector"] == "証券・商品先物取引業" for r in sec["rows"]), True)
+    check("値上がり/値下がり業種数", (sec.get("up"), sec.get("down")), (28, 5))
+    check("プライム全体の上昇/下落", sec.get("prime"), {"total": 1548, "up": 1285, "down": 233})
+
+    jst = timezone(timedelta(hours=9))
+    now = datetime(2026, 9, 17, 16, 45, tzinfo=jst)
+    heads = [
+        {"title": "話題株ピックアップ【夕刊】（1）：ＧＥＮＤＡ、任天堂、三菱重", "published": "2026-09-17T15:43+09:00"},
+        {"title": "話題株ピックアップ【昼刊】：ＧＥＮＤＡ、ヨネックス、みずほＦＧ", "published": "2026-09-17T11:37+09:00"},
+        {"title": "【↑】日経平均 大引け｜ 続伸、半導体失速もバリュー株が買われる (9月17日)", "published": "2026-09-17T16:33+09:00"},
+        {"title": "話題株ピックアップ【夕刊】（1）：古い", "published": "2026-09-10T15:43+09:00"},
+        {"title": "関係ない記事", "published": "2026-09-17T12:00+09:00"},
+    ]
+    picked = select_headlines(heads, "taibike", now=now)
+    check("大引: 夕刊が先頭、古いものと無関係は落ちる",
+          [h["title"].startswith("話題株ピックアップ【夕刊】") or h["title"].startswith("【↑】日経平均") for h in picked]
+          + [len(picked)], [True, True, 2])
+    picked = select_headlines(heads, "zenba", now=now)
+    check("前場: 昼刊が先頭", picked[0]["title"].startswith("話題株ピックアップ【昼刊】"), True)
+
+
+# ==================== ランキングの別レイアウト ====================
+YTD_HTML = """<table><tr><th>順位</th><th>名称</th><th>取引値</th><th>前営業日までの年初来高値</th><th>高値</th></tr>
+<tr><td>1</td><td><a>金下建設(株)</a><span>1897</span><span>東証STD</span><span>掲示板</span></td>
+<td><span>3,700</span><span>15:30</span></td><td><span>3,575</span><span>2026/08/07</span></td><td><span>3,700</span></td></tr>
+<tr><td>2</td><td><a>(NEXT FUNDS)情報通信</a><span>1626</span><span>東証ETF</span><span>掲示板</span></td>
+<td><span>50,200</span><span>15:30</span></td><td><span>49,520</span><span>2026/09/15</span></td><td><span>50,200</span></td></tr>
+</table>"""
+VOL_HTML = """<table><tr><th>順位</th><th>名称</th><th>取引値</th><th>出来高</th><th>前日出来高</th><th>出来高増加率</th></tr>
+<tr><td>1</td><td><a>(株)テスト</a><span>7777</span><span>東証PRM</span><span>掲示板</span></td>
+<td><span>1,234</span><span>15:30</span></td><td><span>120,049</span><span>株</span></td><td><span>147</span><span>株</span></td><td><span>816.660</span><span>倍</span></td></tr>
+</table>"""
+
+
+def test_ranking_layouts():
+    print("\nランキングの別レイアウト")
+    rows = [tr.find_all(["th", "td"]) for tr in BeautifulSoup(YTD_HTML, "html.parser").find_all("tr")]
+    r = _parse_row(rows[1], 1, "ytd_high")
+    check("年初来高値: 取引値", r["price"], 3700.0)
+    check("年初来高値: 前営業日までの高値を metric に", r["metric"], 3575.0)
+    check("年初来高値: 上抜け幅を change_pct に", r["change_pct"], 3.5)
+    r2 = _parse_row(rows[2], 2, "ytd_high")
+    check("ETF は market で識別できる", r2["market"], "東証ETF")
+    rows = [tr.find_all(["th", "td"]) for tr in BeautifulSoup(VOL_HTML, "html.parser").find_all("tr")]
+    r = _parse_row(rows[1], 1, "vol_surge")
+    check("出来高急増: 倍率", r["metric"], 816.66)
+    check("出来高急増: 出来高と前日出来高", (r["volume"], r["prev_volume"]), (120049.0, 147.0))
+
+
+# ==================== テーマ・台帳・時間軸（合成データ） ====================
+THEMES = {"themes": ["電線", "半導体"], "stocks": {
+    "5803": {"name": "フジクラ", "themes": ["電線"]},
+    "5802": {"name": "住友電気工業", "themes": ["電線"]},
+    "8035": {"name": "東京エレクトロン", "themes": ["半導体"]},
+}}
+
+
+def _payload():
+    return {
+        "tables": {
+            "value": {"rows": [
+                {"rank": 1, "code": "5803", "name": "フジクラ(株)", "price": 8120.0, "change_pct": 4.0},
+                {"rank": 2, "code": "5802", "name": "住友電気工業(株)", "price": 3000.0, "change_pct": 2.0},
+                {"rank": 3, "code": "8035", "name": "東京エレクトロン(株)", "price": 30000.0, "change_pct": -1.0},
+                {"rank": 4, "code": "9999", "name": "(株)未知", "price": 500.0, "change_pct": 9.0},
+            ]},
+            "gainer": {"rows": [
+                {"rank": 1, "code": "9999", "name": "(株)未知", "price": 500.0, "change_pct": 9.0},
+                {"rank": 2, "code": "5803", "name": "フジクラ(株)", "price": 8120.0, "change_pct": 4.0},
+            ]},
+            "kessan_after": {"rows": [
+                {"code": "2788", "name": "アップル", "title": "通期業績予想の修正（増配）に関するお知らせ",
+                 "time": "15:30", "category": "業績予想の修正"},
+            ]},
+        },
+        "streaks": [{"code": "5803", "name": "フジクラ(株)", "days": 4, "change_pct": 4.0}],
+        "ranking_delta": {"new": [{"code": "9999", "name": "(株)未知", "rank": 4, "change_pct": 9.0}], "rank_up": []},
+    }
+
+
+def test_themes_ledger_trend():
+    print("\nテーマ・台帳・時間軸")
+    flow = themes_mod.theme_flow(_payload()["tables"], THEMES, prev_top=[{"theme": "半導体"}])
+    check("テーマ上位の先頭は電線（2銘柄）", (flow["top"][0]["theme"], flow["top"][0]["count"]), ("電線", 2))
+    check("電線の平均騰落", flow["top"][0]["avg_pct"], 3.0)
+    check("電線は昨日の上位に無かった（初動）", flow["top"][0]["was_top"], False)
+    check("履歴が無い日は初動と言わない", themes_mod.theme_flow(_payload()["tables"], THEMES, None)["top"][0]["was_top"], True)
+    check("辞書に無い銘柄を unknown_codes に残す", [u["code"] for u in flow["unknown_codes"]], ["9999"])
+    streaks = themes_mod.theme_streaks(flow["top"], [[{"theme": "電線"}], [{"theme": "電線"}], [{"theme": "半導体"}]])
+    check("電線は3日連続（今日含む）", streaks[0], {"theme": "電線", "days": 3})
+
+    hist = [
+        {"date": "2026-09-16", "taibike": {"value_rows": [{"code": "2788", "name": "アップル", "change_pct": 3.0}],
+                                          "after_hours": [], "sectors": [{"sector": "電気機器", "avg_pct": 1.0}]}},
+        {"date": "2026-09-15", "taibike": {"value_rows": [], "sectors": [{"sector": "電気機器", "avg_pct": -0.5}],
+                                          "after_hours": [{"code": "2788", "name": "アップル",
+                                                           "title": "業績予想の上方修正", "category": "業績予想の修正"}]}},
+    ]
+    sig = ledger_mod.detect_signals(_payload(), hist, THEMES, flow)
+    by = {c["code"]: c for c in sig}
+    check("資金流入の継続 + 上昇率×売買代金 + テーマ初動 が重なる",
+          sorted(by["5803"]["signals"]), sorted(["資金流入の継続", "上昇率×売買代金", "テーマ初動"]))
+    check("上方修正 + 修正後に資金流入", sorted(by["2788"]["signals"]), sorted(["上方修正・増配", "修正後に資金流入"]))
+    check("新規流入 + 上昇率×売買代金", sorted(by["9999"]["signals"]), sorted(["新規の資金流入", "上昇率×売買代金"]))
+
+    led = ledger_mod.update(date(2026, 9, 17), _payload(), hist, THEMES, flow, lambda codes: {}, 64000.0,
+                            ledger={"entries": [], "stats": {}})
+    codes = {e["code"] for e in led["entries"]}
+    check("スコア2以上の候補が台帳に載る", {"5803", "2788", "9999"} <= codes, True)
+    e = next(x for x in led["entries"] if x["code"] == "5803")
+    check("フラグ時点の株価と日経を記録", (e["price_at_flag"], e["nikkei_at_flag"]), (8120.0, 64000.0))
+    # 翌営業日以降の追跡: 5営業日後に d1/d5 が埋まり、20日で閉じる
+    hist2 = [{"date": f"2026-09-{d:02d}", "taibike": {"value_rows": []}} for d in (24, 23, 22, 21, 18, 17, 16, 15)]
+    led2 = ledger_mod.update(date(2026, 9, 25), {"tables": {}, "streaks": [], "ranking_delta": {}}, hist2, THEMES,
+                             None, lambda codes: {"5803": 8932.0}, 65280.0, ledger=led)
+    e = next(x for x in led2["entries"] if x["code"] == "5803")
+    check("6営業日後: d1 と d5 が埋まる（+10%）", (e["track"]["d1"], e["track"]["d5"]), (10.0, 10.0))
+    check("日経比の超過リターン", e["track"]["excess"], 8.0)
+    check("成績: シグナル別の d5 中央値", led2["stats"]["by_signal"][0]["d5_median"], 10.0)
+
+    tr = trend.sector_trend([{"sector": "電気機器", "avg_pct": 2.0}], hist)
+    check("業種の5日累積（当日+履歴2日）", tr["rows"][0]["d5"], 2.5)
+    check("反発の読み（当日プラス・20日マイナス→なし、20日プラス）", tr["rows"][0]["label"], "続伸（トレンド）")
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
     test_tdnet()
     test_slot()
     test_news()
+    test_kabutan()
+    test_ranking_layouts()
+    test_themes_ledger_trend()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
