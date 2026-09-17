@@ -14,13 +14,13 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, commentary, store
+from . import analyze, commentary, ledger as ledger_mod, store, themes as themes_mod, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
 )
 
-from .sources import cnbc, news, nikkei225, tdnet, yahoojp
+from .sources import cnbc, kabutan_news, news, nikkei225, tdnet, yahoojp
 
 
 def _safe(label: str, fn, default=None):
@@ -104,6 +104,9 @@ def _compact_rows(rows: list[dict], limit: int = 30) -> list[dict]:
 def build_preopen(target_date: date) -> dict:
     print("  [Yahoo] 相場振り返り記事を取得中...")
     market_news = _safe("市況記事", lambda: news.fetch_market_topics(6), []) or []
+    print("  [株探] 見出しと配信記事を取得中...")
+    kabutan = _safe("株探ニュース", lambda: kabutan_news.fetch_for_slot("preopen"),
+                    {"headlines": [], "articles": [], "ok": False}) or {"headlines": [], "articles": [], "ok": False}
 
     print("  [CNBC] 米国指数を取得中...")
     us = _safe("米国指数", lambda: cnbc.fetch_spec(US_INDICES), {}) or {}
@@ -151,6 +154,8 @@ def build_preopen(target_date: date) -> dict:
                       "market_status": spx.get("market_status")},
     }
     payload["news"] = market_news
+    payload["kabutan"] = kabutan
+    payload["index_trend"] = trend.index_trend(sessions, None)
     payload["commentary"] = commentary.preopen_commentary(payload)
     # バックアップ実行（07:35 等）で上書きされても、Routine が既に書いた
     # ai_commentary を消さないよう同日分があれば引き継ぐ
@@ -186,6 +191,15 @@ def build_session(target_date: date, slot: str) -> dict:
 
     print("  [Yahoo] 相場振り返り記事を取得中...")
     market_news = _safe("市況記事", lambda: news.fetch_market_topics(6), []) or []
+    print("  [株探] 見出しと配信記事を取得中...")
+    kabutan = _safe("株探ニュース", lambda: kabutan_news.fetch_for_slot(slot),
+                    {"headlines": [], "articles": [], "ok": False}) or {"headlines": [], "articles": [], "ok": False}
+    # 東証33業種の騰落は株探の「【業種】騰落ランキング」記事の本文から読む（公式値の代替として最良）
+    session_word = "大引け" if slot == "taibike" else "前引け"
+    sectors33 = (kabutan_news.sectors33_from_articles(kabutan.get("articles"), session_word)
+                 or kabutan_news.sectors33_from_articles(kabutan.get("articles")))
+    if sectors33:
+        print(f"    ✅ 東証33業種: {len(sectors33['rows'])} 業種（{sectors33.get('headline')}）")
 
     print("  [TDnet] 適時開示を取得中...")
     disc = _safe("適時開示", lambda: tdnet.fetch_disclosures(target_date),
@@ -239,6 +253,15 @@ def build_session(target_date: date, slot: str) -> dict:
         for h in sessions
     ]
 
+    sectors_jp = analyze.sector_performance(constituents)
+
+    # テーマ別の資金の向き（辞書で決定的に束ねる）と、そのテーマが何日目か
+    themes = themes_mod.load_themes()
+    history_tops = [((h.get(slot) or {}).get("theme_top") or (h.get("taibike") or {}).get("theme_top") or [])
+                    for h in sessions]
+    flow = themes_mod.theme_flow(tables, themes, history_tops[0] if history_tops else None)
+    flow["streaks"] = themes_mod.theme_streaks(flow["top"], history_tops)
+
     payload = {
         "indices": indices,
         "tables": tables,
@@ -247,9 +270,14 @@ def build_session(target_date: date, slot: str) -> dict:
         "streaks": analyze.streaks(value_rows, history_rows),
         "disclosure_summary": analyze.disclosure_summary(disc.get("rows", [])),
         "constituents": constituents,
-        "sectors_jp": analyze.sector_performance(constituents),
+        "sectors_jp": sectors_jp,
+        "sectors33": sectors33,
         "breadth": analyze.constituent_breadth(constituents),
         "news": market_news,
+        "kabutan": kabutan,
+        "theme_flow": flow,
+        "sector_trend": trend.sector_trend(sectors_jp, sessions),
+        "index_trend": trend.index_trend(sessions, (indices.get("nikkei") or {}).get("close")),
     }
 
     latest = store.load_latest()
@@ -262,6 +290,29 @@ def build_session(target_date: date, slot: str) -> dict:
         payload["session_shift"] = analyze.session_shift(zenba_idx, indices)
 
     payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []), quotes_by_code)
+
+    # 発掘台帳は1日1回、大引で進める（候補の入口・追跡・成績）
+    if slot == "taibike":
+        print("  [台帳] 候補の更新と追跡...")
+        def _lookup(codes):
+            have = {c: q.get("last") for c, q in quotes_by_code.items() if q.get("last") is not None}
+            missing = [c for c in codes if c not in have]
+            if missing:
+                have.update({c: q.get("last") for c, q in (cnbc.fetch_jp_stocks(missing) or {}).items()
+                             if q.get("last") is not None})
+            return have
+        led = _safe("発掘台帳", lambda: ledger_mod.update(
+            target_date, payload, sessions, themes, flow, _lookup,
+            (indices.get("nikkei") or {}).get("close")))
+        if led:
+            ledger_mod.save_ledger(led)
+            payload["ledger_today"] = {
+                "added": [{"code": e["code"], "name": e["name"], "signals": e["signals"]}
+                          for e in led["entries"] if e.get("first_seen") == target_date.isoformat()],
+                "watching": sum(1 for e in led["entries"] if e.get("status") == "watching"),
+            }
+            print(f"    ✅ 台帳: 新規 {len(payload['ledger_today']['added'])} / 追跡中 {payload['ledger_today']['watching']}")
+
     payload["commentary"] = commentary.session_commentary(payload, slot)
     # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary を消さない
     payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
@@ -323,6 +374,13 @@ def run(slot: str, target_date: date | None = None) -> dict:
             "after_hours": after_hours[:40],
             "quotes": {k: v["close"] for k, v in (payload.get("indices") or {}).items()
                        if v.get("close") is not None},
+            # 時間軸（trend.py）とテーマの連続日数のために残す
+            "sectors": [{"sector": x["sector"], "avg_pct": x["avg_pct"]} for x in (payload.get("sectors_jp") or [])],
+            "sectors33": [{"sector": x["sector"], "change_pct": x["change_pct"]}
+                          for x in ((payload.get("sectors33") or {}).get("rows") or [])],
+            "theme_top": [{"theme": t["theme"], "score": t["score"], "count": t["count"], "avg_pct": t["avg_pct"]}
+                          for t in ((payload.get("theme_flow") or {}).get("top") or [])],
+            "breadth": payload.get("breadth"),
         }}
 
     store.save_slot(target_date, slot, payload)

@@ -3,53 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>マーケットダッシュボード</title>
-<meta name="description" content="寄り前・前場・大引の3視点で日本株を振り返るダッシュボード">
+<title>マーケット</title>
+<meta name="description" content="寄り前・前場・大引の3視点で日本株を振り返り、注目銘柄を溜めて追うスマホ向けアプリ">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="マーケット">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=43f98f5d">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css?v=b8639037">
 </head>
 <body>
 
 <header class="appbar">
-  <div class="appbar__top">
-    <div>
-      <h1 class="appbar__title">マーケットダッシュボード</h1>
+  <div class="appbar__row">
+    <div class="appbar__lead">
+      <h1 class="appbar__title" id="viewTitle">今日</h1>
       <div class="appbar__date" id="headDate">読み込み中…</div>
     </div>
     <div class="appbar__meta">
       <span class="dot" id="freshDot"></span>
       <span id="headUpdated">—</span>
-      <button class="btn btn--ghost" id="reloadBtn" style="padding:5px 9px;min-height:30px" aria-label="再読み込み">↻</button>
+      <button class="iconbtn" id="reloadBtn" aria-label="再読み込み" title="再読み込み">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.66 5.66L4 15.5M4 20v-4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </div>
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-preopen"  aria-controls="panel-preopen"  aria-selected="false">寄り前<span class="tab__time">07:00</span></button>
-    <button class="tab" role="tab" id="tab-zenba"    aria-controls="panel-zenba"    aria-selected="false">前場<span class="tab__time">12:00</span></button>
-    <button class="tab" role="tab" id="tab-taibike"  aria-controls="panel-taibike"  aria-selected="false">大引<span class="tab__time">17:30</span></button>
-  </div>
-  <div class="tabs__spacer"></div>
+  <div class="slots" id="slotBar" role="tablist" aria-label="時間帯"></div>
+  <nav class="jump" id="jumpBar" aria-label="セクションへ移動"></nav>
 </header>
 
-<main>
-  <section class="panel" id="panel-preopen" role="tabpanel" aria-labelledby="tab-preopen" hidden></section>
-  <section class="panel" id="panel-zenba"   role="tabpanel" aria-labelledby="tab-zenba"   hidden></section>
-  <section class="panel" id="panel-taibike" role="tabpanel" aria-labelledby="tab-taibike" hidden></section>
+<main id="main">
+  <section class="view" id="view-today" data-view="today"></section>
+  <section class="view" id="view-discover" data-view="discover" hidden></section>
+  <section class="view" id="view-history" data-view="history" hidden></section>
+  <section class="view" id="view-stocks" data-view="stocks" hidden></section>
 </main>
 
-<footer>
+<footer class="foot">
   <p>
-    出典: CNBC（指数・為替・金利・商品）／Yahoo!ファイナンス（ランキング）／
-    TDnet 適時開示（決算・業績修正）。数値は各サイトの掲載値を自動取得したもので、
-    正確性・即時性は保証されません。投資判断はご自身の責任でお願いします。
+    出典: CNBC（指数・為替・金利・商品）／Yahoo!ファイナンス（ランキング・市況記事）／
+    TDnet 適時開示（決算・業績修正）／日経（225採用銘柄）。数値は各サイトの掲載値を自動取得したもので、
+    正確性・即時性は保証されません。想定オープンやシグナルは予測ではなく、外部環境の並び順を機械的に整理したものです。
+    投資判断はご自身の責任でお願いします。
   </p>
   <p id="footMeta"></p>
 </footer>
+
+<nav class="bottomnav" aria-label="メイン">
+  <button class="bottomnav__btn" data-view="today" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    <span>今日</span>
+  </button>
+  <button class="bottomnav__btn" data-view="discover">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 11l2 2 3.5-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>発掘</span>
+  </button>
+  <button class="bottomnav__btn" data-view="history">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 4v16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    <span>履歴</span>
+  </button>
+  <button class="bottomnav__btn" data-view="stocks">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    <span>銘柄</span>
+  </button>
+</nav>
 
 <dialog class="sheet" id="wlSheet">
   <form method="dialog" class="sheet__inner">
@@ -96,6 +117,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=b0088c6e"></script>
+<script src="app.js?v=219ac665"></script>
 </body>
 </html>

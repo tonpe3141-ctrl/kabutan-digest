@@ -107,6 +107,10 @@ RANKING_PAGES = {
          "urls": [{"url": f"{_Y}/up?market=all&term=daily", "label": "上昇率"}]},
         {"key": "loser",  "label": "下落率", "max_rows": 20,
          "urls": [{"url": f"{_Y}/down?market=all&term=daily", "label": "下落率"}]},
+        {"key": "ytd_high", "label": "年初来高値更新", "max_rows": 40, "layout": "ytd_high", "exclude_funds": True,
+         "urls": [{"url": f"{_Y}/yearToDateHigh?market=all&term=daily", "label": "年初来高値更新"}]},
+        {"key": "vol_surge", "label": "出来高急増", "max_rows": 30, "layout": "vol_surge", "exclude_funds": True,
+         "urls": [{"url": f"{_Y}/volumeIncrease?market=all&term=daily", "label": "出来高急増"}]},
     ],
     "taibike": [
         {"key": "value",  "label": "売買代金", "max_rows": 30,
@@ -118,16 +122,28 @@ RANKING_PAGES = {
          "urls": [{"url": f"{_Y}/up?market=all&term=daily", "label": "上昇率"}]},
         {"key": "loser",  "label": "下落率", "max_rows": 20,
          "urls": [{"url": f"{_Y}/down?market=all&term=daily", "label": "下落率"}]},
+        {"key": "ytd_high", "label": "年初来高値更新", "max_rows": 40, "layout": "ytd_high", "exclude_funds": True,
+         "urls": [{"url": f"{_Y}/yearToDateHigh?market=all&term=daily", "label": "年初来高値更新"}]},
+        {"key": "vol_surge", "label": "出来高急増", "max_rows": 30, "layout": "vol_surge", "exclude_funds": True,
+         "urls": [{"url": f"{_Y}/volumeIncrease?market=all&term=daily", "label": "出来高急増"}]},
     ],
     "preopen": [],
 }
+
+# 発掘台帳・テーマ辞書・週報
+THEMES_PATH = "docs/data/themes.json"
+LEDGER_PATH = "docs/data/ledger.json"
+WEEKLY_PATH = "docs/data/weekly.json"
+LEDGER_TRACK_DAYS = 20        # フラグから何営業日で追跡を終えるか
+LEDGER_MIN_STREAK = 3         # 「資金流入の継続」とみなす連続ランクイン日数（下限）
+LEDGER_MAX_STREAK = 6         # これを超える連続は常連（大型株）なので発掘の対象にしない
 
 # 出力先
 DOCS_DIR = "docs"
 DATA_DIR = "docs/data"
 HISTORY_DIR = "docs/data/history"
 WATCHLIST_PATH = "docs/data/watchlist.json"
-HISTORY_KEEP_DAYS = 60
+HISTORY_KEEP_DAYS = 120
 
 # スパークラインは外部から履歴が取れないため、自分の履歴から積み上げる
 SPARK_POINTS = 20

@@ -79,7 +79,16 @@ def update_history(d: date, patch: dict) -> dict:
     hist.update(patch)
     hist["date"] = d.isoformat()
     _write_json(history_path(d), hist)
+    write_history_index()
     return hist
+
+
+def write_history_index() -> list[str]:
+    """履歴ファイルの一覧を index.json に書く。ブラウザはディレクトリ一覧を
+    取れないので、履歴タブはこのファイルを見て各日を読みに行く。"""
+    dates = [d.isoformat() for d in list_history_dates()]
+    _write_json(os.path.join(HISTORY_DIR, "index.json"), {"dates": dates})
+    return dates
 
 
 def list_history_dates() -> list[date]:
@@ -115,6 +124,8 @@ def prune_history(keep_days: int = HISTORY_KEEP_DAYS) -> int:
             removed += 1
         except OSError:
             pass
+    if removed:
+        write_history_index()
     return removed
 
 

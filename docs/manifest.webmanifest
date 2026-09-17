@@ -1,5 +1,5 @@
 {
-  "name": "マーケットダッシュボード",
+  "name": "マーケット",
   "short_name": "マーケット",
   "start_url": "./index.html",
   "display": "standalone",
@@ -8,10 +8,16 @@
   "lang": "ja",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "description": "日本株を寄り前・前場・大引で振り返り、候補銘柄を溜めて追う"
 }

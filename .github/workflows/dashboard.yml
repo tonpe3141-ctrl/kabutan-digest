@@ -1,26 +1,24 @@
 name: マーケットダッシュボード更新
 
-on:
-  schedule:
-    # cron は UTC 指定。JST = UTC+9。
-    #
-    # GitHub の schedule はベストエフォートで、混雑時は数時間遅れる
-    # （2026-09-07 に「0 3」「40 3」がどちらも約5時間遅れて発火した）。
-    # 毎時00分は最も混むので避け、各区分に予備を1本ずつ置いている。
-    # 遅れて発火した場合の取り違えは dashboard.build.adjust_slot が補正する。
-    - cron: "5 22 * * 0-4"    # 07:05 JST（月〜金） 寄り前：米国市場を振り返る
-    - cron: "35 22 * * 0-4"   # 07:35 JST 寄り前の予備
-    - cron: "35 2 * * 1-5"    # 11:35 JST 前場：前場を振り返る（引け11:30の5分後。
-                              #   昼休み11:30-12:30は値が動かないため多少遅れても実害なし）
-    - cron: "45 2 * * 1-5"    # 11:45 JST 前場の予備
-    - cron: "35 8 * * 1-5"    # 17:35 JST 大引：大引けまでを振り返る
-    - cron: "5 9 * * 1-5"     # 18:05 JST 大引の予備
+# 時計は Claude Routine が担う。Routine は時刻どおり（±1分）に発火し、
+# docs/data/trigger/{slot}.txt を書いた1コミットを自分のブランチ（claude/**）に push する。
+# push イベントは cron と違って即時に発火するので、その push でこのワークフローを起動する。
+#
+# GitHub の schedule はベストエフォートで、実測では毎日2〜7時間遅れていた
+# （前場の実行が16〜17時に発火し、大引に振り替えられていた）。cron は保険として
+# 1区分1本だけ残す。遅れて発火した場合の取り違えは dashboard.build.adjust_slot が補正する。
 
-  # ダッシュボードからウォッチリストを保存すると、この push で再取得が走る
+on:
   push:
-    branches: [main]
+    branches: ["claude/**", "main"]
     paths:
-      - "docs/data/watchlist.json"
+      - "docs/data/trigger/*.txt"     # Routine の合図（claude/**）
+      - "docs/data/watchlist.json"    # アプリからウォッチリストを保存したとき（main）
+
+  schedule:
+    - cron: "35 22 * * 0-4"   # 07:35 JST 寄り前の保険
+    - cron: "45 2 * * 1-5"    # 11:45 JST 前場の保険
+    - cron: "5 9 * * 1-5"     # 18:05 JST 大引の保険
 
   workflow_dispatch:
     inputs:
@@ -48,37 +46,83 @@ jobs:
     timeout-minutes: 25
 
     steps:
+      # push 起動のときは、まず合図のブランチを読んで区分を決める
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: 実行する区分を決める
+        id: slot
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SLOT: ${{ inputs.slot }}
+        run: |
+          slot=""
+          if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            slot=auto
+          elif [ "$EVENT" = "push" ]; then
+            # 直近2時間以内に書かれた合図のうち、いちばん新しいものを採用する
+            slot=$(python3 - <<'PY'
+          import glob, os
+          from datetime import datetime, timezone, timedelta
+          now = datetime.now(timezone.utc)
+          best = None
+          for path in glob.glob("docs/data/trigger/*.txt"):
+              name = os.path.basename(path)[:-4]
+              if name not in ("preopen", "zenba", "taibike"):
+                  continue
+              try:
+                  ts = datetime.fromisoformat(open(path, encoding="utf-8").read().strip())
+              except Exception:
+                  continue
+              if ts.tzinfo is None:
+                  ts = ts.replace(tzinfo=timezone(timedelta(hours=9)))
+              if now - ts > timedelta(hours=2):
+                  continue
+              if best is None or ts > best[0]:
+                  best = (ts, name)
+          print(best[1] if best else "")
+          PY
+            )
+            if [ -z "$slot" ]; then
+              echo "有効な合図（2時間以内の trigger ファイル）がありません。何もしません。"
+              echo "slot=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            case "$SCHEDULE" in
+              "35 22 * * 0-4") slot=preopen ;;
+              "45 2 * * 1-5")  slot=zenba ;;
+              "5 9 * * 1-5")   slot=taibike ;;
+              *)               slot="${INPUT_SLOT:-auto}" ;;
+            esac
+          fi
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+          echo "実行区分: $slot（起動: $EVENT）"
+
+      # 収集と push は必ず main の上で行う（合図のブランチには書かない）
+      - uses: actions/checkout@v4
+        if: steps.slot.outputs.slot != ''
         with:
           ref: main
 
       - uses: actions/setup-python@v5
+        if: steps.slot.outputs.slot != ''
         with:
           python-version: "3.11"
           cache: pip
 
       - run: pip install -r requirements.txt
+        if: steps.slot.outputs.slot != ''
 
       # 取得元のページ構造が変わるとパーサが黙って壊れるので、収集前に検査する
       - name: パーサの回帰テスト
+        if: steps.slot.outputs.slot != ''
         run: python tests/test_parsers.py
 
-      - name: 実行する区分を決める
-        id: slot
-        env:
-          SCHEDULE: ${{ github.event.schedule }}
-          INPUT_SLOT: ${{ inputs.slot }}
-        run: |
-          case "$SCHEDULE" in
-            "5 22 * * 0-4"|"35 22 * * 0-4") slot=preopen ;;
-            "35 2 * * 1-5"|"45 2 * * 1-5")  slot=zenba ;;
-            "35 8 * * 1-5"|"5 9 * * 1-5")   slot=taibike ;;
-            *)                              slot="${INPUT_SLOT:-auto}" ;;
-          esac
-          echo "slot=$slot" >> "$GITHUB_OUTPUT"
-          echo "実行区分: $slot"
-
       - name: データを収集して JSON を更新
+        if: steps.slot.outputs.slot != ''
         run: |
           args="--slot ${{ steps.slot.outputs.slot }}"
           if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
@@ -86,9 +130,11 @@ jobs:
 
       # 古い app.js をブラウザが掴んだままにならないよう内容ハッシュを打つ
       - name: 静的ファイルにハッシュを付ける
+        if: steps.slot.outputs.slot != ''
         run: python tools/stamp_assets.py
 
       - name: 変更をコミットして公開
+        if: steps.slot.outputs.slot != ''
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

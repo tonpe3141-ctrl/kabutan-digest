@@ -30,7 +30,7 @@ def _num(text) -> float | None:
 MARKET_RE = re.compile(r"^(東証|名証|福証|札証)")
 
 
-def _parse_row(cells: list, rank: int) -> dict | None:
+def _parse_row(cells: list, rank: int, layout: str = "default") -> dict | None:
     """1 行を {code,name,market,price,change,change_pct,metric} に正規化する。
 
     metric は表によって中身が変わる（売買代金ランキングなら代金、
@@ -63,6 +63,27 @@ def _parse_row(cells: list, rank: int) -> dict | None:
 
     if len(rest) > 0 and rest[0]:
         price = _num(rest[0][0])
+
+    if layout == "ytd_high":
+        # [取引値, 時刻] [前営業日までの年初来高値, 日付] [高値]
+        # 前日比は載らないので、前営業日までの高値をどれだけ上抜けたかを change_pct に入れる
+        prev_high = _num(rest[1][0]) if len(rest) > 1 and rest[1] else None
+        if price is not None and prev_high:
+            change_pct = round((price / prev_high - 1) * 100, 2)
+        metric = prev_high
+        return {"rank": rank, "code": code, "name": name, "market": market,
+                "price": price, "change": None, "change_pct": change_pct, "metric": metric,
+                "metric_label": "前営業日までの高値"}
+
+    if layout == "vol_surge":
+        # [取引値, 時刻] [出来高, 株] [前日出来高, 株] [出来高増加率, 倍]
+        vol = _num(rest[1][0]) if len(rest) > 1 and rest[1] else None
+        prev_vol = _num(rest[2][0]) if len(rest) > 2 and rest[2] else None
+        ratio = _num(rest[3][0]) if len(rest) > 3 and rest[3] else None
+        return {"rank": rank, "code": code, "name": name, "market": market,
+                "price": price, "change": None, "change_pct": None,
+                "metric": ratio, "metric_label": "出来高増加率(倍)",
+                "volume": vol, "prev_volume": prev_vol}
 
     if len(rest) > 1:
         joined = "".join(rest[1])
@@ -106,9 +127,13 @@ def fetch_ranking(page: dict) -> dict:
             cells = tr.find_all(["th", "td"])
             if len(cells) < 3:
                 continue
-            row = _parse_row(cells, len(parsed) + 1)
-            if row:
-                parsed.append(row)
+            row = _parse_row(cells, len(parsed) + 1, page.get("layout", "default"))
+            if not row:
+                continue
+            # ETF・ETN・REIT 等はテーマや個別材料と無関係なので除く（年初来高値・出来高急増に大量に混ざる）
+            if page.get("exclude_funds") and (row.get("market") or "").startswith(("東証ETF", "東証REIT")):
+                continue
+            parsed.append(row)
         if parsed:
             rows = parsed[:page.get("max_rows", 20)]
             used_url = url
