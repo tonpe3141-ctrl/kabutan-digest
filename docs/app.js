@@ -1,19 +1,33 @@
-/* マーケットダッシュボード — 描画ロジック
-   外部ライブラリなし。データは docs/data/latest.json から読む。
-   本文はスクレイピング由来のため、DOM 生成は textContent 経由で行う。 */
+/* マーケット — 描画ロジック
+   外部ライブラリなし。データは docs/data/ 配下の JSON から読む。
+   本文はスクレイピング由来のため、DOM 生成は textContent 経由で行う
+   （h() の html: は自前で組み立てた SVG 専用）。
+
+   画面は4つ:
+     今日   … 寄り前 / 前場 / 大引 を切り替えて読む（長い表は畳んで出す）
+     発掘   … 連続ランクイン・新規流入・業績修正など「候補」を溜めて見る
+     履歴   … 過去の営業日を1行ずつ。日経の推移と当日の顔ぶれ
+     銘柄   … ウォッチリストと、コード／社名での横断検索 */
 (() => {
 'use strict';
 
 const SLOTS = ['preopen', 'zenba', 'taibike'];
 const SLOT_LABEL = { preopen: '寄り前', zenba: '前場', taibike: '大引' };
+const VIEWS = ['today', 'discover', 'history', 'stocks'];
+const VIEW_TITLE = { today: '今日', discover: '発掘', history: '履歴', stocks: '銘柄' };
 const DEFAULT_REPO = 'tonpe3141-ctrl/kabutan-digest';
-const LS = { codes: 'md.watchlist.codes', token: 'md.gh.token', repo: 'md.gh.repo', tab: 'md.tab' };
+const LS = { codes: 'md.watchlist.codes', token: 'md.gh.token', repo: 'md.gh.repo', tab: 'md.tab', view: 'md.view' };
+const HISTORY_DAYS = 15;            // 履歴タブと発掘タブが読み込む営業日数
 
 let DATA = null;
-let activeTab = null;
+let LEDGER = null;                  // docs/data/ledger.json（サーバ側の台帳。あれば優先）
+let HIST = { dates: [], byDate: new Map(), loaded: false };
+let activeSlot = null;
+let activeView = 'today';
 
 /* ==================== 小道具 ==================== */
 const jstNow = () => new Date(Date.now() + new Date().getTimezoneOffset() * 60000 + 9 * 3600000);
+const $ = (id) => document.getElementById(id);
 
 function h(tag, props = {}, children = []) {
   const el = document.createElement(tag);
@@ -34,15 +48,12 @@ function h(tag, props = {}, children = []) {
 
 const isNum = (v) => typeof v === 'number' && isFinite(v);
 const cls = (v) => (!isNum(v) || v === 0 ? 'flat' : v > 0 ? 'up' : 'down');
+const cleanName = (s) => String(s || '').replace(/\(株\)|（株）|株式会社/g, '').trim();
+const stockUrl = (code) => `https://kabutan.jp/stock/?code=${encodeURIComponent(code)}`;
 
 function fmtNum(v, digits = 2) {
   if (!isNum(v)) return '—';
   return v.toLocaleString('ja-JP', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
-function fmtAuto(v) {
-  if (!isNum(v)) return '—';
-  const d = Math.abs(v) >= 1000 ? 0 : Math.abs(v) >= 10 ? 2 : 3;
-  return fmtNum(v, d);
 }
 function fmtPct(v, digits = 2) {
   if (!isNum(v)) return '—';
@@ -52,10 +63,19 @@ function fmtSigned(v, digits = 2) {
   if (!isNum(v)) return '—';
   return (v > 0 ? '+' : '') + fmtNum(v, digits);
 }
+function fmtPrice(v) {
+  if (!isNum(v)) return '—';
+  return fmtNum(v, v >= 1000 ? 0 : 1);
+}
+function fmtDate(iso, opts) {
+  if (!iso) return '—';
+  const d = new Date(iso.slice(0, 10) + 'T00:00:00+09:00');
+  return d.toLocaleDateString('ja-JP', opts || { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' });
+}
 
-function sparkline(series) {
+function sparkline(series, height = 20) {
   if (!Array.isArray(series) || series.length < 3) return null;
-  const w = 100, hgt = 22, pad = 2;
+  const w = 100, hgt = height, pad = 2;
   const min = Math.min(...series), max = Math.max(...series);
   const span = max - min || 1;
   const pts = series.map((v, i) => {
@@ -75,7 +95,7 @@ function sparkline(series) {
 }
 
 /* ==================== 部品 ==================== */
-function card(title, sub, body, note, flush) {
+function card(title, sub, body, note, flush, id) {
   const kids = [];
   if (title) {
     kids.push(h('div', { class: 'card__head' }, [
@@ -85,7 +105,23 @@ function card(title, sub, body, note, flush) {
   }
   [].concat(body).forEach((b) => b && kids.push(b));
   if (note) kids.push(h('div', { class: 'card__note', text: note }));
-  return h('section', { class: 'card' + (flush ? ' card--flush' : '') }, kids);
+  return h('section', { class: 'card' + (flush ? ' card--flush' : ''), id: id || null }, kids);
+}
+
+/* 長い一覧は最初の n 件だけ出し、「すべて見る」で残りを開く */
+function foldable(renderFn, total, shown, label) {
+  if (total <= shown) return renderFn(total);
+  const wrap = h('div', {});
+  const draw = (n) => {
+    wrap.textContent = '';
+    wrap.appendChild(renderFn(n));
+    if (n < total) {
+      wrap.appendChild(h('button', { class: 'more', type: 'button',
+        text: `${label || 'すべて'}を見る（残り ${total - n}）`, onclick: () => draw(total) }));
+    }
+  };
+  draw(shown);
+  return wrap;
 }
 
 function tile(label, value, delta, deltaPct, series) {
@@ -97,21 +133,22 @@ function tile(label, value, delta, deltaPct, series) {
   ]);
 }
 
-function quoteTiles(map, order) {
+function quoteTiles(map, order, three) {
   const keys = order || Object.keys(map);
   const items = keys.filter((k) => map[k]).map((k) => {
     const q = map[k];
     const digits = q.digits !== undefined ? q.digits : (Math.abs(q.last) >= 1000 ? 0 : 2);
-    const deltaText = fmtSigned(q.change, digits) + '  ' + fmtPct(q.change_pct);
-    return tile(q.label || k, fmtNum(q.last, digits), deltaText, q.change_pct, q.series);
+    return tile(q.label || k, fmtNum(q.last, digits),
+      fmtSigned(q.change, digits) + '  ' + fmtPct(q.change_pct), q.change_pct, q.series);
   });
   if (!items.length) return h('div', { class: 'empty', text: 'データを取得できませんでした' });
-  return h('div', { class: 'tiles' }, items);
+  return h('div', { class: 'tiles' + (three ? ' tiles--3' : '') }, items);
 }
 
 function barList(items, opts = {}) {
   const max = Math.max(0.5, ...items.map((i) => Math.abs(i.value)));
   return h('div', { class: 'bars' }, items.map((it) => {
+    if (it.gap) return h('div', { class: 'bars__gap' });
     const pctw = (Math.abs(it.value) / max) * 50;
     const positive = it.value >= 0;
     const fill = h('div', { class: 'bar__fill' });
@@ -127,87 +164,107 @@ function barList(items, opts = {}) {
   }));
 }
 
+function stockRow(r, i, opts = {}) {
+  const meta = [];
+  if (r.code) meta.push(h('span', { text: r.code }));
+  if (opts.meta) [].concat(opts.meta(r)).filter(Boolean).forEach((m) =>
+    meta.push(typeof m === 'string' ? h('span', { class: 'tag', text: m }) : m));
+  const inner = [
+    h('div', { class: 'row__rank num', text: opts.rank === false ? '' : String(i + 1) }),
+    h('div', { class: 'row__main' }, [
+      h('div', { class: 'row__name', text: cleanName(r.name) || r.code || '—' }),
+      meta.length ? h('div', { class: 'row__meta' }, meta) : null,
+    ]),
+    h('div', { class: 'row__right' }, [
+      isNum(r.price) ? h('div', { class: 'row__price num', text: fmtPrice(r.price) }) : null,
+      h('div', { class: 'row__delta num ' + cls(r.change_pct), text: fmtPct(r.change_pct) }),
+    ]),
+  ];
+  return r.code
+    ? h('a', { class: 'row', href: stockUrl(r.code), target: '_blank', rel: 'noopener' }, inner)
+    : h('div', { class: 'row' }, inner);
+}
+
 function stockRows(rows, opts = {}) {
-  const list = (rows || []).slice(0, opts.limit || 12);
+  const list = (rows || []).slice(0, opts.limit || rows.length);
   if (!list.length) return h('div', { class: 'empty', text: 'データなし' });
-  return h('div', { class: 'rows' }, list.map((r, i) => {
-    const meta = [];
-    if (r.code) meta.push(r.code);
-    if (opts.meta) [].concat(opts.meta(r)).filter(Boolean).forEach((m) => meta.push(m));
-    const inner = [
-      h('div', { class: 'row__rank num', text: opts.rank === false ? '' : String(i + 1) }),
-      h('div', { class: 'row__main' }, [
-        h('div', { class: 'row__name', text: r.name || r.code || '—' }),
-        meta.length ? h('div', { class: 'row__meta' }, meta.map((m) => h('span', { text: m }))) : null,
-      ]),
-      h('div', { class: 'row__right' }, [
-        isNum(r.price) ? h('div', { class: 'row__price num', text: fmtNum(r.price, r.price >= 1000 ? 0 : 1) }) : null,
-        h('div', { class: 'row__delta num ' + cls(r.change_pct), text: fmtPct(r.change_pct) }),
-      ]),
-    ];
-    return r.code
-      ? h('a', { class: 'row', href: `https://kabutan.jp/stock/?code=${encodeURIComponent(r.code)}`,
-                 target: '_blank', rel: 'noopener' }, inner)
-      : h('div', { class: 'row' }, inner);
-  }));
+  return h('div', { class: 'rows' }, list.map((r, i) => stockRow(r, i, opts)));
 }
 
 /* 株価が動きやすい開示。自己株式取得や月次は件数が多く埋もれるので後回しにする */
 const MATERIAL = ['業績予想の修正', '決算短信', '配当予想の修正'];
+const UPGRADE_RE = /上方|増配|増額/;
+const DOWNGRADE_RE = /下方|減配|減額|無配/;
 
-function splitMaterial(rows) {
-  const material = [], rest = [];
-  (rows || []).forEach((r) => (MATERIAL.includes(r.category) ? material : rest).push(r));
-  return { material, rest };
+function disclosureTone(r) {
+  const t = (r.title || '') + (r.category || '');
+  if (r.category !== '業績予想の修正' && r.category !== '配当予想の修正') return null;
+  if (UPGRADE_RE.test(t)) return 'up';
+  if (DOWNGRADE_RE.test(t)) return 'down';
+  return null;
 }
 
-/* 適時開示（TDnet）の行。値動きではなく「何が出たか」を見せる */
 function disclosureRows(rows, limit) {
-  const list = (rows || []).slice(0, limit || 20);
+  const list = (rows || []).slice(0, limit || rows.length);
   if (!list.length) return h('div', { class: 'empty', text: '開示なし' });
-  return h('div', { class: 'rows' }, list.map((r) =>
-    h('a', {
-      class: 'row', href: `https://finance.yahoo.co.jp/quote/${encodeURIComponent(r.code)}.T`,
-      target: '_blank', rel: 'noopener',
-    }, [
+  return h('div', { class: 'rows' }, list.map((r) => {
+    const tone = disclosureTone(r);
+    return h('a', { class: 'row', href: stockUrl(r.code), target: '_blank', rel: 'noopener' }, [
       h('div', { class: 'row__rank num', text: (r.time || '').slice(0, 5) }),
       h('div', { class: 'row__main' }, [
-        h('div', { class: 'row__name', text: r.name || r.code }),
-        h('div', { class: 'row__meta' }, [h('span', { text: r.title || '' })]),
+        h('div', { class: 'row__name', text: cleanName(r.name) || r.code }),
+        h('div', { class: 'row__meta' }, [h('span', { text: r.code }), h('span', { text: r.title || '' })]),
       ]),
       h('div', { class: 'row__right' }, [
         r.category ? h('span', {
-          class: 'badge' + (r.category === '業績予想の修正' ? ' badge--warn' : ''),
-          text: r.category,
+          class: 'badge' + (tone === 'up' ? ' badge--up' : tone === 'down' ? ' badge--down'
+                 : r.category === '業績予想の修正' ? ' badge--warn' : ''),
+          text: tone === 'up' ? '上方・増配' : tone === 'down' ? '下方・減配' : r.category,
         }) : null,
+        isNum(r.change_pct) ? h('div', { class: 'row__delta num ' + cls(r.change_pct), text: fmtPct(r.change_pct) }) : null,
       ]),
-    ])));
+    ]);
+  }));
 }
 
-function accordion(title, badge, bodyText, url) {
+function accordion(title, sub, bodyText, url, linkLabel) {
   return h('details', { class: 'acc' }, [
     h('summary', {}, [
-      h('span', { text: title }),
-      badge ? h('span', { class: 'badge', text: badge }) : null,
+      h('span', { class: 'acc__title' }, [
+        document.createTextNode(title),
+        sub ? h('small', { text: sub }) : null,
+      ]),
     ]),
     h('div', { class: 'acc__body' }, [
       document.createTextNode(bodyText || '本文を取得できませんでした'),
       url ? h('div', { style: 'margin-top:10px' }, [
-        h('a', { href: url, target: '_blank', rel: 'noopener', text: '株探で開く →' }),
+        h('a', { href: url, target: '_blank', rel: 'noopener', text: (linkLabel || '元記事を開く') + ' →' }),
       ]) : null,
     ]),
   ]);
 }
 
-/* 日経225ヒートマップ。並べ替えは騰落順と業種順を切り替えられる */
+function segmented(options, onSelect, initial) {
+  const seg = h('div', { class: 'seg' });
+  const set = (k) => [...seg.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
+  options.forEach(([k, label]) => {
+    const b = h('button', { class: 'seg__btn', type: 'button', 'aria-pressed': 'false', text: label });
+    b.dataset.k = k;
+    b.addEventListener('click', () => { set(k); onSelect(k); });
+    seg.appendChild(b);
+  });
+  set(initial);
+  return seg;
+}
+
+/* ==================== 日経225ヒートマップ ==================== */
 function heatCell(r) {
   const v = r.change_pct;
   const cap = 4;                                     // ±4% で色を振り切らせる
   const a = isNum(v) ? Math.min(1, Math.abs(v) / cap) * 0.82 + 0.10 : 0.06;
   const cell = h('a', {
     class: 'heat__cell', title: `${r.name || ''} ${r.code} ${fmtPct(v)}`,
-    href: `https://finance.yahoo.co.jp/quote/${encodeURIComponent(r.code)}.T`,
-    target: '_blank', rel: 'noopener',
+    href: stockUrl(r.code), target: '_blank', rel: 'noopener',
   }, [
     h('div', { class: 'heat__name', text: r.name || r.code }),
     h('div', { class: 'heat__val num', text: isNum(v) ? fmtPct(v, 1) : '—' }),
@@ -223,62 +280,66 @@ function heatmapCard(rows, breadth) {
   if (list.length < 20) return null;
 
   const body = h('div', {});
-  const seg = h('div', { class: 'seg' });
-  const draw = (mode) => {
+  let mode = 'rank', expanded = false;
+  const draw = () => {
     body.textContent = '';
     const grid = h('div', { class: 'heat' });
     if (mode === 'sector') {
-      // 業種ごとにまとめ、業種の平均が高い順に並べる
       const groups = new Map();
       list.forEach((r) => {
         const k = r.sector || 'その他';
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(r);
       });
-      [...groups.entries()]
+      const ordered = [...groups.entries()]
         .map(([k, v]) => [k, v, v.reduce((a, r) => a + r.change_pct, 0) / v.length])
-        .sort((a, b) => b[2] - a[2])
-        .forEach(([name, items, avg]) => {
-          grid.appendChild(h('div', { class: 'heat__group',
-                                      text: `${name}　${fmtPct(avg, 1)}` }));
-          items.sort((a, b) => b.change_pct - a.change_pct)
-               .forEach((r) => grid.appendChild(heatCell(r)));
-        });
+        .sort((a, b) => b[2] - a[2]);
+      (expanded ? ordered : ordered.slice(0, 6)).forEach(([name, items, avg]) => {
+        grid.appendChild(h('div', { class: 'heat__group', text: `${name}　${fmtPct(avg, 1)}` }));
+        items.sort((a, b) => b.change_pct - a.change_pct).forEach((r) => grid.appendChild(heatCell(r)));
+      });
     } else {
-      [...list].sort((a, b) => b.change_pct - a.change_pct)
-               .forEach((r) => grid.appendChild(heatCell(r)));
+      const sorted = [...list].sort((a, b) => b.change_pct - a.change_pct);
+      if (expanded) sorted.forEach((r) => grid.appendChild(heatCell(r)));
+      else {
+        grid.appendChild(h('div', { class: 'heat__group', text: '上昇上位' }));
+        sorted.slice(0, 12).forEach((r) => grid.appendChild(heatCell(r)));
+        grid.appendChild(h('div', { class: 'heat__group', text: '下落上位' }));
+        sorted.slice(-12).reverse().forEach((r) => grid.appendChild(heatCell(r)));
+      }
     }
     body.appendChild(grid);
-    [...seg.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === mode)));
+    if (!expanded) {
+      body.appendChild(h('button', { class: 'more', type: 'button', text: `${list.length}銘柄すべてを見る`,
+        onclick: () => { expanded = true; draw(); } }));
+    }
   };
-  [['rank', '騰落順'], ['sector', '業種順']].forEach(([k, label]) => {
-    const b = h('button', { class: 'seg__btn', type: 'button', 'aria-pressed': 'false', text: label });
-    b.dataset.k = k;
-    b.addEventListener('click', () => draw(k));
-    seg.appendChild(b);
-  });
-  draw('rank');
+  const seg = segmented([['rank', '騰落順'], ['sector', '業種順']], (k) => { mode = k; draw(); }, 'rank');
+  draw();
 
   return card('日経225 ヒートマップ', seg, [
     body,
     h('div', { class: 'legend' }, [
       h('span', { text: '下落' }), h('div', { class: 'legend__bar' }), h('span', { text: '上昇' }),
     ]),
-  ], breadth ? `上昇 ${breadth.up} / 下落 ${breadth.down}（${breadth.up_ratio}% が上昇）。${breadth.comment}` : null);
+  ], breadth ? `上昇 ${breadth.up} / 下落 ${breadth.down}（${breadth.up_ratio}% が上昇）。${breadth.comment}` : null, false, 'sec-heat');
 }
 
-/* アナリスト分析。ai_commentary（Claudeによる分析）があればそれを、
-   無ければ commentary（ルールベースの機械的な文章化）を表示する */
-function analysisCard(ruleBased, ai) {
-  const c = ai && ai.sections && ai.sections.length ? ai : ruleBased;
+/* ==================== 見立て ==================== */
+function pickCommentary(d) {
+  const ai = d.ai_commentary, rule = d.commentary;
+  const c = ai && ai.sections && ai.sections.length ? ai : rule;
   if (!c || !c.sections || !c.sections.length) return null;
+  return { c, isAi: c === ai };
+}
 
-  const isAi = c === ai;
+function analysisCard(d) {
+  const picked = pickCommentary(d);
+  if (!picked) return null;
+  const { c, isAi } = picked;
   const note = isAi
-    ? '生成AIによる分析です。数値データと相場振り返り記事をもとに作成していますが、'
-      + '誤りを含む可能性があります。売買を推奨するものではありません。'
-    : '各カードの数値を組み合わせて機械的に文章化したもの。売買を推奨するものではありません。'
-      + '（AI分析は準備中です）';
+    ? '生成AIによる分析です。数値データと相場振り返り記事をもとに作成していますが、誤りを含む可能性があります。売買を推奨するものではありません。'
+    : '各カードの数値を組み合わせて機械的に文章化したもの。同じ数字からは同じ文章が出ます。売買を推奨するものではありません。';
 
   const body = [
     h('p', { class: 'analysis__headline', text: c.headline || '' }),
@@ -291,12 +352,74 @@ function analysisCard(ruleBased, ai) {
     body.push(h('div', { class: 'analysis__srcs' }, c.sources.map((src) =>
       h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
   }
-
-  return card('相場の見立て', isAi ? (c.method || 'AI分析') : '簡易分析', body, note);
+  return card('相場の見立て', isAi ? (c.method || 'AI分析') : 'ルールベース', body, note, false, 'sec-analysis');
 }
 
-function hero(label, value, deltaText, deltaVal, aside, verdict, tone) {
-  return h('section', { class: 'card hero' }, [
+function newsCard(news) {
+  if (!Array.isArray(news) || !news.length) return null;
+  return card('相場ニュース', `${news.length}本`,
+    h('div', {}, news.map((n) => accordion(n.headline || '（見出しなし）',
+      [n.category, n.timestamp].filter(Boolean).join('　'), n.body, n.url, n.source || '元記事を開く'))),
+    null, true, 'sec-news');
+}
+
+/* ==================== 3行サマリー ==================== */
+function stat(label, value, sub, tone) {
+  return h('div', { class: 'stat' }, [
+    h('div', { class: 'stat__label', text: label }),
+    h('div', { class: 'stat__value num ' + (tone || ''), text: value }),
+    sub ? h('div', { class: 'stat__sub num ' + (tone || ''), text: sub }) : null,
+  ]);
+}
+
+function summaryCard(d, slot) {
+  const picked = pickCommentary(d);
+  const headline = picked ? picked.c.headline : null;
+  const stats = [], chips = [];
+
+  if (slot === 'preopen') {
+    const io = d.implied_open || {};
+    const spx = (d.us || {}).spx, jpy = (d.macro || {}).usdjpy, sox = (d.us || {}).sox;
+    stats.push(stat('想定オープン', fmtPct(io.gap_pct), isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : null, cls(io.gap_pct)));
+    if (spx) stats.push(stat('S&P500', fmtPct(spx.change_pct), fmtNum(spx.last, 0), cls(spx.change_pct)));
+    if (jpy) stats.push(stat('ドル円', fmtNum(jpy.last, 2), fmtPct(jpy.change_pct), cls(jpy.change_pct)));
+    if (d.risk) chips.push(h('span', { class: 'badge badge--' + (d.risk.tone === 'positive' ? 'up' : d.risk.tone === 'negative' ? 'down' : 'accent'), text: 'リスク環境: ' + d.risk.label }));
+    if (sox) chips.push(h('span', { class: 'badge', text: `SOX ${fmtPct(sox.change_pct)}` }));
+    const tw = ((d.sector_outlook || {}).tailwind || []).slice(0, 2).map((s) => s.sector.replace(/（.*）/, ''));
+    if (tw.length) chips.push(h('span', { class: 'badge badge--up', text: '追い風: ' + tw.join('・') }));
+  } else {
+    const nk = (d.indices || {}).nikkei, tp = (d.indices || {}).topix, br = d.breadth;
+    if (nk) stats.push(stat('日経平均', fmtPct(nk.change_pct), fmtNum(nk.close, 0), cls(nk.change_pct)));
+    if (tp) stats.push(stat('TOPIX', fmtPct(tp.change_pct), fmtNum(tp.close, 2), cls(tp.change_pct)));
+    if (br) stats.push(stat('225中 上昇', `${br.up}`, `下落 ${br.down}`, br.up > br.down ? 'up' : br.up < br.down ? 'down' : 'flat'));
+    if (d.divergence) chips.push(h('span', { class: 'badge badge--' + (d.divergence.tone === 'warn' ? 'warn' : 'accent'), text: d.divergence.label }));
+    const sj = d.sectors_jp || [];
+    if (sj.length) {
+      chips.push(h('span', { class: 'badge badge--up', text: '強い: ' + sj.slice(0, 2).map((s) => s.sector).join('・') }));
+      chips.push(h('span', { class: 'badge badge--down', text: '弱い: ' + sj.slice(-2).reverse().map((s) => s.sector).join('・') }));
+    }
+    if (slot === 'zenba' && d.verify_open) {
+      chips.push(h('span', { class: 'badge', text: `寄り前想定 ${fmtPct(d.verify_open.expected_pct)} → 実際 ${fmtPct(d.verify_open.actual_pct)}` }));
+    }
+    if (slot === 'taibike' && d.session_shift) {
+      chips.push(h('span', { class: 'badge badge--' + (d.session_shift.tone === 'positive' ? 'up' : d.session_shift.tone === 'negative' ? 'down' : 'accent'), text: '後場: ' + d.session_shift.verdict }));
+    }
+    const ds = d.disclosure_summary;
+    if (ds) {
+      const rev = (ds.items || []).find((i) => i.label === '業績予想の修正');
+      chips.push(h('span', { class: 'badge' + (rev && rev.count >= 5 ? ' badge--warn' : ''), text: `開示 ${ds.total}件` + (rev ? `・修正 ${rev.count}` : '') }));
+    }
+  }
+
+  return h('section', { class: 'card summary', id: 'sec-summary' }, [
+    headline ? h('p', { class: 'summary__head', text: headline }) : null,
+    stats.length ? h('div', { class: 'summary__stats' }, stats) : null,
+    chips.length ? h('div', { class: 'summary__line' }, chips) : null,
+  ]);
+}
+
+function hero(label, value, deltaText, deltaVal, aside, verdict, tone, id) {
+  return h('section', { class: 'card hero', id: id || null }, [
     h('div', { class: 'hero__label', text: label }),
     h('div', { class: 'hero__row' }, [
       h('div', {}, [
@@ -310,44 +433,46 @@ function hero(label, value, deltaText, deltaVal, aside, verdict, tone) {
 }
 
 function noData(slot) {
+  const others = SLOTS.filter((s) => s !== slot && (DATA.slots || {})[s]);
   return h('section', { class: 'card' }, [
     h('h2', { class: 'card__title', text: SLOT_LABEL[slot] + 'のデータはまだありません' }),
-    h('p', { class: 'hint', text: '自動更新（' +
-      ({ preopen: '平日 07:00', zenba: '平日 12:00', taibike: '平日 17:30' })[slot] +
-      ' 頃）の実行後に表示されます。' }),
+    h('p', { class: 'hint', text: '自動更新が走ると表示されます。上の時間帯ボタンに実際の更新時刻を出しています。' +
+      (others.length ? `　いまは「${others.map((s) => SLOT_LABEL[s]).join('」「')}」が読めます。` : '') }),
   ]);
 }
 
-/* ==================== 寄り前タブ ==================== */
+/* ==================== 今日: 寄り前 ==================== */
 function renderPreopen(d) {
   const out = [];
-  const io = d.implied_open;
+  out.push(summaryCard(d, 'preopen'));
+  const analysis = analysisCard(d);
+  if (analysis) out.push(analysis);
 
+  const io = d.implied_open;
   if (io) {
     const gapTxt = isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : '';
-    const aside = [h('div', {}, [h('span', { class: 'badge badge--accent', text: io.method_label || '' })])];
+    const aside = [h('span', { class: 'badge badge--accent', text: io.method_label || '' })];
     if (isNum(io.prev_close)) aside.push(h('div', { class: 'num', text: `前日終値 ${fmtNum(io.prev_close, 0)}` }));
     let note = null;
     if (io.method === 'model' && io.contributions) {
       note = '内訳: ' + io.contributions.map((c) => `${c.driver} ${c.display || ''} → ${fmtSigned(c.value)}pt`).join('　/　') +
              (io.formula ? `　（係数: ${io.formula}）` : '');
     }
-    out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral'));
-  }
-
-  const preAnalysis = analysisCard(d.commentary, d.ai_commentary);
-  if (preAnalysis) out.push(preAnalysis);
-
-  if (d.risk) {
-    out.push(card('リスク環境',
-      h('span', { class: 'badge badge--' + (d.risk.tone === 'positive' ? 'up' : d.risk.tone === 'negative' ? 'down' : 'accent'),
-                  text: d.risk.label }),
-      h('ul', { class: 'reasons' }, (d.risk.reasons || []).map((r) => h('li', { text: r })))));
+    out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral', 'sec-open'));
   }
 
   if (d.us && Object.keys(d.us).length) {
     out.push(card('米国市場', d.freshness && d.freshness.us_asof ? d.freshness.us_asof + ' 終値' : null,
-      quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix'])));
+      quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix']), null, false, 'sec-us'));
+  }
+  if (d.macro && Object.keys(d.macro).length) {
+    out.push(card('為替・金利・商品', null, quoteTiles(d.macro, ['usdjpy', 'us10y', 'us2y', 'wti', 'gold']), null, false, 'sec-macro'));
+  }
+
+  if (d.risk) {
+    out.push(card('リスク環境',
+      h('span', { class: 'badge badge--' + (d.risk.tone === 'positive' ? 'up' : d.risk.tone === 'negative' ? 'down' : 'accent'), text: d.risk.label }),
+      h('ul', { class: 'reasons' }, (d.risk.reasons || []).map((r) => h('li', { text: r }))), null, false, 'sec-risk'));
   }
 
   const so = d.sector_outlook;
@@ -356,176 +481,149 @@ function renderPreopen(d) {
       label: s.sector, value: s.score,
       sub: (s.drivers || []).map((x) => `${x.driver} ${x.display || fmtPct(x.raw)}`).join(' · '),
     }));
-    out.push(card('今日 追い風になりそうな業種', '米国市場からの連想',
-      barList(mk(so.tailwind), { raw: true }),
-      '各業種を説明する米国側の指標（半導体・金利・為替など）の前日変化を重み付けして算出した相対スコア。' +
-      '株価の予測値ではなく、どの物色テーマに追い風が吹いているかの並び順として見る。'));
-    if (so.headwind && so.headwind.length) {
-      out.push(card('向かい風になりそうな業種', null, barList(mk(so.headwind), { raw: true })));
-    }
+    const tw = mk(so.tailwind), hw = mk(so.headwind || []);
+    const all = tw.slice(0, 4).concat(hw.length ? [{ gap: true }] : [], hw.slice(0, 4));
+    out.push(card('米国からの連想: 追い風 / 向かい風', '相対スコア',
+      foldable((n) => barList(n >= all.length ? tw.concat([{ gap: true }], hw) : all, { raw: true }),
+               tw.length + hw.length + 1, all.length, '全業種'),
+      '各業種を説明する米国側の指標（半導体・金利・為替など）の前日変化を重み付けした相対スコア。株価の予測ではなく、どの物色テーマに追い風が吹いているかの並び順。',
+      false, 'sec-outlook'));
   }
 
   if (d.sectors_us && Object.keys(d.sectors_us).length) {
-    const items = Object.values(d.sectors_us)
-      .filter((s) => isNum(s.change_pct))
-      .sort((a, b) => b.change_pct - a.change_pct)
-      .map((s) => ({ label: s.label, value: s.change_pct }));
-    out.push(card('米国セクターローテーション', '前日比', barList(items)));
-  }
-
-  if (d.macro && Object.keys(d.macro).length) {
-    out.push(card('為替・金利・商品', null, quoteTiles(d.macro, ['usdjpy', 'us10y', 'wti', 'gold', 'eurjpy'])));
+    const items = Object.values(d.sectors_us).filter((s) => isNum(s.change_pct))
+      .sort((a, b) => b.change_pct - a.change_pct).map((s) => ({ label: s.label, value: s.change_pct }));
+    out.push(card('米国セクターローテーション', '前日比',
+      foldable((n) => barList(items.slice(0, n)), items.length, 6, '12セクター'), null, false, 'sec-ussector'));
   }
 
   const co = d.carryover || {};
   if (co.after_hours_kessan && co.after_hours_kessan.length) {
+    const rows = co.after_hours_kessan;
     out.push(card('前営業日の引け後 開示', '今日の寄りで動きやすい',
-      disclosureRows(co.after_hours_kessan, 15), null, true));
+      foldable((n) => disclosureRows(rows, n), rows.length, 8, '全件'), null, true, 'sec-disc'));
   }
   if (co.prev_session && co.prev_session.session_shift) {
-    out.push(card('前営業日の引け方', co.prev_session.date,
-      h('p', { class: 'hint', style: 'font-size:13px;color:var(--text-dim)',
-               text: co.prev_session.session_shift.verdict })));
+    out.push(card('前営業日の引け方', fmtDate(co.prev_session.date),
+      h('p', { class: 'hint', style: 'font-size:13px;color:var(--text-dim);margin:0', text: co.prev_session.session_shift.verdict })));
   }
 
-  out.push(watchlistCard(d));
+  const news = newsCard(d.news);
+  if (news) out.push(news);
+  out.push(watchlistCard(d, 'sec-watch'));
   return out;
 }
 
-/* ==================== 前場・大引タブ ==================== */
+/* ==================== 今日: 前場・大引 ==================== */
 function indexTiles(indices) {
   const items = Object.values(indices || {}).map((v) =>
-    tile(v.label, fmtNum(v.close, v.close >= 1000 ? 2 : 2),
+    tile(v.label + (v.stale ? '（前日）' : ''), fmtNum(v.close, 2),
          fmtSigned(v.change, 2) + '  ' + fmtPct(v.change_pct), v.change_pct));
   if (!items.length) return h('div', { class: 'empty', text: '指数を取得できませんでした' });
-  return h('div', { class: 'tiles' }, items);
+  return h('div', { class: 'tiles tiles--3' }, items);
 }
 
 function renderSession(d, slot) {
   const out = [];
-  const nk = (d.indices || {}).nikkei;
+  out.push(summaryCard(d, slot));
+  const analysis = analysisCard(d);
+  if (analysis) out.push(analysis);
 
+  const nk = (d.indices || {}).nikkei;
   let verdict = null, tone = 'neutral';
   if (slot === 'taibike' && d.session_shift) {
     verdict = '後場: ' + d.session_shift.verdict +
-      (isNum(d.session_shift.indices?.[0]?.diff)
-        ? `（前場終値比 ${fmtSigned(d.session_shift.indices[0].diff, 0)}円）` : '');
+      (isNum(d.session_shift.indices?.[0]?.diff) ? `（前場終値比 ${fmtSigned(d.session_shift.indices[0].diff, 0)}円）` : '');
     tone = d.session_shift.tone;
   } else if (slot === 'zenba' && d.verify_open) {
-    verdict = `寄り前の想定 ${fmtPct(d.verify_open.expected_pct)} に対し実際 ${fmtPct(d.verify_open.actual_pct)}。` +
-      d.verify_open.verdict;
+    verdict = `寄り前の想定 ${fmtPct(d.verify_open.expected_pct)} に対し実際 ${fmtPct(d.verify_open.actual_pct)}。` + d.verify_open.verdict;
     tone = d.verify_open.tone;
   }
 
-  if (nk) {
-    out.push(hero(`日経平均（${SLOT_LABEL[slot]}）`, fmtNum(nk.close, 2),
-      fmtSigned(nk.change, 2) + '  ' + fmtPct(nk.change_pct), nk.change_pct,
-      d.divergence ? [
-        h('div', { class: 'badge badge--' + (d.divergence.tone === 'warn' ? 'warn' : 'accent'),
-                   text: d.divergence.label }),
-        h('div', { class: 'num', text: `日経 ${fmtPct(d.divergence.nikkei_pct)} / TOPIX ${fmtPct(d.divergence.topix_pct)}` }),
-        d.breadth ? h('div', { class: 'num', text: `225中 ${d.breadth.up} 銘柄が上昇` }) : null,
-      ] : null, verdict, tone));
-  }
-
-  const analysis = analysisCard(d.commentary, d.ai_commentary);
-  if (analysis) out.push(analysis);
-
-  out.push(card('指数', (d.indices.nikkei || {}).asof || null, [
+  out.push(card('指数', nk && nk.asof ? nk.asof + (nk.stale ? '（前営業日の値）' : '') : null, [
     indexTiles(d.indices),
-    // 見立てのカードで同じ指摘をしているときは繰り返さない
-    (d.divergence && !analysis) ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
-  ]));
+    d.divergence ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
+    verdict ? h('div', { class: 'hero__verdict is-' + tone, text: verdict }) : null,
+  ], null, false, 'sec-index'));
 
   if (d.sectors_jp && d.sectors_jp.length >= 4) {
-    const items = d.sectors_jp.map((x) => ({
-      label: `${x.sector}（${x.count}）`,
-      value: x.avg_pct,
+    const mk = (x) => ({
+      label: `${x.sector}（${x.count}）`, value: x.avg_pct,
       sub: x.best && x.worst
-        ? `高 ${x.best.name || x.best.code} ${fmtPct(x.best.change_pct, 1)} ／ `
-          + `安 ${x.worst.name || x.worst.code} ${fmtPct(x.worst.change_pct, 1)}`
-        : null,
-    }));
-    out.push(card('業種別 騰落率', '日経225採用銘柄の平均', barList(items),
-      '日経の業種区分で採用銘柄をまとめた単純平均。時価総額加重の東証33業種指数とは一致しません。'));
+        ? `高 ${x.best.name || x.best.code} ${fmtPct(x.best.change_pct, 1)} ／ 安 ${x.worst.name || x.worst.code} ${fmtPct(x.worst.change_pct, 1)}` : null,
+    });
+    const all = d.sectors_jp.map(mk);
+    const short = all.slice(0, 5).concat([{ gap: true }], all.slice(-5));
+    out.push(card('業種別 騰落率', '225採用銘柄の平均',
+      foldable((n) => barList(n >= all.length ? all : short), all.length, short.length, `全${all.length}業種`),
+      '日経の業種区分で採用銘柄をまとめた単純平均。時価総額加重の東証33業種指数とは一致しません。', false, 'sec-sector'));
   }
 
   const heat = heatmapCard(d.constituents, d.breadth);
   if (heat) out.push(heat);
 
   const t = d.tables || {};
-
   if (t.value && t.value.rows && t.value.rows.length) {
     const dl = d.ranking_delta || {};
     const newSet = new Set((dl.new || []).map((n) => n.code));
-    const upSet = new Map((dl.rank_up || []).map((n) => [n.code, n]));
+    const upMap = new Map((dl.rank_up || []).map((n) => [n.code, n]));
     const streakMap = new Map((d.streaks || []).map((s) => [s.code, s]));
     const valueLabel = t.value.label || '売買代金';
-    out.push(card(valueLabel + ' 上位',
-      valueLabel === '売買代金' ? '資金が向かった先' : '商いが膨らんだ銘柄',
-      stockRows(t.value.rows, {
-        limit: 30,
+    const rows = t.value.rows;
+    out.push(card(valueLabel + ' 上位', valueLabel === '売買代金' ? '資金が向かった先' : '商いが膨らんだ銘柄',
+      foldable((n) => stockRows(rows, {
+        limit: n,
         meta: (r) => {
           const m = [];
-          if (newSet.has(r.code)) m.push('🆕 新規ランクイン');
-          if (upSet.has(r.code)) m.push(`▲${upSet.get(r.code).jump}位上昇`);
+          if (newSet.has(r.code)) m.push('🆕 新規');
+          if (upMap.has(r.code)) m.push(`▲${upMap.get(r.code).jump}位`);
           if (streakMap.has(r.code)) m.push(`${streakMap.get(r.code).days}日連続`);
           return m;
         },
-      }),
-      (dl.new && dl.new.length)
-        ? `前営業日から新たに上位入り: ${dl.new.slice(0, 6).map((n) => n.name || n.code).join('、')}`
-        : null, true));
+      }), rows.length, 10, `${rows.length}位まで`),
+      (dl.new && dl.new.length) ? `前営業日から新たに上位入り: ${dl.new.slice(0, 6).map((n) => cleanName(n.name) || n.code).join('、')}` : null,
+      true, 'sec-value'));
   }
 
   if ((t.gainer && t.gainer.rows.length) || (t.loser && t.loser.rows.length)) {
     const body = h('div', {});
-    const seg = h('div', { class: 'seg' });
-    const render = (which) => {
+    const draw = (which) => {
       body.textContent = '';
-      body.appendChild(stockRows((t[which] || {}).rows, { limit: 12 }));
-      [...seg.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === which)));
+      const rows = (t[which] || {}).rows || [];
+      body.appendChild(foldable((n) => stockRows(rows, { limit: n, meta: (r) => r.market ? [h('span', { text: r.market })] : [] }),
+                                rows.length, 8, `${rows.length}位まで`));
     };
-    ['gainer', 'loser'].forEach((k) => {
-      if (!t[k] || !t[k].rows.length) return;
-      const b = h('button', { class: 'seg__btn', type: 'button', 'aria-pressed': 'false',
-                              text: k === 'gainer' ? '上昇率' : '下落率' });
-      b.dataset.k = k;
-      b.addEventListener('click', () => render(k));
-      seg.appendChild(b);
-    });
-    render(t.gainer && t.gainer.rows.length ? 'gainer' : 'loser');
-    out.push(card('値動きの大きかった銘柄', seg, body, null, true));
+    const opts = ['gainer', 'loser'].filter((k) => t[k] && t[k].rows.length).map((k) => [k, k === 'gainer' ? '上昇率' : '下落率']);
+    const seg = segmented(opts, draw, opts[0][0]);
+    draw(opts[0][0]);
+    out.push(card('値動きの大きかった銘柄', seg, body, null, true, 'sec-moves'));
   }
 
-  if (d.disclosure_summary) {
-    out.push(card('今日の適時開示', `${d.disclosure_summary.total}件`,
-      h('div', { class: 'chips' }, d.disclosure_summary.items.map((i) =>
-        h('span', { class: 'badge' + (i.label === '業績予想の修正' ? ' badge--warn' : ''),
-                    text: `${i.label} ${i.count}` }))),
-      d.disclosure_summary.headline));
-  }
-
-  const discCard = (table, title, note) => {
+  const discCard = (table, title, note, id) => {
     if (!table || !table.rows.length) return null;
-    const { material, rest } = splitMaterial(table.rows);
-    const body = [disclosureRows(material.length ? material : rest, 20)];
+    const material = table.rows.filter((r) => MATERIAL.includes(r.category));
+    const rest = table.rows.filter((r) => !MATERIAL.includes(r.category));
+    const main = material.length ? material : rest;
+    const body = [foldable((n) => disclosureRows(main, n), main.length, 8, '全件')];
     if (material.length && rest.length) {
       body.push(h('details', { class: 'acc' }, [
-        h('summary', {}, [h('span', { text: `その他の開示 ${rest.length}件` })]),
-        disclosureRows(rest, 30),
+        h('summary', {}, [h('span', { class: 'acc__title', text: `その他の開示 ${rest.length}件（自己株式取得・月次など）` })]),
+        disclosureRows(rest, 40),
       ]));
     }
-    return card(title, `${table.rows.length}件`, body, note, true);
+    const sum = d.disclosure_summary;
+    const sub = sum ? h('div', { class: 'chips' }, sum.items.slice(0, 3).map((i) =>
+      h('span', { class: 'badge' + (i.label === '業績予想の修正' ? ' badge--warn' : ''), text: `${i.label} ${i.count}` }))) : `${table.rows.length}件`;
+    return card(title, sub, body, note, true, id);
   };
-
-  const after = discCard(t.kessan_after, '引け後の開示',
-    '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。');
+  const after = discCard(t.kessan_after, '引け後の開示', '翌営業日の寄りで値が飛びやすい。ウォッチリスト銘柄が含まれていないか確認する。', 'sec-disc');
   if (after) out.push(after);
-  const intraday = discCard(t.kessan_intraday, '場中の開示', null);
+  const intraday = discCard(t.kessan_intraday, '場中の開示', null, after ? 'sec-disc2' : 'sec-disc');
   if (intraday) out.push(intraday);
 
-  out.push(watchlistCard(d));
+  const news = newsCard(d.news);
+  if (news) out.push(news);
+  out.push(watchlistCard(d, 'sec-watch'));
   return out;
 }
 
@@ -542,57 +640,318 @@ function effectiveWatchlist(d) {
   const byCode = new Map(server.filter((s) => s && s.code).map((s) => [String(s.code), s]));
   const serverCodes = [...byCode.keys()];
   let local = localCodes();
-
   // サーバ側が端末の編集内容に追いついたら、端末の上書きは役目を終える。
-  // これを消しておかないと、別端末からの変更をこの端末が握りつぶしてしまう。
-  if (local && local.length === serverCodes.length &&
-      local.every((c) => byCode.has(String(c)))) {
+  if (local && local.length === serverCodes.length && local.every((c) => byCode.has(String(c)))) {
     try { localStorage.removeItem(LS.codes); } catch (e) { /* 非対応環境は無視 */ }
     local = null;
   }
-
   const codes = local || serverCodes;
   return codes.map((c) => byCode.get(String(c)) || { code: String(c), pending: true });
 }
 
-function watchlistCard(d) {
+function watchlistCard(d, id) {
   const items = effectiveWatchlist(d);
-  const editBtn = h('button', { class: 'btn btn--ghost', type: 'button', text: '編集',
-                                onclick: () => openSheet(d) });
+  const editBtn = h('button', { class: 'btn btn--ghost', type: 'button', text: '編集', onclick: () => openSheet(d) });
 
   if (!items.length) {
     return card('ウォッチリスト', editBtn,
-      h('p', { class: 'hint', text: '証券コードを登録すると、保有・注目銘柄の値動きと、その銘柄がランキングやニュースに出たかをここにまとめます。' }));
+      h('p', { class: 'hint', style: 'margin:0', text: '証券コードを登録すると、保有・注目銘柄の値動きと、その銘柄がランキングや開示に出たかをここにまとめます。' }),
+      null, false, id);
   }
-
   const rows = h('div', { class: 'rows' }, items.map((s) => {
-    const meta = [s.code];
-    if (s.sector) meta.push(s.sector);
-    (s.tags || []).forEach((t) => meta.push(t));
-    (s.disclosures || []).forEach((m) => meta.push('📄 ' + m));
-    if (s.pending) meta.push('次回更新後に反映');
-    const inner = [
+    const meta = [h('span', { text: s.code })];
+    if (s.sector) meta.push(h('span', { text: s.sector }));
+    (s.tags || []).forEach((t) => meta.push(h('span', { class: 'tag', text: t })));
+    (s.disclosures || []).forEach((m) => meta.push(h('span', { class: 'tag tag--warn', text: '📄 ' + m })));
+    if (s.pending) meta.push(h('span', { text: '次回更新後に反映' }));
+    return h('a', { class: 'row', href: stockUrl(s.code), target: '_blank', rel: 'noopener' }, [
       h('div', { class: 'row__rank' }, []),
       h('div', { class: 'row__main' }, [
-        h('div', { class: 'row__name', text: s.name || s.code }),
-        h('div', { class: 'row__meta' }, meta.map((m) => h('span', { text: m }))),
+        h('div', { class: 'row__name', text: cleanName(s.name) || s.code }),
+        h('div', { class: 'row__meta' }, meta),
       ]),
       h('div', { class: 'row__right' }, [
-        isNum(s.price) ? h('div', { class: 'row__price num', text: fmtNum(s.price, s.price >= 1000 ? 0 : 1) }) : null,
+        isNum(s.price) ? h('div', { class: 'row__price num', text: fmtPrice(s.price) }) : null,
         h('div', { class: 'row__delta num ' + cls(s.change_pct), text: s.pending ? '—' : fmtPct(s.change_pct) }),
       ]),
-    ];
-    return h('a', { class: 'row', href: `https://kabutan.jp/stock/?code=${encodeURIComponent(s.code)}`,
-                    target: '_blank', rel: 'noopener' }, inner);
+    ]);
   }));
-
-  const hits = items.filter((s) => (s.tags || []).length || (s.mentions || []).length);
+  const hits = items.filter((s) => (s.tags || []).length || (s.disclosures || []).length);
   return card('ウォッチリスト', editBtn, rows,
-    hits.length ? `${hits.length}銘柄が今日のランキング／ニュースに登場しています。` : null, true);
+    hits.length ? `${hits.length}銘柄が今日のランキング／開示に登場しています。` : null, true, id);
+}
+
+/* ==================== 発掘 ==================== */
+/* サーバ側の台帳（ledger.json）が無い間は、端末側で直近の履歴から候補を組み立てる。
+   入口の判定は機械的に行い、理由は「どの数字に引っかかったか」だけを書く。 */
+function latestSession() {
+  const slots = (DATA && DATA.slots) || {};
+  return (slots.taibike || slots.zenba || {}).data || null;
+}
+
+function histSessions() {
+  return HIST.dates.slice().reverse().map((d) => HIST.byDate.get(d)).filter(Boolean);
+}
+
+function buildSignals() {
+  const d = latestSession();
+  const cands = new Map();          // code → {code, name, price, change_pct, signals:[], why:[]}
+  const add = (r, signal, why, weight) => {
+    if (!r || !r.code) return;
+    const c = cands.get(r.code) || { code: r.code, name: cleanName(r.name) || r.code, price: r.price, change_pct: r.change_pct, signals: [], why: [], score: 0 };
+    if (!isNum(c.change_pct) && isNum(r.change_pct)) c.change_pct = r.change_pct;
+    if (!isNum(c.price) && isNum(r.price)) c.price = r.price;
+    if (!c.signals.includes(signal)) { c.signals.push(signal); c.score += weight || 1; }
+    if (why && !c.why.includes(why)) c.why.push(why);
+    cands.set(r.code, c);
+  };
+
+  if (d) {
+    const valueRows = ((d.tables || {}).value || {}).rows || [];
+    const priceOf = new Map(valueRows.map((r) => [r.code, r]));
+    (d.streaks || []).filter((s) => s.days >= 3).forEach((s) =>
+      add({ ...s, ...(priceOf.get(s.code) || {}) }, '資金流入の継続', `売買代金上位に ${s.days}営業日連続`, 2));
+    const dl = d.ranking_delta || {};
+    (dl.new || []).forEach((n) => add({ ...n, ...(priceOf.get(n.code) || {}) }, '新規の資金流入',
+      `売買代金 ${n.rank}位に新規ランクイン` + (isNum(n.change_pct) ? `（${fmtPct(n.change_pct)}）` : ''), isNum(n.change_pct) && n.change_pct > 0 ? 2 : 1));
+    (dl.rank_up || []).filter((n) => n.jump >= 8).forEach((n) => add({ ...n, ...(priceOf.get(n.code) || {}) }, '順位の急上昇',
+      `売買代金 ${n.prev_rank}位 → ${n.rank}位`, 1));
+    const gainerSet = new Set((((d.tables || {}).gainer || {}).rows || []).map((r) => r.code));
+    const discl = [].concat(((d.tables || {}).kessan_after || {}).rows || [], ((d.tables || {}).kessan_intraday || {}).rows || []);
+    discl.forEach((r) => {
+      const tone = disclosureTone(r);
+      if (tone === 'up') add(r, '上方修正・増配', `${r.time || ''} ${r.title}`.trim(), gainerSet.has(r.code) ? 3 : 2);
+      if (r.category === '決算短信' && (priceOf.has(r.code) || gainerSet.has(r.code))) add({ ...r, ...(priceOf.get(r.code) || {}) }, '決算で商い', '決算短信の当日に売買代金／上昇率上位', 2);
+    });
+    (((d.tables || {}).gainer || {}).rows || []).forEach((r) => {
+      if (priceOf.has(r.code)) add(r, '上昇率×売買代金', `上昇率 ${r.rank}位、かつ売買代金上位`, 2);
+    });
+  }
+
+  // 過去の引け後開示（上方修正）が、その後に売買代金上位へ入っているか
+  const sessions = histSessions();
+  const seenValue = new Map();      // code → [dates]
+  sessions.forEach((hs) => {
+    const rows = ((hs.taibike || {}).value_rows || (hs.zenba || {}).value_rows || []);
+    rows.forEach((r) => { if (!seenValue.has(r.code)) seenValue.set(r.code, []); seenValue.get(r.code).push(hs.date); });
+  });
+  sessions.forEach((hs) => {
+    ((hs.taibike || {}).after_hours || []).forEach((r) => {
+      if (disclosureTone(r) !== 'up') return;
+      const later = (seenValue.get(r.code) || []).filter((dt) => dt > hs.date);
+      if (later.length) add(r, '修正後に資金流入', `${fmtDate(hs.date)} 上方修正 → その後 ${later.length}営業日 売買代金上位`, 3);
+    });
+  });
+
+  return [...cands.values()].sort((a, b) => b.score - a.score || (b.change_pct || 0) - (a.change_pct || 0));
+}
+
+function signalRow(c) {
+  return h('a', { class: 'signal', href: stockUrl(c.code), target: '_blank', rel: 'noopener' }, [
+    h('div', { class: 'signal__name', text: `${c.name}` }),
+    h('div', { class: 'signal__right num ' + cls(c.change_pct) }, [
+      document.createTextNode(fmtPct(c.change_pct)),
+      h('small', { text: c.code + (isNum(c.price) ? '　' + fmtPrice(c.price) : '') }),
+    ]),
+    h('div', { class: 'signal__tags' }, c.signals.map((s) => h('span', { class: 'badge badge--accent', text: s }))),
+    h('div', { class: 'signal__why', text: c.why.join('。') }),
+  ]);
+}
+
+function ledgerRow(e) {
+  const tr = e.track || {};
+  const fmtT = (v) => (isNum(v) ? fmtPct(v, 1) : '—');
+  return h('a', { class: 'signal', href: stockUrl(e.code), target: '_blank', rel: 'noopener' }, [
+    h('div', { class: 'signal__name', text: cleanName(e.name) || e.code }),
+    h('div', { class: 'signal__right num' }, [
+      h('span', { class: 'track' }, [
+        h('span', {}, ['d1 ', h('b', { class: cls(tr.d1), text: fmtT(tr.d1) })]),
+        h('span', {}, ['d5 ', h('b', { class: cls(tr.d5), text: fmtT(tr.d5) })]),
+        h('span', {}, ['d20 ', h('b', { class: cls(tr.d20), text: fmtT(tr.d20) })]),
+      ]),
+      h('small', { text: `${e.code}　${fmtDate(e.first_seen)} から` + (e.status === 'closed' ? '（追跡終了）' : '') }),
+    ]),
+    h('div', { class: 'signal__tags' }, [].concat(e.signals || []).map((s) => h('span', { class: 'badge badge--accent', text: s }))
+      .concat([].concat(e.themes || []).map((t) => h('span', { class: 'badge', text: '#' + t })))),
+    e.notes ? h('div', { class: 'signal__why', text: e.notes }) : null,
+  ]);
+}
+
+function renderDiscover() {
+  const out = [];
+  if (LEDGER && Array.isArray(LEDGER.entries) && LEDGER.entries.length) {
+    const open = LEDGER.entries.filter((e) => e.status !== 'closed');
+    const closed = LEDGER.entries.filter((e) => e.status === 'closed');
+    out.push(card('発掘ノート', `${open.length}銘柄を追跡中`,
+      foldable((n) => h('div', {}, open.slice(0, n).map(ledgerRow)), open.length, 12, '全件'),
+      '入口の判定は機械（連続ランクイン・修正・決算後の続伸など）、理由づけはAI、検証は週報。d1/d5/d20 はフラグ日からの騰落率。', true));
+    if (closed.length) {
+      out.push(card('追跡を終えた候補', `${closed.length}銘柄`,
+        foldable((n) => h('div', {}, closed.slice(0, n).map(ledgerRow)), closed.length, 8, '全件'), null, true));
+    }
+    if (LEDGER.stats) {
+      out.push(card('シグナル別の成績', LEDGER.stats.asof ? fmtDate(LEDGER.stats.asof) + ' 時点' : null,
+        h('div', { class: 'rows' }, (LEDGER.stats.by_signal || []).map((s) => h('div', { class: 'row' }, [
+          h('div', { class: 'row__rank' }, []),
+          h('div', { class: 'row__main' }, [h('div', { class: 'row__name', text: s.signal }),
+            h('div', { class: 'row__meta' }, [h('span', { text: `${s.count}件` })])]),
+          h('div', { class: 'row__right' }, [h('div', { class: 'row__delta num ' + cls(s.d5_median), text: 'd5 中央値 ' + fmtPct(s.d5_median, 1) })]),
+        ]))), null, true));
+    }
+  } else {
+    const sigs = buildSignals();
+    const d = latestSession();
+    if (!d) {
+      out.push(h('section', { class: 'card' }, [
+        h('h2', { class: 'card__title', text: '候補を出す材料がまだありません' }),
+        h('p', { class: 'hint', text: '前場または大引のデータが入ると、売買代金・開示・履歴から候補を組み立てます。' }),
+      ]));
+    } else {
+      const strong = sigs.filter((c) => c.signals.length >= 2 || c.score >= 3);
+      const rest = sigs.filter((c) => !strong.includes(c));
+      out.push(card('複数シグナルが重なった銘柄', `${strong.length}銘柄`,
+        strong.length ? foldable((n) => h('div', {}, strong.slice(0, n).map(signalRow)), strong.length, 10, '全件')
+                      : h('div', { class: 'empty', text: '今日は重なりなし' }),
+        '直近の売買代金上位・開示・上昇率と、端末が読み込んだ履歴から機械的に抽出。予測ではなく「数字に引っかかった順」。', true));
+      out.push(card('単独シグナル', `${rest.length}銘柄`,
+        rest.length ? foldable((n) => h('div', {}, rest.slice(0, n).map(signalRow)), rest.length, 10, '全件')
+                    : h('div', { class: 'empty', text: 'なし' }), null, true));
+    }
+    out.push(h('section', { class: 'card' }, [
+      h('h2', { class: 'card__title', text: 'この画面について' }),
+      h('p', { class: 'hint', style: 'margin:0', text:
+        'サーバ側の台帳（候補を溜めて d1/d5/d20 の騰落を追い、シグナルごとの成績を週次で出す仕組み）が整うまでの暫定版です。' +
+        '端末が読み込める履歴（直近' + HISTORY_DAYS + '営業日）の範囲で組み立てています。' }),
+    ]));
+  }
+
+  // 業種の時間軸: 履歴から日経の終値と各日の顔ぶれの変化
+  const sessions = histSessions();
+  const closes = sessions.map((s) => ((s.taibike || {}).indices || {}).nikkei).filter((n) => n && isNum(n.close)).map((n) => n.close);
+  if (closes.length >= 3) {
+    const first = closes[0], last = closes[closes.length - 1];
+    out.push(card(`日経平均 ${closes.length}営業日の推移`, fmtPct((last / first - 1) * 100) + ' の変化',
+      h('div', { class: 'tiles' }, [tile('始点', fmtNum(first, 0), fmtDate(sessions.find((s) => ((s.taibike || {}).indices || {}).nikkei)?.date), 0, null),
+        tile('終点', fmtNum(last, 0), fmtPct((last / first - 1) * 100), (last / first - 1) * 100, closes)])));
+  }
+  return out;
+}
+
+/* ==================== 履歴 ==================== */
+function renderHistory() {
+  const out = [];
+  if (!HIST.loaded) {
+    out.push(h('section', { class: 'card' }, [h('p', { class: 'empty', text: '履歴を読み込み中…' })]));
+    return out;
+  }
+  const sessions = histSessions().slice().reverse();      // 新しい順
+  if (!sessions.length) {
+    out.push(h('section', { class: 'card' }, [
+      h('h2', { class: 'card__title', text: '履歴はまだありません' }),
+      h('p', { class: 'hint', text: '営業日ごとのスナップショットが溜まるとここに並びます。' }),
+    ]));
+    return out;
+  }
+  const rows = sessions.map((s) => {
+    const idx = ((s.taibike || {}).indices || (s.zenba || {}).indices || {});
+    const nk = idx.nikkei, tp = idx.topix;
+    const pre = (s.preopen || {}).implied_open;
+    const vr = ((s.taibike || {}).value_rows || (s.zenba || {}).value_rows || []);
+    const ah = ((s.taibike || {}).after_hours || []);
+    const ups = ah.filter((r) => disclosureTone(r) === 'up');
+    const top = vr.slice(0, 3).map((r) => cleanName(r.name) || r.code).join('・');
+    const chips = [];
+    if (tp) chips.push(h('span', { class: 'badge', text: `TOPIX ${fmtPct(tp.change_pct)}` }));
+    if (pre && isNum(pre.gap_pct) && nk) chips.push(h('span', { class: 'badge', text: `想定 ${fmtPct(pre.gap_pct)} → 実際 ${fmtPct(nk.change_pct)}` }));
+    if ((s.taibike || {}).session_shift) chips.push(h('span', { class: 'badge', text: '後場: ' + s.taibike.session_shift.verdict }));
+    if (ah.length) chips.push(h('span', { class: 'badge' + (ups.length ? ' badge--up' : ''), text: `引け後開示 ${ah.length}` + (ups.length ? `・上方 ${ups.length}` : '') }));
+    return h('details', { class: 'hist' }, [
+      h('summary', {}, [
+        h('div', { class: 'hist__date' }, [document.createTextNode(fmtDate(s.date, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' })),
+          h('small', { text: fmtDate(s.date, { weekday: 'short', timeZone: 'Asia/Tokyo' }) })]),
+        h('div', { class: 'hist__main' }, [nk ? h('b', { text: '日経 ' + fmtNum(nk.close, 0) }) : h('b', { text: '指数なし' }),
+          document.createTextNode(top ? '　' + top : '')]),
+        h('div', { class: 'hist__right' }, [
+          h('div', { class: 'hist__val num ' + cls(nk && nk.change_pct), text: nk ? fmtPct(nk.change_pct) : '—' }),
+          h('div', { class: 'hist__pct num ' + cls(nk && nk.change), text: nk ? fmtSigned(nk.change, 0) : '' }),
+        ]),
+      ]),
+      h('div', { class: 'hist__body' }, [
+        chips.length ? h('div', { class: 'hist__kv' }, chips) : null,
+        vr.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:6px 0 4px' }, [h('h3', { class: 'card__title', text: '売買代金上位' })]) : null,
+        vr.length ? stockRows(vr, { limit: 10 }) : null,
+        ups.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:10px 0 4px' }, [h('h3', { class: 'card__title', text: '上方修正・増配' })]) : null,
+        ups.length ? disclosureRows(ups, 10) : null,
+      ]),
+    ]);
+  });
+  out.push(card('営業日ごとの記録', `${sessions.length}日分`, h('div', {}, rows),
+    '各日の大引スナップショット。タップで当日の売買代金上位と上方修正を開きます。', true));
+  return out;
+}
+
+/* ==================== 銘柄 ==================== */
+function searchIndex() {
+  const hits = [];
+  const slots = (DATA && DATA.slots) || {};
+  const seen = new Set();
+  const push = (r, ctx) => {
+    if (!r || !r.code) return;
+    hits.push({ code: String(r.code), name: cleanName(r.name) || '', price: r.price, change_pct: r.change_pct, ctx });
+  };
+  const sess = (slots.taibike || slots.zenba || {}).data;
+  if (sess) {
+    const t = sess.tables || {};
+    (((t.value || {}).rows) || []).forEach((r) => push(r, `${t.value.label || '売買代金'} ${r.rank}位`));
+    (((t.gainer || {}).rows) || []).forEach((r) => push(r, `上昇率 ${r.rank}位`));
+    (((t.loser || {}).rows) || []).forEach((r) => push(r, `下落率 ${r.rank}位`));
+    (((t.kessan_after || {}).rows) || []).forEach((r) => push(r, `引け後開示: ${r.category}`));
+    (((t.kessan_intraday || {}).rows) || []).forEach((r) => push(r, `場中開示: ${r.category}`));
+    (sess.constituents || []).forEach((r) => push(r, `日経225（${r.sector}）`));
+  }
+  const pre = (slots.preopen || {}).data;
+  if (pre) ((pre.carryover || {}).after_hours_kessan || []).forEach((r) => push(r, `前日引け後開示: ${r.category}`));
+  histSessions().forEach((hs) => {
+    ((hs.taibike || {}).value_rows || []).forEach((r) => push(r, `${fmtDate(hs.date)} 売買代金上位`));
+    ((hs.taibike || {}).after_hours || []).forEach((r) => push(r, `${fmtDate(hs.date)} ${r.category}`));
+  });
+  void seen;
+  return hits;
+}
+
+function renderStocks() {
+  const out = [];
+  const d = latestSession() || ((DATA.slots || {}).preopen || {}).data || {};
+  out.push(watchlistCard(d));
+
+  const input = h('input', { type: 'search', placeholder: 'コードまたは社名で横断検索', autocomplete: 'off', inputmode: 'search' });
+  const result = h('div', {});
+  const run = () => {
+    const q = input.value.trim();
+    result.textContent = '';
+    if (!q) return;
+    const ql = q.toUpperCase();
+    const all = searchIndex().filter((x) => x.code.includes(ql) || x.name.includes(q));
+    if (!all.length) { result.appendChild(h('div', { class: 'empty', text: '見つかりません（今日のデータと直近の履歴の範囲で検索しています）' })); return; }
+    const byCode = new Map();
+    all.forEach((x) => {
+      const c = byCode.get(x.code) || { code: x.code, name: x.name, price: x.price, change_pct: x.change_pct, ctx: [] };
+      if (!isNum(c.change_pct) && isNum(x.change_pct)) c.change_pct = x.change_pct;
+      if (!isNum(c.price) && isNum(x.price)) c.price = x.price;
+      if (!c.name && x.name) c.name = x.name;
+      if (!c.ctx.includes(x.ctx)) c.ctx.push(x.ctx);
+      byCode.set(x.code, c);
+    });
+    const list = [...byCode.values()].slice(0, 30);
+    result.appendChild(h('div', { class: 'rows' }, list.map((c, i) => stockRow(c, i, { rank: false, meta: () => c.ctx.slice(0, 4) }))));
+  };
+  input.addEventListener('input', run);
+  out.push(card('銘柄を探す', null, [h('div', { class: 'search' }, [input]), result],
+    '今日の指数採用銘柄・ランキング・開示と、直近の履歴に出てきた銘柄が対象。タップで株探の銘柄ページを開きます。'));
+  return out;
 }
 
 /* ==================== 編集シート ==================== */
-const $ = (id) => document.getElementById(id);
 let sheetCodes = [];
 let sheetNames = new Map();
 
@@ -619,7 +978,7 @@ function drawSheet() {
   sheetCodes.forEach((code, i) => {
     list.appendChild(h('div', { class: 'editrow' }, [
       h('span', { class: 'editrow__code num', text: code }),
-      h('span', { class: 'editrow__name', text: sheetNames.get(code) || '' }),
+      h('span', { class: 'editrow__name', text: cleanName(sheetNames.get(code)) || '' }),
       h('button', { class: 'editrow__del', type: 'button', 'aria-label': code + 'を削除', text: '✕',
                     onclick: () => { sheetCodes.splice(i, 1); drawSheet(); } }),
     ]));
@@ -643,22 +1002,18 @@ async function pushToGitHub(codes) {
   const token = localStorage.getItem(LS.token);
   const repo = localStorage.getItem(LS.repo) || DEFAULT_REPO;
   if (!token) return { synced: false };
-
   const path = 'docs/data/watchlist.json';
   const api = `https://api.github.com/repos/${repo}/contents/${path}`;
   const headers = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
-
   let sha;
   const cur = await fetch(api, { headers });
   if (cur.ok) sha = (await cur.json()).sha;
   else if (cur.status !== 404) throw new Error(`読み込み失敗 (${cur.status})`);
-
   const body = {
     message: 'ウォッチリストを更新（ダッシュボードから）',
     content: b64utf8(JSON.stringify({ codes, updated_at: new Date().toISOString() }, null, 2) + '\n'),
   };
   if (sha) body.sha = sha;
-
   const res = await fetch(api, { method: 'PUT', headers, body: JSON.stringify(body) });
   if (!res.ok) {
     const t = await res.text();
@@ -679,28 +1034,20 @@ function bindSheet() {
     setStatus('');
     drawSheet();
   });
-  $('wlInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); $('wlAdd').click(); }
-  });
-
+  $('wlInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('wlAdd').click(); } });
   $('wlSave').addEventListener('click', async () => {
     localStorage.setItem(LS.codes, JSON.stringify(sheetCodes));
     setStatus('この端末に保存しました。反映中…');
     try {
       const r = await pushToGitHub(sheetCodes);
-      setStatus(r.synced
-        ? 'リポジトリに保存しました。株価の取得が走ります（数分後に再読み込みしてください）'
-        : 'この端末に保存しました。株価は次回の自動更新で取得されます', 'ok');
+      setStatus(r.synced ? 'リポジトリに保存しました。株価の取得が走ります（数分後に再読み込みしてください）'
+                         : 'この端末に保存しました。株価は次回の自動更新で取得されます', 'ok');
     } catch (e) {
       setStatus('端末には保存しましたが、リポジトリ側は失敗しました: ' + e.message, 'err');
     }
     render();
   });
-
-  $('wlSettings').addEventListener('click', () => {
-    const box = $('wlSettingsBox');
-    box.hidden = !box.hidden;
-  });
+  $('wlSettings').addEventListener('click', () => { const box = $('wlSettingsBox'); box.hidden = !box.hidden; });
   $('wlTokenSave').addEventListener('click', () => {
     const t = $('wlToken').value.trim();
     const r = $('wlRepo').value.trim() || DEFAULT_REPO;
@@ -716,56 +1063,109 @@ function bindSheet() {
   });
 }
 
+/* ==================== 上端: 時間帯とジャンプ ==================== */
+const JUMP_LABELS = [
+  ['sec-summary', '要点'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
+  ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'], ['sec-outlook', '連想'], ['sec-ussector', '米セクター'],
+  ['sec-sector', '業種'], ['sec-heat', 'ヒートマップ'], ['sec-value', '売買代金'], ['sec-moves', '値動き'],
+  ['sec-disc', '開示'], ['sec-news', 'ニュース'], ['sec-watch', 'ウォッチ'],
+];
+
+function drawSlotBar() {
+  const bar = $('slotBar');
+  bar.textContent = '';
+  if (activeView !== 'today') return;
+  const slots = (DATA && DATA.slots) || {};
+  SLOTS.forEach((s) => {
+    const entry = slots[s];
+    const b = h('button', { class: 'slot' + (entry ? '' : ' slot--missing'), role: 'tab',
+      'aria-selected': String(s === activeSlot), onclick: () => selectSlot(s) }, [
+      document.createTextNode(SLOT_LABEL[s]),
+      h('span', { class: 'slot__time', text: entry ? (entry.updated_at || '').slice(11, 16) + ' 更新' : '未取得' }),
+    ]);
+    bar.appendChild(b);
+  });
+}
+
+function drawJumpBar() {
+  const bar = $('jumpBar');
+  bar.textContent = '';
+  if (activeView !== 'today') return;
+  const panel = $('view-today');
+  JUMP_LABELS.forEach(([id, label]) => {
+    const target = panel.querySelector('#' + id);
+    if (!target) return;
+    bar.appendChild(h('button', { class: 'jump__btn', type: 'button', text: label,
+      onclick: () => { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }));
+  });
+}
+
 /* ==================== 描画・ブート ==================== */
 function render() {
   if (!DATA) return;
-  const slots = DATA.slots || {};
-
   const dt = DATA.date ? new Date(DATA.date + 'T00:00:00+09:00') : null;
   $('headDate').textContent = dt
-    ? dt.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' })
-    : '—';
+    ? dt.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' }) : '—';
 
-  SLOTS.forEach((slot) => {
-    const panel = $('panel-' + slot);
-    panel.textContent = '';
-    const entry = slots[slot];
-    const nodes = !entry ? [noData(slot)]
-      : slot === 'preopen' ? renderPreopen(entry.data || {})
-      : renderSession(entry.data || {}, slot);
-    nodes.forEach((n) => n && panel.appendChild(n));
-  });
+  const today = $('view-today');
+  today.textContent = '';
+  const entry = (DATA.slots || {})[activeSlot];
+  const nodes = !entry ? [noData(activeSlot)]
+    : activeSlot === 'preopen' ? renderPreopen(entry.data || {})
+    : renderSession(entry.data || {}, activeSlot);
+  nodes.forEach((n) => n && today.appendChild(n));
 
-  selectTab(activeTab);
+  const fill = (id, fn) => { const el = $(id); el.textContent = ''; fn().forEach((n) => n && el.appendChild(n)); };
+  fill('view-discover', renderDiscover);
+  fill('view-history', renderHistory);
+  fill('view-stocks', renderStocks);
+
+  drawSlotBar();
+  drawJumpBar();
+  updateFreshness();
   $('footMeta').textContent = 'データ生成: ' + (DATA.generated_at || '—');
 }
 
-function selectTab(slot) {
-  activeTab = slot;
-  SLOTS.forEach((s) => {
-    $('tab-' + s).setAttribute('aria-selected', String(s === slot));
-    $('panel-' + s).hidden = s !== slot;
-  });
-  try { sessionStorage.setItem(LS.tab, slot); } catch (e) { /* 非対応環境は無視 */ }
-
-  const entry = (DATA.slots || {})[slot];
+function updateFreshness() {
   const dot = $('freshDot');
-  if (!entry) {
-    $('headUpdated').textContent = '未取得';
+  const entry = (DATA.slots || {})[activeSlot];
+  if (activeView !== 'today') {
+    $('headUpdated').textContent = DATA.generated_at ? DATA.generated_at.slice(5, 16).replace('T', ' ') + ' 生成' : '—';
     dot.className = 'dot';
     return;
   }
+  if (!entry) { $('headUpdated').textContent = '未取得'; dot.className = 'dot'; return; }
   const upd = entry.updated_at || '';
-  $('headUpdated').textContent = SLOT_LABEL[slot] + ' ' + upd.slice(11, 16) + ' 更新';
+  $('headUpdated').textContent = SLOT_LABEL[activeSlot] + ' ' + upd.slice(11, 16) + ' 更新';
   const age = (Date.now() - new Date(upd).getTime()) / 3600000;
   dot.className = 'dot ' + (age < 12 ? 'dot--fresh' : 'dot--stale');
 }
 
-function defaultTab() {
+function selectSlot(slot) {
+  activeSlot = slot;
+  try { sessionStorage.setItem(LS.tab, slot); } catch (e) { /* 非対応環境は無視 */ }
+  render();
+  window.scrollTo({ top: 0 });
+}
+
+function selectView(view) {
+  activeView = view;
+  try { sessionStorage.setItem(LS.view, view); } catch (e) { /* 非対応環境は無視 */ }
+  VIEWS.forEach((v) => { $('view-' + v).hidden = v !== view; });
+  document.querySelectorAll('.bottomnav__btn').forEach((b) => {
+    if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  $('viewTitle').textContent = VIEW_TITLE[view];
+  drawSlotBar();
+  drawJumpBar();
+  if (DATA) updateFreshness();
+  window.scrollTo({ top: 0 });
+}
+
+function defaultSlot() {
   const slots = DATA.slots || {};
   const saved = (() => { try { return sessionStorage.getItem(LS.tab); } catch (e) { return null; } })();
-  if (saved && SLOTS.includes(saved)) return saved;
-
+  if (saved && SLOTS.includes(saved) && slots[saved]) return saved;
   const n = jstNow();
   const mins = n.getHours() * 60 + n.getMinutes();
   const wanted = mins < 10 * 60 ? 'preopen' : mins < 15 * 60 + 30 ? 'zenba' : 'taibike';
@@ -774,27 +1174,46 @@ function defaultTab() {
   return available.length ? available[available.length - 1] : wanted;
 }
 
-async function load() {
+async function fetchJson(path) {
   try {
-    const res = await fetch('data/latest.json?t=' + Date.now(), { cache: 'no-store' });
-    if (!res.ok) throw new Error(String(res.status));
-    DATA = await res.json();
-  } catch (e) {
-    DATA = { slots: {} };
-    $('headDate').textContent = 'データを読み込めませんでした';
-  }
-  if (!activeTab) activeTab = defaultTab();
+    const res = await fetch(path + (path.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) { return null; }
+}
+
+async function loadHistory() {
+  const idx = await fetchJson('data/history/index.json');
+  const dates = (idx && Array.isArray(idx.dates) ? idx.dates : []).slice(-HISTORY_DAYS);
+  const files = await Promise.all(dates.map((d) => HIST.byDate.has(d) ? HIST.byDate.get(d) : fetchJson(`data/history/${d}.json`)));
+  HIST.dates = dates.filter((d, i) => files[i]);
+  HIST.byDate = new Map(HIST.dates.map((d) => [d, files[dates.indexOf(d)]]));
+  HIST.loaded = true;
+}
+
+async function load() {
+  const [latest, ledger] = await Promise.all([fetchJson('data/latest.json'), fetchJson('data/ledger.json')]);
+  if (latest) DATA = latest;
+  else if (!DATA) { DATA = { slots: {} }; $('headDate').textContent = 'データを読み込めませんでした'; }
+  LEDGER = ledger;
+  if (!activeSlot) activeSlot = defaultSlot();
+  render();
+  await loadHistory();
   render();
 }
 
 function boot() {
-  SLOTS.forEach((s) => $('tab-' + s).addEventListener('click', () => selectTab(s)));
+  document.querySelectorAll('.bottomnav__btn').forEach((b) => b.addEventListener('click', () => selectView(b.dataset.view)));
   $('reloadBtn').addEventListener('click', load);
   bindSheet();
+  const savedView = (() => { try { return sessionStorage.getItem(LS.view); } catch (e) { return null; } })();
+  selectView(savedView && VIEWS.includes(savedView) ? savedView : 'today');
   load();
-  // 表示中に古くならないよう、復帰時と5分ごとに読み直す
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
   setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* 未対応・ローカル環境は無視 */ });
+  }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
