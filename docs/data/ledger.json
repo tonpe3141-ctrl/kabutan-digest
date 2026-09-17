@@ -1,0 +1,135 @@
+{
+ "entries": [
+  {
+   "code": "8848",
+   "name": "レオパレス２１",
+   "first_seen": "2026-09-17",
+   "signals": [
+    "新規の資金流入",
+    "上昇率×売買代金"
+   ],
+   "why": [
+    "売買代金 27位に新規ランクイン（+12.65%）",
+    "上昇率 8位、かつ売買代金上位"
+   ],
+   "themes": [
+    "不動産",
+    "住宅"
+   ],
+   "price_at_flag": 1060.0,
+   "nikkei_at_flag": 64136.25,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-17",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "4762",
+   "name": "エックスネット",
+   "first_seen": "2026-09-17",
+   "signals": [
+    "出来高急増×上昇",
+    "年初来高値×商い"
+   ],
+   "why": [
+    "上昇率 14位、かつ出来高急増",
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 2385.0,
+   "nikkei_at_flag": 64136.25,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-17",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "2788",
+   "name": "アップル",
+   "first_seen": "2026-09-17",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 通期業績予想及び期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [
+    "自動車"
+   ],
+   "price_at_flag": null,
+   "nikkei_at_flag": 64136.25,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-17",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "3498",
+   "name": "霞ヶ関キャピタル",
+   "first_seen": "2026-09-17",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:00 2026年8月期 連結業績予想の上方修正に関するお知らせ"
+   ],
+   "themes": [
+    "不動産",
+    "データセンター"
+   ],
+   "price_at_flag": null,
+   "nikkei_at_flag": 64136.25,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-17",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  }
+ ],
+ "stats": {
+  "asof": "2026-09-17",
+  "by_signal": [],
+  "overall": {
+   "count": 0,
+   "d5_median": null
+  }
+ },
+ "updated_at": "2026-09-17",
+ "added_today": [
+  "8848",
+  "4762",
+  "2788",
+  "3498"
+ ]
+}
