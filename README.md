@@ -24,9 +24,25 @@ GitHub の cron はベストエフォートで、実測では毎日2〜7時間�
 `docs/data/trigger/{slot}.txt` を push した **push イベント**で Actions を起動する（数秒で始まる）。
 cron は保険として1区分1本だけ残してある。
 
-Routine の手順書は `dashboard/AI_ANALYSIS_TASK.md`。Routine の push は `claude/*` ブランチに置き換えられ、
-`tools/verify_ai_merge.py` が許可したファイルだけの変更なら `.github/workflows/merge-ai-branch.yml` が
-main に自動マージする。
+Routine の手順書は `dashboard/AI_ANALYSIS_TASK.md`。Routine の push は `claude/routine-{slot}` ブランチに
+置き換えられ、`tools/verify_ai_merge.py` が許可したファイルだけの変更なら
+`.github/workflows/merge-ai-branch.yml` が main に自動マージする（ブランチは残す。スロットごとに
+1本の下書き PR が「Routine の記録」として開いたままになる）。
+
+### Routine の配線（いま動いているもの）
+
+| 定時トリガー | 起こすセッション | push 先ブランチ |
+|---|---|---|
+| マーケット 寄り前（07:10 JST, 月〜金） | `session_01SxnyPN8Juu4qpLXmaCPU2x` | `claude/routine-preopen` |
+| マーケット 前場（11:40 JST, 月〜金） | `session_01YPpiNkJLSQNmLLvhun6gp1` | `claude/routine-zenba` |
+| マーケット 大引（16:45 JST, 月〜金） | `session_01C8JVym7SLjZj9UShPzL1Je` | `claude/routine-taibike` |
+| マーケット 週報（17:00 JST, 金） | `session_019jLLtibduEBJgZzGWs9751` | `claude/routine-weekly` |
+
+リポジトリを接続していないセッションからは push できない（実測）ので、セッションは
+リポジトリを接続して作り、トリガーはそのセッションを起こす形にしてある。
+セッションを作り直すときは、claude.ai の Routine 作成画面でリポジトリ `tonpe3141-ctrl/kabutan-digest` を
+接続し、上の時刻と `dashboard/AI_ANALYSIS_TASK.md` の表にあるプロンプトで作れば同じ動きになる。
+時刻の意味: 大引が 16:45 なのは、株探の「日経平均 大引け」記事が 16:33 頃に出るため。
 
 ## 2. データはどこから取っているか
 
