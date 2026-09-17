@@ -18,9 +18,10 @@
   **Routine が「合図」を push し、その push イベントで Actions を即時に起動する。**
 - このセッションのネットワークは GitHub と api.anthropic.com 以外に出られない。
   数値やニュースの収集は Actions（`python -m dashboard.build`）がやる。**ここでは取得しない。**
-- Routine の push は main に直接入らず `claude/*` ブランチに置き換えられる。
+- Routine の push は main に直接入らず、このセッション固有の `claude/routine-*` ブランチに置き換えられる。
   `docs/data/latest.json` など決められたファイルだけを変えたコミットは
-  `.github/workflows/merge-ai-branch.yml` が自動で main にマージする。
+  `.github/workflows/merge-ai-branch.yml` が自動で main にマージし、ブランチを消す
+  （次の push でまた作られる。それで正しい）。
 
 ## 共通ルール
 
@@ -37,16 +38,19 @@
 
 ## STEP 0: リポジトリを最新にする
 
+このセッションにはリポジトリ（kabutan-digest）がチェックアウト済みのはず。**そのチェックアウトを使う**
+（push の認可はこのセッションに紐づいているため、別の場所に clone し直さない）。
+
 ```bash
-if [ -d ~/kabutan-digest/.git ]; then
-  cd ~/kabutan-digest && git fetch origin main && git reset --hard origin/main
-else
-  git clone https://github.com/tonpe3141-ctrl/kabutan-digest.git ~/kabutan-digest
-  cd ~/kabutan-digest
-fi
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+[ -f dashboard/AI_ANALYSIS_TASK.md ] || { cd ~ && [ -d kabutan-digest/.git ] || git clone https://github.com/tonpe3141-ctrl/kabutan-digest.git; cd ~/kabutan-digest; }
+git fetch origin main && git reset --hard origin/main
 git config user.name  "claude-routine[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 ```
+
+このセッションは定時に何度も起こされる（前回の会話の続きになる）。**毎回この STEP 0 から**やり直し、
+前回の記憶にある数値やファイル内容を使い回さない。
 
 `{SLOT}` が `weekly` のときは STEP 1・2 を飛ばして **STEP W** へ。
 

@@ -515,3 +515,71 @@ docs/data/ledger.json  （未作成）サーバ側の台帳。あれば発掘画
 台帳の形は v2 の 4.3(b) のとおり。画面側は `entries[]` の各要素に
 `code / name / first_seen / signals[] / themes[] / track{d1,d5,d20} / status / notes`、
 `stats.by_signal[]` に `signal / count / d5_median` を期待する。
+
+---
+
+## 8. 構築記録（2026-09-17）
+
+ユーザーの回答: 自宅 Mac がスリープしていても株探ニュースを使う／通知は Push のみ／Google ドキュメント出力は不要。
+これを受けて v2 の段階1〜4を実装した。何を作り、何を実測で確かめ、何がまだ運用で確かめる段階かを残す。
+
+### 8.1 実測で確かめたこと
+
+| 確かめたこと | 結果 |
+|---|---|
+| 株探本体（kabutan.jp）に Actions から届くか | 405 Human Verification（変わらず） |
+| **Yahoo!ファイナンスのニュース一覧に株探ニュースが配信されているか** | 届く。`/news/market` `/news/stocks` に「株探ニュース」として本文付きで配信。大引け記事（本日のポイント付き）、マーケット日報、**本日の【業種】騰落ランキング（東証33業種の率と上位3銘柄）**、PTS、増資・売り出し、投資部門別売買動向が読めた |
+| **Google ニュース RSS（site:kabutan.jp）** | 届く。株探の全見出し（昼刊・夕刊・大引け・ストップ高安・レーティング日報・今朝の注目・明日の株式相場）と時刻。本文なし |
+| Yahoo!ニュース媒体ページ / minkabu | 404 / 403。使わない |
+| Yahoo ランキングの追加スラッグ | `yearToDateHigh`（年初来高値更新）と `volumeIncrease`（出来高急増）が 200。列構成が違うので `layout` で位置読み。`hot` は会員限定で無意味 |
+| 東証33業種の公式ページ（JPX / Yahoo 業種別） | 取れない → 株探記事の本文から読む方式に |
+| Claude Routine のセッションから外部サイトへ | すべて EGRESS_BLOCKED。収集は Actions に限定 |
+| `create_trigger` で作った Routine（リポジトリ未接続）から push | **失敗**（ブランチが作られない）。Routine にはリポジトリのソースが要る |
+| リポジトリを接続したセッション（`create_session` に source と outcome_branch）から push | **成功**。`git push origin HEAD:main` が `claude/routine-probe` に置き換えられて届いた |
+
+### 8.2 Routine の配線（実測に合わせて確定）
+
+```
+[定時トリガー] ──persistent_session_id──▶ [スロット専用セッション（リポジトリ接続済み）]
+                                              │ 手順書 STEP 0〜7 を毎回頭から実行
+                                              │ push → claude/routine-{slot}（固定）
+                                              ▼
+                                   merge-ai-branch.yml が許可ファイルだけなら main へ自動マージ
+```
+
+- スロットごとに **リポジトリを接続したセッション**を1つ作り（outcome branch = `claude/routine-{slot}`）、
+  定時トリガーはそのセッションを起こす。セッションは会話を続けるので、手順書は
+  「毎回 STEP 0 から。前回の記憶を使わない」と明記した。
+- 代替（UI から作る場合）: claude.ai の Routine 作成画面でリポジトリ `tonpe3141-ctrl/kabutan-digest` を
+  接続し、`dashboard/AI_ANALYSIS_TASK.md` の表にある時刻とプロンプトで 4 本作る。
+  以前（9/8）にこの形で動いた実績がある。
+
+### 8.3 作ったもの
+
+| 層 | ファイル | 中身 |
+|---|---|---|
+| 時計 | `.github/workflows/dashboard.yml` | `claude/**` への `docs/data/trigger/*.txt` の push で即時起動。cron は保険 |
+| 時計 | `tools/verify_ai_merge.py` | Routine が書いてよいファイル（latest / trigger / themes / ledger / weekly / index.html）を列挙 |
+| 分析 | `dashboard/AI_ANALYSIS_TASK.md` | 合図 → 待機（最大20分）→ 見立て・台帳の理由づけ・辞書の育成 → push → PushNotification → 前日の点検。金曜は週報 |
+| 株探 | `dashboard/sources/kabutan_news.py` | Google RSS の見出し（スロット別に選別）、Yahoo 配信の本文（優先順で最大12本）、33業種の解析 |
+| ランキング | `dashboard/sources/yahoojp.py` `config.py` | 年初来高値更新・出来高急増（ETF/REIT 除外） |
+| テーマ | `dashboard/themes.py` `docs/data/themes.json` | 279銘柄の初期辞書。テーマ別の出現数・平均騰落・連続日数・初動。未知銘柄は Routine が追記 |
+| 台帳 | `dashboard/ledger.py` `docs/data/ledger.json` | 9種のシグナル（連続3〜6日、新規流入、順位急上昇≥8、上方修正・増配、決算で商い、上昇率×売買代金、年初来高値×商い、出来高急増×上昇、修正後の資金流入、テーマ初動）。スコア2以上で登録、1日12件まで。d1/d5/d20・日経比・20日で終了・シグナル別成績 |
+| 時間軸 | `dashboard/trend.py` | 業種の5日/20日累積と「続伸／反発／押し目／続落」、日経の推移。履歴に業種・33業種・テーマ上位・breadth を保存、保持120日 |
+| アプリ | `docs/app.js` `style.css` | 33業種・テーマ・時間軸・株探・高値更新・出来高急増・週報のカード。要点チップに「候補入り」 |
+| 検証 | `tests/test_parsers.py` | 株探本文・33業種・見出し選別・別レイアウト・テーマ・台帳（入口/追跡/成績）・時間軸 |
+| 撤去 | `scraper.py` `kabutan-digest.yml` | Google ドキュメント出力を削除。依存は requests / beautifulsoup4 のみ |
+
+### 8.4 台帳の入口に入れた保険
+
+- 売買代金上位に **7日以上連続**の銘柄（ソフトバンクG・東エレクなどの常連）は「資金流入の継続」に数えない。
+  初回の試算で常連ばかりが候補になったため、3〜6日連続に限定した。
+- 履歴が無い日は「テーマ初動」と言わない（前日の上位が分からないため）。
+- 単独の弱いシグナル（スコア1）は台帳に載せない。
+
+### 8.5 運用で初めて分かること（設計段階では断定しない）
+
+- 手順書どおりに Routine が 20分以内にデータを受け取れるか（Actions の push 起動の遅延）。
+- Yahoo 配信の株探記事の顔ぶれが日によってどう変わるか（前引けの業種記事が出るか）。
+- シグナルの有効性（d5 の中央値、シグナル別の当たり）。週報で見て閾値を調整する。
+- 辞書の育ち方（未知銘柄に Routine が付けるテーマの粒度）。
