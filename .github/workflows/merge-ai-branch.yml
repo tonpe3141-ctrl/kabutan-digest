@@ -1,10 +1,14 @@
 name: AI分析ブランチの自動マージ
 
-# Claude Routine（AI分析タスク）はこのプラットフォームの安全機構により
-# main へ直接 push できず、claude/* ブランチに push する（実測で確認済み）。
-# 人手を介さず1日3回運用するため、docs/data/latest.json だけを触る
+# Claude Routine（時計・分析）はこのプラットフォームの安全機構により
+# main へ直接 push できず、セッション固有の claude/routine-* ブランチに push する（実測で確認済み）。
+# 人手を介さず1日3回運用するため、Routine が書いてよいファイルだけを触る
 # 変更に限って自動でマージする。少しでも想定外なら見送り、手動対応に回す
 # （tools/verify_ai_merge.py が判定する）。
+#
+# ブランチは消さない。Routine のセッションは同じブランチに push し続けるので、
+# 消すと push のたびに新しい下書き PR が作られてしまう。残しておけば
+# スロットごとに1本の PR が「Routine の記録」として開いたままになる。
 
 on:
   push:
@@ -40,7 +44,7 @@ jobs:
             echo "ok=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: マージして push し、ブランチを削除する
+      - name: マージして push する
         if: steps.verify.outputs.ok == 'true'
         run: |
           BRANCH="${{ steps.verify.outputs.branch }}"
@@ -50,4 +54,3 @@ jobs:
             echo "push に失敗。$((2 ** i)) 秒待って再試行します。"
             sleep $((2 ** i))
           done
-          git push origin --delete "$BRANCH" || echo "ブランチ削除に失敗しましたが致命的ではありません"
