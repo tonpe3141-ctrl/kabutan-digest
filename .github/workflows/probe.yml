@@ -16,3 +16,6 @@ jobs:
           python-version: "3.11"
       - run: pip install requests beautifulsoup4
       - run: python tools/probe.py
+      - name: 候補データ源（株探配信先・追加ランキング）
+        run: python tools/probe_sources.py
+        if: always()
