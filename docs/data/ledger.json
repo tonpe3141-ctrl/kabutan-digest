@@ -19,13 +19,13 @@
    "price_at_flag": 1060.0,
    "nikkei_at_flag": 64136.25,
    "track": {
-    "d1": null,
+    "d1": -1.89,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-17",
-    "excess": null,
-    "days": 0
+    "last": -1.89,
+    "last_date": "2026-09-18",
+    "excess": -3.27,
+    "days": 1
    },
    "status": "watching",
    "notes": null,
@@ -47,13 +47,13 @@
    "price_at_flag": 2385.0,
    "nikkei_at_flag": 64136.25,
    "track": {
-    "d1": null,
+    "d1": -2.68,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-17",
-    "excess": null,
-    "days": 0
+    "last": -2.68,
+    "last_date": "2026-09-18",
+    "excess": -4.06,
+    "days": 1
    },
    "status": "watching",
    "notes": null,
@@ -81,7 +81,7 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
-    "days": 0
+    "days": 1
    },
    "status": "watching",
    "notes": null,
@@ -110,6 +110,120 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
+    "days": 1
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "8798",
+   "name": "アドバンスクリエイト",
+   "first_seen": "2026-09-18",
+   "signals": [
+    "決算で商い",
+    "出来高急増×上昇"
+   ],
+   "why": [
+    "決算短信の当日に売買代金／上昇率上位",
+    "上昇率 1位、かつ出来高急増"
+   ],
+   "themes": [
+    "保険",
+    "金融サービス"
+   ],
+   "price_at_flag": 174.0,
+   "nikkei_at_flag": 65018.95,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-18",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "6752",
+   "name": "パナソニック　ホールディングス",
+   "first_seen": "2026-09-18",
+   "signals": [
+    "新規の資金流入",
+    "テーマ初動"
+   ],
+   "why": [
+    "売買代金 28位に新規ランクイン（+0.59%）",
+    "テーマ初動: 電子部品"
+   ],
+   "themes": [
+    "蓄電池",
+    "電子部品"
+   ],
+   "price_at_flag": 4287.0,
+   "nikkei_at_flag": 65018.95,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-18",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "5367",
+   "name": "ニッカトー",
+   "first_seen": "2026-09-18",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 第２四半期業績予想の修正並びに通期業績予想の修正および配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": null,
+   "nikkei_at_flag": 65018.95,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-18",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "3075",
+   "name": "銚子丸",
+   "first_seen": "2026-09-18",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 1729.0,
+   "nikkei_at_flag": 65018.95,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-18",
+    "excess": null,
     "days": 0
    },
    "status": "watching",
@@ -118,18 +232,18 @@
   }
  ],
  "stats": {
-  "asof": "2026-09-17",
+  "asof": "2026-09-18",
   "by_signal": [],
   "overall": {
    "count": 0,
    "d5_median": null
   }
  },
- "updated_at": "2026-09-17",
+ "updated_at": "2026-09-18",
  "added_today": [
-  "8848",
-  "4762",
-  "2788",
-  "3498"
+  "8798",
+  "6752",
+  "5367",
+  "3075"
  ]
 }
