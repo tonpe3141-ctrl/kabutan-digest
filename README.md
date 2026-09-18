@@ -31,18 +31,39 @@ Routine の手順書は `dashboard/AI_ANALYSIS_TASK.md`。Routine の push は `
 
 ### Routine の配線（いま動いているもの）
 
+モデルは **Claude Sonnet 5**（2026-09-18 に Fable 5.1 から変更）。
+
 | 定時トリガー | 起こすセッション | push 先ブランチ |
 |---|---|---|
-| マーケット 寄り前（07:10 JST, 月〜金） | `session_01SxnyPN8Juu4qpLXmaCPU2x` | `claude/routine-preopen` |
-| マーケット 前場（11:40 JST, 月〜金） | `session_01YPpiNkJLSQNmLLvhun6gp1` | `claude/routine-zenba` |
-| マーケット 大引（16:45 JST, 月〜金） | `session_01C8JVym7SLjZj9UShPzL1Je` | `claude/routine-taibike` |
-| マーケット 週報（17:00 JST, 金） | `session_019jLLtibduEBJgZzGWs9751` | `claude/routine-weekly` |
+| マーケット 寄り前（07:10 JST, 月〜金） | `session_01MGYzqbEWTG4BRE55JP7MM8` | `claude/routine-preopen` |
+| マーケット 前場（11:40 JST, 月〜金） | `session_01KqCZXqPJVQtAswrty8axDm` | `claude/routine-zenba` |
+| マーケット 大引（16:45 JST, 月〜金） | `session_01SJx5Y9mqpaPanmP1GpgoRu` | `claude/routine-taibike` |
+| マーケット 週報（17:00 JST, 金） | `session_01VED72RQiofPhUMy5zWFF4A` | `claude/routine-weekly` |
 
 リポジトリを接続していないセッションからは push できない（実測）ので、セッションは
 リポジトリを接続して作り、トリガーはそのセッションを起こす形にしてある。
 セッションを作り直すときは、claude.ai の Routine 作成画面でリポジトリ `tonpe3141-ctrl/kabutan-digest` を
 接続し、上の時刻と `dashboard/AI_ANALYSIS_TASK.md` の表にあるプロンプトで作れば同じ動きになる。
 時刻の意味: 大引が 16:45 なのは、株探の「日経平均 大引け」記事が 16:33 頃に出るため。
+
+### モデルを変えるとき
+
+**Routine の設定画面でモデルだけ変えても効かない。** この 4 本はセッションに固定されており
+（`persistent_session_id`）、モデルはトリガーではなく**セッション側**が持っているため。
+トリガーのモデル欄が効くのは「毎回新しいセッションを作る」タイプの Routine だけ。
+
+手順は次の 3 つ。**セッションとトリガーを両方張り替える**のがポイント。
+
+1. 新しいモデルでセッションを 4 本作る。リポジトリ `tonpe3141-ctrl/kabutan-digest`（main）を接続し、
+   push 先を `claude/routine-{slot}`（既存と同じ名前）にする
+2. 既存のトリガー 4 本を消し、同じ時刻・同じプロンプトで、新しいセッションに紐づけて作り直す
+3. 古いセッションをアーカイブし、この表のセッション ID を差し替える
+
+チャット側（この会話）のモデルは `/model` で変えられるが、Routine には影響しない。別々の設定。
+
+モデルの選び方: 手順書（`dashboard/AI_ANALYSIS_TASK.md`）が細かく決まっているので、
+判断の重い作業は残っていない。日々の分析は Sonnet 5 で足りる。
+分析の解釈をもっと深くしたいときだけ上位モデルを検討する。
 
 ## 2. データはどこから取っているか
 
