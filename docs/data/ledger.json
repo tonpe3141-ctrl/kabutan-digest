@@ -144,8 +144,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "上昇率1位（+27.94%）かつ出来高が前日の60倍に急増し、決算開示日の商いとして引っかかった。引け後15:30に通期業績予想の修正と第3四半期決算短信を開示しているが、株探記事はプライム値上がり率首位と伝えるのみで、日中の急騰理由の裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd"
   },
   {
    "code": "6752",
@@ -175,8 +175,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "売買代金28位に新規ランクイン（+0.59%）し、電子部品テーマの初動として引っかかった。株探の大引け記事は「しっかり」と触れるだけで固有の材料は示しておらず、太陽誘電・村田製作所など電子部品の連想買いの一部とみられる。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd"
   },
   {
    "code": "5367",
@@ -201,8 +201,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "引け後15:30に上期経常を37%上方修正し19期ぶりの上期最高益、通期も12%増額、上期配当を11円→15円に増額。株探の決算速報で裏付け済み。連休明けの寄りで反応しやすい。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/bac54434ba34d6cd95dbdf206811a5b124ce8499"
   },
   {
    "code": "3075",
@@ -227,7 +227,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。前日16:03の株探見出し「27年2月期業績予想及び配当予想を上方修正」が材料とみられるが、本日の終値は前日比-1.2%と高値引けではない。見出しのみでURLなし。",
    "note_url": null
   }
  ],
