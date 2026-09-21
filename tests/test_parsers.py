@@ -363,6 +363,18 @@ def test_themes_ledger_trend():
     check("業種の5日累積（当日+履歴2日）", tr["rows"][0]["d5"], 2.5)
     check("反発の読み（当日プラス・20日マイナス→なし、20日プラス）", tr["rows"][0]["label"], "続伸（トレンド）")
 
+    # 指数の時間軸: 履歴は新しい順。日経と TOPIX を別々に積む
+    ihist = [
+        {"date": "2026-09-17", "taibike": {"indices": {"nikkei": {"close": 64000.0}, "topix": {"close": 4000.0}}}},
+        {"date": "2026-09-16", "zenba": {"indices": {"nikkei": {"close": 63000.0}, "topix": {"close": 3900.0}}}},
+        {"date": "2026-09-15", "taibike": {"indices": {"nikkei": {"close": 62000.0}, "topix": {"close": 3800.0}}}},
+    ]
+    itr = trend.index_trend(ihist, 65000.0, {"nikkei": {"close": 65000.0}, "topix": {"close": 4100.0}})
+    check("系列は古い順（当日を末尾に足す）", itr["series"], [62000.0, 63000.0, 64000.0, 65000.0])
+    check("トップレベルは従来どおり日経", itr["d5"], None)
+    check("日経と TOPIX が並ぶ", [r["key"] for r in itr["indices"]], ["nikkei", "topix"])
+    check("TOPIX の系列も当日まで", itr["indices"][1]["series"], [3800.0, 3900.0, 4000.0, 4100.0])
+
 
 if __name__ == "__main__":
     test_ranking()
