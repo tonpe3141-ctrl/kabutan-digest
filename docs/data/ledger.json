@@ -23,9 +23,9 @@
     "d5": null,
     "d20": null,
     "last": -1.89,
-    "last_date": "2026-09-21",
+    "last_date": "2026-09-22",
     "excess": -3.27,
-    "days": 2
+    "days": 3
    },
    "status": "watching",
    "notes": null,
@@ -51,9 +51,9 @@
     "d5": null,
     "d20": null,
     "last": -2.68,
-    "last_date": "2026-09-21",
+    "last_date": "2026-09-22",
     "excess": -4.06,
-    "days": 2
+    "days": 3
    },
    "status": "watching",
    "notes": null,
@@ -81,7 +81,7 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
-    "days": 2
+    "days": 3
    },
    "status": "watching",
    "notes": null,
@@ -110,7 +110,7 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
-    "days": 2
+    "days": 3
    },
    "status": "watching",
    "notes": null,
@@ -139,9 +139,9 @@
     "d5": null,
     "d20": null,
     "last": 0.0,
-    "last_date": "2026-09-21",
+    "last_date": "2026-09-22",
     "excess": 0.0,
-    "days": 1
+    "days": 2
    },
    "status": "watching",
    "notes": "上昇率1位（+27.94%）かつ出来高が前日の60倍に急増し、決算開示日の商いとして引っかかった。引け後15:30に通期業績予想の修正と第3四半期決算短信を開示しているが、株探記事はプライム値上がり率首位と伝えるのみで、日中の急騰理由の裏付けなし。",
@@ -170,9 +170,9 @@
     "d5": null,
     "d20": null,
     "last": 0.0,
-    "last_date": "2026-09-21",
+    "last_date": "2026-09-22",
     "excess": 0.0,
-    "days": 1
+    "days": 2
    },
    "status": "watching",
    "notes": "売買代金28位に新規ランクイン（+0.59%）し、電子部品テーマの初動として引っかかった。株探の大引け記事は「しっかり」と触れるだけで固有の材料は示しておらず、太陽誘電・村田製作所など電子部品の連想買いの一部とみられる。",
@@ -198,7 +198,7 @@
     "last": null,
     "last_date": "2026-09-18",
     "excess": null,
-    "days": 1
+    "days": 2
    },
    "status": "watching",
    "notes": "引け後15:30に上期経常を37%上方修正し19期ぶりの上期最高益、通期も12%増額、上期配当を11円→15円に増額。株探の決算速報で裏付け済み。連休明けの寄りで反応しやすい。",
@@ -222,9 +222,9 @@
     "d5": null,
     "d20": null,
     "last": 0.0,
-    "last_date": "2026-09-21",
+    "last_date": "2026-09-22",
     "excess": 0.0,
-    "days": 1
+    "days": 2
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。前日16:03の株探見出し「27年2月期業績予想及び配当予想を上方修正」が材料とみられるが、本日の終値は前日比-1.2%と高値引けではない。見出しのみでURLなし。",
@@ -232,13 +232,13 @@
   }
  ],
  "stats": {
-  "asof": "2026-09-21",
+  "asof": "2026-09-22",
   "by_signal": [],
   "overall": {
    "count": 0,
    "d5_median": null
   }
  },
- "updated_at": "2026-09-21",
+ "updated_at": "2026-09-22",
  "added_today": []
 }
