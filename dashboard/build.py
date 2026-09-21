@@ -182,6 +182,9 @@ def build_session(target_date: date, slot: str) -> dict:
     if any(v["stale"] for v in indices.values()):
         print("    ⚠️  指数が対象日の値ではありません（休場、または取得タイミングが早い）")
 
+    print("  [CNBC] 為替・金利・商品を取得中...")
+    macro = _safe("マクロ", lambda: cnbc.fetch_spec(MACRO_SYMBOLS), {}) or {}
+
     print("  [Yahoo] ランキングを取得中...")
     tables = {}
     for page in RANKING_PAGES.get(slot, []):
@@ -264,6 +267,7 @@ def build_session(target_date: date, slot: str) -> dict:
 
     payload = {
         "indices": indices,
+        "macro": macro,
         "tables": tables,
         "divergence": divergence,
         "ranking_delta": analyze.ranking_delta(value_rows, prev_value),
@@ -277,7 +281,7 @@ def build_session(target_date: date, slot: str) -> dict:
         "kabutan": kabutan,
         "theme_flow": flow,
         "sector_trend": trend.sector_trend(sectors_jp, sessions),
-        "index_trend": trend.index_trend(sessions, (indices.get("nikkei") or {}).get("close")),
+        "index_trend": trend.index_trend(sessions, (indices.get("nikkei") or {}).get("close"), indices),
     }
 
     latest = store.load_latest()
@@ -374,6 +378,11 @@ def run(slot: str, target_date: date | None = None) -> dict:
             "after_hours": after_hours[:40],
             "quotes": {k: v["close"] for k, v in (payload.get("indices") or {}).items()
                        if v.get("close") is not None},
+            # 履歴タブの「その日の大枠」用。大引時点の為替・原油（寄り前の米国時間の値ではない）
+            "macro": {k: {"label": v.get("label"), "last": v.get("last"),
+                          "change": v.get("change"), "change_pct": v.get("change_pct")}
+                      for k, v in (payload.get("macro") or {}).items()
+                      if v.get("last") is not None},
             # 時間軸（trend.py）とテーマの連続日数のために残す
             "sectors": [{"sector": x["sector"], "avg_pct": x["avg_pct"]} for x in (payload.get("sectors_jp") or [])],
             "sectors33": [{"sector": x["sector"], "change_pct": x["change_pct"]}

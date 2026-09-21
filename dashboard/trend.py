@@ -57,15 +57,23 @@ def sector_trend(today_sectors: list[dict] | None, history_sessions: list[dict],
                     "時価総額加重の業種指数とは一致しない。"}
 
 
-def index_trend(history_sessions: list[dict], today_close: float | None) -> dict | None:
-    """日経平均の終値系列（古い順）と 5日／20日の変化率。"""
+# 履歴タブと「今日」タブで時間軸を出す指数。履歴には indices 丸ごと残してある。
+TREND_INDICES = [("nikkei", "日経平均"), ("topix", "TOPIX")]
+
+
+def _index_closes(history_sessions: list[dict], key: str) -> list[float]:
+    """履歴（新しい順）から指数の終値系列を古い順で取り出す。大引が無ければ前場を使う。"""
     closes = []
     for s in reversed(history_sessions):
-        nk = ((s.get("taibike") or {}).get("indices") or {}).get("nikkei")
-        if nk and nk.get("close") is not None:
-            closes.append(nk["close"])
-    if today_close is not None:
-        closes.append(today_close)
+        for slot in ("taibike", "zenba"):
+            idx = ((s.get(slot) or {}).get("indices") or {}).get(key)
+            if idx and idx.get("close") is not None:
+                closes.append(idx["close"])
+                break
+    return closes
+
+
+def _trend_of(closes: list[float]) -> dict | None:
     if len(closes) < 3:
         return None
     last = closes[-1]
@@ -76,3 +84,27 @@ def index_trend(history_sessions: list[dict], today_close: float | None) -> dict
         return round((last / closes[-1 - n] - 1) * 100, 2)
 
     return {"series": closes[-20:], "d5": chg(5), "d20": chg(20)}
+
+
+def index_trend(history_sessions: list[dict], today_close: float | None = None,
+                today_indices: dict | None = None) -> dict | None:
+    """指数ごとの終値系列（古い順）と 5日／20日の変化率。
+
+    返り値のトップレベルは日経平均（従来の形のまま）。indices に日経・TOPIX を並べる。
+    """
+    rows = []
+    for key, label in TREND_INDICES:
+        closes = _index_closes(history_sessions, key)
+        cur = ((today_indices or {}).get(key) or {}).get("close")
+        if cur is None and key == "nikkei":
+            cur = today_close
+        if cur is not None:
+            closes.append(cur)
+        t = _trend_of(closes)
+        if t:
+            rows.append({"key": key, "label": label, **t})
+    if not rows:
+        return None
+    nikkei = next((r for r in rows if r["key"] == "nikkei"), None)
+    base = {k: v for k, v in (nikkei or {}).items() if k not in ("key", "label")}
+    return {**base, "indices": rows}

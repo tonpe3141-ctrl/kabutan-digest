@@ -570,7 +570,7 @@ docs/data/ledger.json  （未作成）サーバ側の台帳。あれば発掘画
 | ランキング | `dashboard/sources/yahoojp.py` `config.py` | 年初来高値更新・出来高急増（ETF/REIT 除外） |
 | テーマ | `dashboard/themes.py` `docs/data/themes.json` | 279銘柄の初期辞書。テーマ別の出現数・平均騰落・連続日数・初動。未知銘柄は Routine が追記 |
 | 台帳 | `dashboard/ledger.py` `docs/data/ledger.json` | 9種のシグナル（連続3〜6日、新規流入、順位急上昇≥8、上方修正・増配、決算で商い、上昇率×売買代金、年初来高値×商い、出来高急増×上昇、修正後の資金流入、テーマ初動）。スコア2以上で登録、1日12件まで。d1/d5/d20・日経比・20日で終了・シグナル別成績 |
-| 時間軸 | `dashboard/trend.py` | 業種の5日/20日累積と「続伸／反発／押し目／続落」、日経の推移。履歴に業種・33業種・テーマ上位・breadth を保存、保持120日 |
+| 時間軸 | `dashboard/trend.py` | 業種の5日/20日累積と「続伸／反発／押し目／続落」、日経とTOPIXの推移。履歴に業種・33業種・テーマ上位・breadth・大引時点の為替／原油を保存、保持120日 |
 | アプリ | `docs/app.js` `style.css` | 33業種・テーマ・時間軸・株探・高値更新・出来高急増・週報のカード。要点チップに「候補入り」 |
 | 検証 | `tests/test_parsers.py` | 株探本文・33業種・見出し選別・別レイアウト・テーマ・台帳（入口/追跡/成績）・時間軸 |
 | 撤去 | `scraper.py` `kabutan-digest.yml` | Google ドキュメント出力を削除。依存は requests / beautifulsoup4 のみ |
