@@ -25,3 +25,6 @@ jobs:
       - name: 日足の長期履歴（相場温度計の材料）
         run: python tools/probe_history.py
         if: always()
+      - name: 相場温度計の試運転（実データ・コミットしない）
+        run: python tools/probe_thermo.py
+        if: always()
