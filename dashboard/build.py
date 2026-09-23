@@ -384,7 +384,8 @@ def run(slot: str, target_date: date | None = None) -> dict:
                       for k, v in (payload.get("macro") or {}).items()
                       if v.get("last") is not None},
             # 時間軸（trend.py）とテーマの連続日数のために残す
-            "sectors": [{"sector": x["sector"], "avg_pct": x["avg_pct"]} for x in (payload.get("sectors_jp") or [])],
+            "sectors": [{"sector": x["sector"], "avg_pct": x["avg_pct"], "count": x.get("count")}
+                        for x in (payload.get("sectors_jp") or [])],
             "sectors33": [{"sector": x["sector"], "change_pct": x["change_pct"]}
                           for x in ((payload.get("sectors33") or {}).get("rows") or [])],
             "theme_top": [{"theme": t["theme"], "score": t["score"], "count": t["count"], "avg_pct": t["avg_pct"]}

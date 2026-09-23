@@ -27,6 +27,11 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   --nav-h: 56px;
+  /* 指数の線（赤青は上昇下落に予約済みなので使わない）。validate_palette.js で両モード検証済み */
+  --series-nk: #4a3aa7;
+  --series-tp: #eda100;
+  --heat-0: #eef0f4;            /* ヒートマップの 0%（中立の灰） */
+  --heat-ink: #ffffff;          /* 濃いセルの上の文字 */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +55,10 @@
     --warn-bg: rgba(224, 163, 74, 0.14);
     --ok: #3ccf8e;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --series-nk: #9085e9;
+    --series-tp: #c98500;
+    --heat-0: #262a33;
+    --heat-ink: #0f1115;
   }
 }
 :root[data-theme="dark"] {
@@ -58,6 +67,7 @@
   --up: #ff5f6d; --up-bg: rgba(255, 95, 109, 0.14); --down: #4d9dff; --down-bg: rgba(77, 157, 255, 0.14);
   --flat: #8a929e; --accent: #8f9cf5; --accent-soft: rgba(143, 156, 245, 0.14);
   --warn: #e0a34a; --warn-bg: rgba(224, 163, 74, 0.14); --ok: #3ccf8e; --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --series-nk: #9085e9; --series-tp: #c98500; --heat-0: #262a33; --heat-ink: #0f1115;
 }
 
 * { box-sizing: border-box; }
@@ -294,45 +304,108 @@ details.acc[open] > summary::after { transform: rotate(-90deg); }
 .track b { font-weight: 750; }
 
 /* ==================== 履歴 ==================== */
-.hist { border-top: 1px solid var(--border); }
-.hist:first-child { border-top: 0; }
-.hist > summary {
-  list-style: none; cursor: pointer; padding: 9px 14px; display: grid; grid-template-columns: 54px 1fr auto;
-  gap: 8px; align-items: start; min-height: 52px;
+/* 系列のキー（凡例・読み取り欄・表の行頭）。色だけに頼らず必ず文字と並べる */
+.key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 5px; }
+.key--nk { background: var(--series-nk); }
+.key--tp { background: var(--series-tp); }
+
+/* 1. 指数の推移 */
+.ix__ro { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 12px; color: var(--text-dim); min-height: 20px; }
+.ix__ro-date { color: var(--text); font-size: 12.5px; }
+.ix__ro-item { white-space: nowrap; }
+.ix__ro .num { color: var(--text); font-weight: 650; }
+.ix__plot { margin: 6px -4px 0; touch-action: pan-y; }
+.ix__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ix__grid { stroke: var(--border); stroke-width: 1; }
+.ix__zero { stroke: var(--text-faint); stroke-width: 1; }
+.ix__tick { fill: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.ix__line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ix__line--nk { stroke: var(--series-nk); }
+.ix__line--tp { stroke: var(--series-tp); }
+.ix__dot { stroke: var(--surface); stroke-width: 2; }
+.ix__dot--nk { fill: var(--series-nk); }
+.ix__dot--tp { fill: var(--series-tp); }
+.ix__cross { stroke: var(--text-faint); stroke-width: 1; }
+.ix__table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
+.ix__table th, .ix__table td { padding: 6px 4px; border-top: 1px solid var(--border); text-align: right; white-space: nowrap; }
+.ix__table thead th { border-top: 0; font-size: 10.5px; font-weight: 600; color: var(--text-faint); padding-top: 0; }
+.ix__table tbody th { text-align: left; font-weight: 650; color: var(--text); }
+.ix__table td { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ix__nt { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+.ix__nt b { color: var(--text); font-weight: 700; }
+.ix__nt-hint { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
+
+/* 2. 業種の強弱（ヒートマップ） */
+.hm__legend { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--text-faint); margin: -2px 0 8px; flex-wrap: wrap; }
+.hm__ramp {
+  display: inline-block; width: 84px; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--down), var(--heat-0) 50%, var(--up));
 }
-.hist > summary::-webkit-details-marker { display: none; }
-.hist__date { font-size: 12px; font-weight: 700; color: var(--text-dim); line-height: 1.25; padding-top: 1px; }
-.hist__date small { display: block; font-size: 10.5px; font-weight: 500; color: var(--text-faint); }
-.hist__main { min-width: 0; font-size: 12px; color: var(--text-dim); }
-.hist__main b { display: block; color: var(--text); font-size: 13.5px; white-space: nowrap; }
-/* 畳んだままでも読める大枠。1行に収め、溢れたら端を切る */
-.hist__line {
-  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 0;
-  font-size: 10.5px; line-height: 1.55; margin-top: 1px;
+.hm__legend-t { margin-left: 4px; }
+.hm { display: grid; gap: 2px; align-items: stretch; }
+.hm__h { font-size: 10.5px; font-weight: 700; color: var(--text-dim); text-align: center; line-height: 1.15; padding-bottom: 3px; }
+.hm__h small { display: block; font-size: 9.5px; font-weight: 500; color: var(--text-faint); }
+.hm__h--name { text-align: left; align-self: end; }
+.hm__h--sum { text-align: right; }
+.hm__name { font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; align-self: center; padding-right: 4px; }
+.hm__name small { font-size: 9px; color: var(--text-faint); font-weight: 500; margin-left: 3px; }
+.hm__c {
+  height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 650; color: var(--text); min-width: 0; overflow: hidden;
 }
-.hist__line .num { font-weight: 650; }
-.hist__k { color: var(--text-faint); font-weight: 600; flex: none; }
-.hist__g { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
-.hist__right { text-align: right; padding-top: 1px; }
-.hist__val { font-size: 14px; font-weight: 800; }
-.hist__pct { font-size: 11.5px; font-weight: 700; }
-.hist__body { padding: 4px 0 8px; }
+.hm__c--strong { color: var(--heat-ink); }
+.hm__c--na { background: transparent; }
+.hm__sum { font-size: 12px; font-weight: 750; text-align: right; align-self: center; line-height: 1.15; }
+.hm__sum small { display: block; font-size: 9px; font-weight: 500; color: var(--text-faint); white-space: nowrap; }
+.hm__name--small { color: var(--text-faint); }
+.hm__gap { grid-column: 1 / -1; text-align: center; font-size: 10.5px; color: var(--text-faint); padding: 3px 0; }
+
+/* 3. 日々の記録（列をそろえた表） */
+.dt__wrap { font-size: 12px; }
+.dt__row {
+  display: grid; grid-template-columns: 40px repeat(4, minmax(0, 1fr)); column-gap: 6px;
+  padding: 8px 14px; align-items: start;
+}
+.dt__head { padding-top: 0; padding-bottom: 6px; font-size: 10.5px; font-weight: 650; color: var(--text-faint); border-bottom: 1px solid var(--border); }
+.dt__head > div:not(:first-child) { text-align: right; }
+.dt { border-top: 1px solid var(--border); }
+.dt__wrap > .dt__head + .dt, .dt__wrap > .dt__head + .histx { border-top: 0; }
+.dt > summary { list-style: none; cursor: pointer; }
+.dt > summary::-webkit-details-marker { display: none; }
+.dt[open] > summary { background: var(--surface-2); }
+.dt__date { font-size: 12px; font-weight: 700; color: var(--text-dim); line-height: 1.25; }
+.dt__date small { display: block; font-size: 10px; font-weight: 500; color: var(--text-faint); white-space: nowrap; }
+.dt__c { text-align: right; min-width: 0; }
+.dt__pct { font-size: 13px; font-weight: 750; line-height: 1.25; white-space: nowrap; }
+.dt__lv { font-size: 10.5px; color: var(--text-faint); line-height: 1.3; white-space: nowrap; }
+.dt__track { position: relative; height: 3px; margin-top: 3px; background: var(--border); border-radius: 2px; }
+.dt__track::after { content: ""; position: absolute; left: 50%; top: -1px; width: 1px; height: 5px; background: var(--text-faint); }
+.dt__bar { position: absolute; top: 0; height: 3px; border-radius: 2px; }
+.dt__secs {
+  grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px;
+  margin-top: 5px; font-size: 11px; color: var(--text-dim);
+}
+.dt__k { font-size: 9px; }
+.dt__sec { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; margin-right: 6px; }
+.dt__sec b { font-weight: 700; }
+.dt__body { padding: 8px 0 10px; }
+.dt__secgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 14px 6px; font-size: 12px; }
+.dt__secgrid > div { display: flex; flex-direction: column; gap: 2px; }
+.dt__subt { font-size: 10.5px; font-weight: 700; color: var(--text-faint); }
 .hist__kv { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 14px 8px; }
 .hist__kv .badge { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.hist__src { font-size: 10.5px; color: var(--text-faint); padding: 0 14px 6px; }
 /* 終値の無い日（休場・未取得）は数字を並べず、線1本で流す */
 .histx {
-  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px;
   border-top: 1px solid var(--border); font-size: 11px; color: var(--text-faint);
 }
-.histx:first-child { border-top: 0; }
 .histx__d { font-weight: 650; flex: none; }
 .histx__rule { flex: 1; height: 1px; background: var(--border); }
 .histx__t { flex: none; }
-
-/* 指数の推移（日経・TOPIX） */
-.trend + .trend { margin-top: 8px; }
-.trend__label { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin: 0 0 4px; }
+/* 週報は見出しだけ出して本文を畳む */
+.weekly > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--accent); list-style: none; }
+.weekly > summary::-webkit-details-marker { display: none; }
+.weekly[open] > summary { margin-bottom: 10px; }
 
 /* ==================== 銘柄 ==================== */
 .search { display: flex; gap: 8px; }
