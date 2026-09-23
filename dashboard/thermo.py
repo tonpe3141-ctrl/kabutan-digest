@@ -573,6 +573,9 @@ def stock_class(mt: dict) -> list[str]:
     return out
 
 
+JUMP_OTHER = 12.0    # 開示からこれ以上動いたら「出尽くし」ではなく別の材料とみなす（%）
+
+
 def exhaustion(events: list[dict], price_on, today: str) -> list[dict]:
     """開示のあとの値動きの反応で「出尽くし」を判定する。
 
@@ -587,7 +590,10 @@ def exhaustion(events: list[dict], price_on, today: str) -> list[dict]:
             continue
         ch = pct(now, base)
         label = None
-        if e["dir"] == "up" and ch <= -2:
+        if abs(ch) >= JUMP_OTHER:
+            # 修正の方向と関係なく大きく動いたものは、TOB・増資など別の材料の可能性が高い。出尽くしとは言わない
+            label, tone = "開示後に急変（別の材料の可能性）", "info"
+        elif e["dir"] == "up" and ch <= -2:
             label, tone = "好材料出尽くし", "warn"
         elif e["dir"] == "up" and ch >= 3:
             label, tone = "好材料を素直に評価", "info"

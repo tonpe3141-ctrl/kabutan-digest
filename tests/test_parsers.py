@@ -478,6 +478,9 @@ def test_thermo():
     got = T.exhaustion(ev, lambda c, d, b: prices.get((c, d, b)), "2026-09-12")
     check("好材料出尽くし", got[0]["label"], "好材料出尽くし")
     check("悪材料出尽くし（アク抜け）", got[1]["label"], "悪材料出尽くし（アク抜け）")
+    prices[("2222", "2026-09-12", False)] = 700      # 下方修正のあと +40%（TOB など別の材料）
+    got = T.exhaustion(ev, lambda c, d, b: prices.get((c, d, b)), "2026-09-12")
+    check("開示後の急騰は出尽くしと呼ばない", got[1]["label"], "開示後に急変（別の材料の可能性）")
 
     # 個別株の分類
     check("高値掴み注意（RSI 80）", "高値掴み注意" in T.stock_class({"rsi": 80, "dev25": 5, "r5": 3}), True)
