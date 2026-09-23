@@ -22,3 +22,6 @@ jobs:
       - name: 株探ニュース取得モジュールと追加ランキングの実測
         run: python tools/probe_kabutan.py
         if: always()
+      - name: 日足の長期履歴（相場温度計の材料）
+        run: python tools/probe_history.py
+        if: always()
