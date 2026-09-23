@@ -154,3 +154,68 @@ HISTORY_KEEP_DAYS = 120
 
 # スパークラインは外部から履歴が取れないため、自分の履歴から積み上げる
 SPARK_POINTS = 20
+
+# ==================== 相場温度計（逆張りガード） ====================
+# 詳しくは DESIGN.md 9章。日足は CNBC の bars API（Actions から取れることを実測済み）。
+BARS_PATH = "docs/data/cache/bars.json"
+PER_CACHE_PATH = "docs/data/cache/nikkei_per.json"
+THERMO_PATH = "docs/data/thermo.json"
+THERMO_TRACK_PATH = "docs/data/thermo_track.json"
+
+MACRO_BARS_CALENDAR_DAYS = 1100    # マクロ系列は約3年（バックテストの母数）
+STOCK_BARS_KEEP = 130              # 個別株は130営業日（60日騰落・75日線・120日高値に足りる）
+STOCK_BARS_CALENDAR_DAYS = 200     # 初回・取り直しのときに取る暦日数
+
+# 温度計に使うマクロ系列。foreign=True は東証の引け後に確定する系列（バックテストでは前日までを使う）
+MACRO_BAR_SYMBOLS = [
+    {"key": "nikkei", "symbol": ".N225",  "label": "日経平均",   "foreign": False},
+    {"key": "topix",  "symbol": ".TOPX",  "label": "TOPIX",      "foreign": False},
+    {"key": "nkvi",   "symbol": ".JNIV",  "label": "日経VI",     "foreign": False},
+    {"key": "jp10y",  "symbol": "JP10Y",  "label": "日本10年債", "foreign": True},
+    {"key": "spx",    "symbol": ".SPX",   "label": "S&P500",     "foreign": True},
+    {"key": "sox",    "symbol": ".SOX",   "label": "SOX半導体",  "foreign": True},
+    {"key": "vix",    "symbol": ".VIX",   "label": "VIX",        "foreign": True},
+    {"key": "usdjpy", "symbol": "JPY=",   "label": "ドル/円",    "foreign": True},
+    {"key": "us10y",  "symbol": "US10Y",  "label": "米10年債",   "foreign": True},
+    {"key": "wti",    "symbol": "@CL.1",  "label": "WTI原油",    "foreign": True},
+]
+
+# 業種（日経225の業種区分）ごとのマクロ感応度。−1〜+1。
+# 「この20日のマクロの動きが、その業種に追い風か向かい風か」を出すための公開係数。
+# ドライバー: us10y / jp10y（金利上昇）, yen（円安）, oil（原油高）, sox（米半導体高）, spx（米株高）
+SECTOR_MACRO_SENS = {
+    "電気機器":   {"sox": 0.8, "yen": 0.5, "spx": 0.3, "us10y": -0.2},
+    "精密機器":   {"sox": 0.4, "yen": 0.5, "spx": 0.3},
+    "機械":       {"yen": 0.5, "spx": 0.4, "sox": 0.3},
+    "自動車":     {"yen": 0.9, "spx": 0.3},
+    "造船":       {"yen": 0.4, "spx": 0.3},
+    "その他製造": {"yen": 0.3, "spx": 0.3},
+    "化学":       {"yen": 0.3, "oil": -0.3, "sox": 0.2},
+    "ゴム":       {"yen": 0.4, "oil": -0.5},
+    "窯業":       {"sox": 0.3, "spx": 0.3},
+    "鉄鋼":       {"yen": 0.3, "spx": 0.3, "jp10y": 0.2},
+    "非鉄・金属": {"sox": 0.4, "spx": 0.4, "yen": 0.3},
+    "銀行":       {"jp10y": 0.9, "us10y": 0.4, "spx": 0.2},
+    "保険":       {"jp10y": 0.8, "us10y": 0.4},
+    "証券":       {"spx": 0.6, "jp10y": 0.2},
+    "その他金融": {"spx": 0.3, "jp10y": -0.2},
+    "不動産":     {"jp10y": -0.8, "us10y": -0.3},
+    "建設":       {"jp10y": -0.3},
+    "鉄道・バス": {"jp10y": -0.3, "yen": 0.2},
+    "陸運":       {"oil": -0.4},
+    "空運":       {"oil": -0.8, "yen": 0.2},
+    "海運":       {"yen": 0.5, "spx": 0.3, "oil": 0.2},
+    "商社":       {"oil": 0.6, "yen": 0.4},
+    "石油":       {"oil": 0.9},
+    "鉱業":       {"oil": 0.9},
+    "電力":       {"oil": -0.6, "jp10y": -0.3},
+    "ガス":       {"oil": -0.5, "jp10y": -0.2},
+    "通信":       {"jp10y": -0.3, "spx": 0.1},
+    "サービス":   {"jp10y": -0.3, "spx": 0.3},
+    "小売業":     {"yen": -0.2, "jp10y": -0.2},
+    "食品":       {"yen": -0.4, "oil": -0.2},
+    "医薬品":     {"yen": 0.4, "spx": 0.2},
+    "水産":       {"yen": -0.3},
+    "繊維":       {"yen": -0.2, "oil": -0.3},
+    "パルプ・紙": {"oil": -0.5, "yen": -0.4},
+}

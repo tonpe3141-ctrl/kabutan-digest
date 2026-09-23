@@ -14,7 +14,7 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, commentary, ledger as ledger_mod, store, themes as themes_mod, trend
+from . import analyze, commentary, ledger as ledger_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
     FUTURES_MAX_AGE_DAYS, JP_INDICES, MACRO_SYMBOLS, NIKKEI_FUTURES, RANKING_PAGES,
     SLOTS, SPARK_POINTS, US_INDICES, US_SECTOR_ETFS,
@@ -407,6 +407,17 @@ def run(slot: str, target_date: date | None = None) -> dict:
                           for t in ((payload.get("theme_flow") or {}).get("top") or [])],
             "breadth": payload.get("breadth"),
         }}
+
+    # 相場温度計（逆張りガード）。日足キャッシュを更新し docs/data/thermo.json を書く
+    print("  [温度計] 日足の更新と相場温度の計算...")
+    th = _safe("相場温度計", lambda: thermo_run.run(
+        slot, target_date, payload, store.previous_sessions(target_date, count=thermo_run.HIST_DAYS)))
+    payload["thermo"] = (th or {}).get("summary")
+    sec = commentary.thermo_section(payload["thermo"])
+    if sec and payload.get("commentary"):
+        payload["commentary"].setdefault("sections", []).append(sec)
+    if th and th.get("history"):
+        hist_patch[slot].update(th["history"])
 
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)

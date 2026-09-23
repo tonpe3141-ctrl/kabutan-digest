@@ -373,3 +373,28 @@ def session_commentary(data: dict, slot: str) -> dict | None:
         headline += "、物色は広い"
 
     return {"headline": headline, "sections": sections, "method": "指標ベースの自動生成"}
+
+
+# ==================== 相場温度計（逆張りの視点） ====================
+def thermo_section(th: dict | None) -> dict | None:
+    """温度計の要約を1節にする。数字は thermo_run.summary の値だけを使う。"""
+    if not th or th.get("temp") is None:
+        return None
+    out = [f"相場温度は {th['temp']}（{th['zone']}）。{th['n']}つの軸のうち追い風 {th['tailwind']}・"
+           f"向かい風 {th['headwind']}"]
+    if th.get("consensus"):
+        out.append(f"ほぼすべての軸が同じ向き（{th['consensus']}）")
+    if th.get("temp_before") is not None:
+        diff = th["temp"] - th["temp_before"]
+        if abs(diff) >= 8:
+            out.append(f"10営業日前の {th['temp_before']} から{'上がった' if diff > 0 else '下がった'}")
+    out.append(th["guide"])
+    if th.get("turning"):
+        out.append(th["turning"])
+    picks = th.get("sector_picks") or []
+    if picks:
+        out.append("逆張りの目線で注目できる業種は " +
+                   "、".join(f"{p['sector']}（{p['class']}）" for p in picks))
+    if th.get("sector_hot"):
+        out.append("短期で上がりすぎの業種は " + "、".join(th["sector_hot"][:3]) + "。追いかけ買いは控えめに")
+    return _section("温度計（逆張りの視点）", out)

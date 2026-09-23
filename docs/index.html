@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=c77a2a4d">
+<link rel="stylesheet" href="style.css?v=492ffad1">
 </head>
 <body>
 
@@ -38,6 +38,7 @@
 
 <main id="main">
   <section class="view" id="view-today" data-view="today"></section>
+  <section class="view" id="view-thermo" data-view="thermo" hidden></section>
   <section class="view" id="view-discover" data-view="discover" hidden></section>
   <section class="view" id="view-history" data-view="history" hidden></section>
   <section class="view" id="view-stocks" data-view="stocks" hidden></section>
@@ -46,8 +47,8 @@
 <footer class="foot">
   <p>
     出典: CNBC（指数・為替・金利・商品）／Yahoo!ファイナンス（ランキング・市況記事）／
-    TDnet 適時開示（決算・業績修正）／日経（225採用銘柄）。数値は各サイトの掲載値を自動取得したもので、
-    正確性・即時性は保証されません。想定オープンやシグナルは予測ではなく、外部環境の並び順を機械的に整理したものです。
+    TDnet 適時開示（決算・業績修正）／日経（225採用銘柄・PER）／CNBC 日足（相場温度計）。数値は各サイトの掲載値を自動取得したもので、
+    正確性・即時性は保証されません。想定オープン・シグナル・相場温度・買う前／売る前チェックは予測ではなく、外部環境の並び順を機械的に整理したものです。
     投資判断はご自身の責任でお願いします。
   </p>
   <p id="footMeta"></p>
@@ -57,6 +58,10 @@
   <button class="bottomnav__btn" data-view="today" aria-current="page">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
     <span>今日</span>
+  </button>
+  <button class="bottomnav__btn" data-view="thermo">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>作戦</span>
   </button>
   <button class="bottomnav__btn" data-view="discover">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 11l2 2 3.5-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -117,6 +122,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=97521cf9"></script>
+<script src="app.js?v=ee8b3723"></script>
 </body>
 </html>

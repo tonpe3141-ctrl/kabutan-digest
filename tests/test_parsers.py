@@ -442,6 +442,149 @@ def test_themes_ledger_trend():
     check("TOPIX の系列も当日まで", itr["indices"][1]["series"], [3800.0, 3900.0, 4000.0, 4100.0])
 
 
+# ==================== 相場温度計（逆張りガード） ====================
+def _bdays(n, start="2026-01-05"):
+    from datetime import date, timedelta
+    d, out = date.fromisoformat(start), []
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d.isoformat())
+        d += timedelta(days=1)
+    return out
+
+
+def _path(dates, start, end, wiggle=0.0):
+    """start から end へ等比で動く系列。wiggle は交互の揺れ（RSI を 100 に張り付かせない）。"""
+    n = len(dates)
+    out = []
+    for i, d in enumerate(dates):
+        v = start * (end / start) ** (i / (n - 1))
+        out.append((d, round(v * (1 + (wiggle if i % 2 else -wiggle)), 4)))
+    return out
+
+
+def _macro(hot: bool):
+    ds = _bdays(160)
+    up = hot
+    return {
+        "nikkei": _path(ds, 50000, 65000 if up else 38000, 0.002),
+        "nkvi": [(d, 16.0 if up else 40.0) for d in ds],
+        "vix": [(d, 12.0 if up else 33.0) for d in ds],
+        "spx": _path(ds, 6000, 7500 if up else 4800),
+        "sox": _path(ds, 8000, 12000 if up else 5200),
+        "usdjpy": _path(ds, 140, 160 if up else 125),
+        "us10y": _path(ds, 5.5 if up else 3.5, 3.5 if up else 5.5),
+        "jp10y": _path(ds, 2.5 if up else 1.0, 1.0 if up else 2.5),
+        "wti": _path(ds, 110, 60) if up else _path(ds, 60, 110),
+    }
+
+
+def test_thermo():
+    from dashboard import thermo as T
+    from dashboard import bars as B
+
+    print("\n[相場温度計]")
+    check("帯: 高いほど+（順向き）", T.band(80, (25, 35, 65, 75))["score"], 2)
+    check("帯: 低いほど+（逆向き、VIX 12）", T.band(12, (13, 16, 22, 30), -1)["score"], 2)
+    check("帯: 中立", T.band(50, (25, 35, 65, 75))["score"], 0)
+    check("RSI: 一方的な上昇は100", T.rsi([float(i) for i in range(1, 40)]), 100.0)
+    check("RSI: 交互の上下は50付近", 45 <= T.rsi([100 + (1 if i % 2 else -1) for i in range(60)]) <= 55, True)
+
+    for hot in (True, False):
+        m = _macro(hot)
+        ds = [d for d, _ in m["nikkei"]]
+        extras = {
+            "eps": [(d, 3000 * (1.0015 if hot else 0.9985) ** i) for i, d in enumerate(ds[-30:])],
+            "revisions": [(d, 3 if hot else 0, 0 if hot else 3) for d in ds[-20:]],
+            "news": [(d, 20 if hot else 1, 1 if hot else 20) for d in ds[-3:]],
+            "breadth": [(d, 160 if hot else 50, 60 if hot else 170) for d in ds[-25:]],
+        }
+        mt = T.market_thermo(m, extras=extras)
+        name = "全部追い風" if hot else "全部向かい風"
+        check(f"{name}: 8軸すべて採点", mt["n"], 8)
+        check(f"{name}: 一致度", mt["consensus"], "全面追い風" if hot else "全面向かい風")
+        check(f"{name}: 帯", mt["zone"], "過熱" if hot else "総悲観")
+
+    # 材料が欠けた軸は温度から外し、5軸未満なら温度を出さない
+    thin = {k: v for k, v in _macro(True).items() if k in ("nikkei", "wti")}
+    mt = T.market_thermo(thin)
+    check("5軸未満は温度なし", (mt["temp"], mt["zone"]), (None, "材料不足"))
+
+    # 先読みしない: 海外系列は判定日の当日を使わない
+    m = {"nikkei": [("2026-01-05", 100.0), ("2026-01-06", 101.0)],
+         "wti": [("2026-01-05", 60.0), ("2026-01-06", 999.0)]}
+    check("upto strict は当日を除く", T.upto(m["wti"], "2026-01-06", strict=True), [60.0])
+    check("upto は当日を含む", T.upto(m["wti"], "2026-01-06"), [60.0, 999.0])
+
+    # バックテスト: 温度帯ごとの日数の合計 = 全日数
+    import math
+    ds = _bdays(260)
+    base = _macro(True)
+    long = {}
+    for k, s in base.items():
+        vals = [v for _, v in s]
+        long[k] = [(d, vals[i % len(vals)] * (1 + 0.05 * math.sin(i / 11))) for i, d in enumerate(ds)]
+    bt = T.backtest(long, horizons=(20, 60), warmup=80)
+    check("バックテスト: 帯の日数の合計が全日数", sum(z["days"] for z in bt["zones"]), bt["all"]["days"])
+    check("バックテスト: 60日後が無い末尾は数えない", bt["all"]["n60"] <= bt["all"]["days"] - 60, True)
+
+    # 開示の方向
+    check("方向: 上方修正", T.disclosure_dir({"category": "業績予想の修正", "title": "通期業績予想の上方修正に関するお知らせ"}), "up")
+    check("方向: 表題に無い", T.disclosure_dir({"category": "業績予想の修正", "title": "業績予想の修正に関するお知らせ"}), None)
+    check("方向: 両方書いてある", T.disclosure_dir({"category": "業績予想の修正", "title": "上方修正及び下方修正"}), None)
+    check("方向: 増配", T.disclosure_dir({"category": "配当予想の修正", "title": "配当予想の修正（増配）"}), "up")
+    ev = T.material_events([{"code": "1111", "name": "A", "category": "業績予想の修正", "title": "上方修正", "time": "15:30"},
+                            {"code": "2222", "name": "B", "category": "業績予想の修正", "title": "下方修正", "time": "13:00"}],
+                           "2026-09-10")
+    check("引け後かどうか", [e["after"] for e in ev], [True, False])
+
+    # 出尽くし: 引け後の上方修正の翌日から下げた／場中の下方修正の前日比で下げ止まった
+    prices = {("1111", "2026-09-10", False): 1000, ("1111", "2026-09-12", False): 960,
+              ("2222", "2026-09-10", True): 500, ("2222", "2026-09-12", False): 505}
+    got = T.exhaustion(ev, lambda c, d, b: prices.get((c, d, b)), "2026-09-12")
+    check("好材料出尽くし", got[0]["label"], "好材料出尽くし")
+    check("悪材料出尽くし（アク抜け）", got[1]["label"], "悪材料出尽くし（アク抜け）")
+    prices[("2222", "2026-09-12", False)] = 700      # 下方修正のあと +40%（TOB など別の材料）
+    got = T.exhaustion(ev, lambda c, d, b: prices.get((c, d, b)), "2026-09-12")
+    check("開示後の急騰は出尽くしと呼ばない", got[1]["label"], "開示後に急変（別の材料の可能性）")
+
+    # 個別株の分類
+    check("高値掴み注意（RSI 80）", "高値掴み注意" in T.stock_class({"rsi": 80, "dev25": 5, "r5": 3}), True)
+    check("押し目", T.stock_class({"rsi": 42, "dev25": -3, "r5": -4, "r60": 15, "ma25": 1100, "ma75": 1000, "d1": -0.5}),
+          ["押し目"])
+    check("売られすぎ・下げ止まり", T.stock_class({"rsi": 25, "dev25": -12, "d1": 1.2})[0], "売られすぎ・下げ止まり")
+
+    # 見出しの論調（1見出しで強気・弱気は1回ずつ）
+    tone = T.headline_tone(["半導体株が急騰、最高値を更新", "銀行株が急落", "日経平均は小動き"], ["半導体", "銀行"])
+    check("論調: 強気1・弱気1", (tone["pos"], tone["neg"]), (1, 1))
+    check("論調: テーマ別", (tone["themes"]["半導体"], tone["themes"]["銀行"]), ([1, 0], [0, 1]))
+
+    # 日足のつなぎ目: 分割で過去値が変われば取り直す
+    old = [("2026-09-01", 1000.0), ("2026-09-02", 1010.0)]
+    merged, refetch = B.merge_series(old, [("2026-09-02", 1010.0), ("2026-09-03", 1020.0)])
+    check("日足: 末尾をつなぐ", (merged[-1], refetch), (("2026-09-03", 1020.0), False))
+    merged, refetch = B.merge_series(old, [("2026-09-02", 505.0), ("2026-09-03", 510.0)])
+    check("日足: 分割（過去値が半分）を検出", refetch, True)
+
+    # 提案の記録: 5営業日たったら d5 が埋まる。同じ提案は20営業日のあいだ記録し直さない
+    track = {}
+    ds = _bdays(7, "2026-09-01")
+    track = T.track_update(track, ds[0], [{"kind": "押し目候補", "key": "1111", "name": "A", "price": 100}],
+                           lambda e: None, 1000)
+    for d in ds[1:6]:
+        track = T.track_update(track, d, [{"kind": "押し目候補", "key": "1111", "name": "A", "price": 100}],
+                               lambda e: 5.0, 1010)
+    check("記録は1件（20営業日は記録し直さない）", len(track["entries"]), 1)
+    check("d5 と日経比", (track["entries"][0]["d5"], track["entries"][0]["x5"]), (5.0, 4.0))
+    check("種類別の成績", track["stats"][0]["d5_median"], 5.0)
+
+    # 業種: 中期上昇＋足元の調整は「押し目」、短期急騰は「過熱」
+    check("業種: 押し目", T.sector_class({"rsi": 45, "dev25": -3, "dev75": 4, "r20": -2, "r60": 8, "heat": -1.2, "d1": -0.3}), "押し目")
+    check("業種: 過熱", T.sector_class({"rsi": 78, "dev25": 9, "dev75": 12, "r20": 10, "r60": 20, "heat": 2.5}), "過熱")
+    fit = T.macro_fit("銀行", {"jp10y": {"raw": 20, "unit": "bp", "norm": 1.33}})
+    check("マクロ感応度: 国内金利上昇は銀行に追い風", fit["label"], "追い風")
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
@@ -452,6 +595,7 @@ if __name__ == "__main__":
     test_kabutan()
     test_ranking_layouts()
     test_themes_ledger_trend()
+    test_thermo()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
