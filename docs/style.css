@@ -460,3 +460,101 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2
 .bottomnav__btn:active { background: var(--surface-2); }
 
 .foot { max-width: 720px; margin: 18px auto 0; padding: 0 14px; font-size: 11px; color: var(--text-faint); line-height: 1.7; }
+
+/* ==================== 作戦（相場温度計） ==================== */
+/* 温度の帯: 冷たい＝青（悲観）→ 熱い＝赤（過熱）。上昇=赤／下落=青の慣習と向きをそろえる */
+.gauge { position: relative; display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 12px; }
+.gauge__seg--cold { background: var(--down); }
+.gauge__seg--cool { background: color-mix(in srgb, var(--down) 45%, var(--surface-2)); }
+.gauge__seg--neutral { background: var(--surface-3); }
+.gauge__seg--warm { background: color-mix(in srgb, var(--up) 45%, var(--surface-2)); }
+.gauge__seg--hot { background: var(--up); }
+.gauge__mark {
+  position: absolute; top: -3px; bottom: -3px; width: 4px; margin-left: -2px; border-radius: 2px;
+  background: var(--text); box-shadow: 0 0 0 2px var(--surface);
+}
+.gauge__labels { display: flex; font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+.gauge__labels span { text-align: center; white-space: nowrap; }
+
+.callout { margin-top: 10px; padding: 9px 11px; border-radius: 10px; font-size: 13px; line-height: 1.6; font-weight: 600; }
+.callout--warn { background: var(--warn-bg); color: var(--warn); }
+.callout--chance { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.callout--accent { background: var(--accent-soft); color: var(--accent); }
+.thermo__guide { font-size: 13.5px; line-height: 1.7; margin: 10px 0 0; }
+
+/* 8つの軸 */
+.factors { display: flex; flex-direction: column; }
+.factor { border-top: 1px solid var(--border); }
+.factor:first-child { border-top: 0; }
+.factor > summary {
+  list-style: none; cursor: pointer; display: grid; grid-template-columns: 5.5em auto 1fr; gap: 10px;
+  align-items: center; padding: 9px 0; min-height: 44px;
+}
+.factor > summary::-webkit-details-marker { display: none; }
+.factor__label { font-size: 13px; font-weight: 700; }
+.factor__na { font-size: 11px; color: var(--text-faint); }
+.factor__chg { font-size: 11px; font-weight: 650; text-align: right; }
+.factor__body { font-size: 12.5px; line-height: 1.65; color: var(--text-dim); padding: 0 0 10px; }
+.factor--na .factor__label { color: var(--text-faint); }
+.pips { display: inline-flex; gap: 3px; }
+.pip { display: inline-block; width: 14px; height: 10px; border-radius: 3px; background: var(--surface-2); }
+.pip--up { background: var(--up); }
+.pip--down { background: var(--down); }
+.pip--mid { background: var(--text-faint); }
+
+/* 温度の推移 */
+.tc { margin: 4px 0 10px; }
+.tc__svg { display: block; width: 100%; height: 90px; }
+.tc__grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.tc__tick { font-size: 8px; fill: var(--text-faint); }
+.tc__line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+.tc__axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-faint); }
+
+/* 検証・業種の表 */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.card--flush .tablewrap { padding: 0 14px; }
+table.bt { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.bt th, table.bt td { padding: 6px 4px; text-align: right; border-top: 1px solid var(--border); white-space: nowrap; }
+table.bt thead th { border-top: 0; font-size: 10.5px; color: var(--text-faint); font-weight: 650; }
+table.bt tbody th { text-align: left; font-weight: 650; }
+table.bt--sec td:nth-child(2), table.bt--sec td:last-child { text-align: left; }
+.bt__all th, .bt__all td { color: var(--text-dim); font-weight: 650; background: var(--surface-2); }
+.bt__cons th { font-size: 11px; color: var(--text-dim); }
+.bt__sub { display: block; font-size: 10px; color: var(--text-faint); font-weight: 500; }
+.bt__verdict { font-size: 13.5px; line-height: 1.7; margin: 0 0 6px; font-weight: 600; }
+
+/* 候補の行（タップで買う前チェックを開く） */
+.picks { display: flex; flex-direction: column; }
+.pick {
+  appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; color: inherit; font: inherit;
+  text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+  padding: 9px 14px; min-height: 52px; cursor: pointer; width: 100%;
+}
+.picks > .pick:first-child { border-top: 0; }
+.pick__main { min-width: 0; }
+.pick__title { font-size: 11px; color: var(--text-dim); line-height: 1.45; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick__go { font-size: 11px; color: var(--accent); font-weight: 700; margin-top: 2px; }
+.signal--btn { appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+.guard__note { font-size: 12.5px; line-height: 1.55; padding-left: 10px; border-left: 3px solid var(--border); margin: 3px 0; }
+.guard__note--warn { border-left-color: var(--warn); }
+.guard__note--chance { border-left-color: var(--ok); }
+.guard__note--info { border-left-color: var(--accent); }
+
+/* 買う前／売る前チェック */
+.check__btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.btn--buy { background: var(--up-bg); color: var(--up); border-color: transparent; min-height: 44px; font-size: 14px; }
+.btn--sell { background: var(--down-bg); color: var(--down); border-color: transparent; min-height: 44px; font-size: 14px; }
+.check__result:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.check__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.check__head .row__meta span { white-space: nowrap; }
+.check__head > .btn { flex: none; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; }
+.verdict { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 800; }
+.verdict--stop { background: var(--warn-bg); color: var(--warn); }
+.verdict--wait { background: var(--accent-soft); color: var(--accent); }
+.verdict--ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.check__list { margin-top: 10px; }
+.check__lh { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+.check__list .reasons { list-style: none; padding-left: 0; }
+.check__result > .btn { margin-top: 12px; width: 100%; }
+.gauge__caption { font-size: 11.5px; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+.card--flush > .callout, .card--flush > div > .callout { margin-left: 14px; margin-right: 14px; }

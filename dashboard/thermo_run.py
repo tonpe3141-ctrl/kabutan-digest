@@ -273,9 +273,8 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     track = _read(THERMO_TRACK_PATH, {})
     if slot == "taibike":
         picks = []
-        for s in sectors[:3]:
-            if s["pick"] > 0:
-                picks.append({"kind": "注目業種", "key": s["sector"], "name": s["sector"], "price": None})
+        for s in [x for x in sectors if is_pick(x)][:3]:
+            picks.append({"kind": "注目業種", "key": s["sector"], "name": s["sector"], "price": None})
         for s in sectors:
             if s["class"] == "過熱":
                 picks.append({"kind": "過熱業種", "key": s["sector"], "name": s["sector"], "price": None})
@@ -313,6 +312,14 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
                              "scores": {f["key"]: f["score"] for f in market.get("factors") or []}}
                             if market else None)
     return {"summary": summary(thermo), "history": hist_patch}
+
+
+CONTRA = ("押し目", "売られすぎ・下げ止まり")
+
+
+def is_pick(s: dict) -> bool:
+    """注目業種は逆張りで拾う側（押し目・下げ止まり）に限る。素直な上昇トレンドは「押しを待つ」側。"""
+    return s["pick"] > 0 and s["class"] in CONTRA
 
 
 def _brief(r: dict) -> dict:
@@ -382,7 +389,7 @@ def summary(th: dict) -> dict | None:
                      "text": "、".join(s["text"] for s in f.get("subs") or [] if s.get("text"))}
                     for f in mk.get("factors") or []],
         "sector_picks": [{"sector": s["sector"], "class": s["class"], "pick": s["pick"],
-                          "macro": (s.get("macro") or {}).get("label")} for s in sec if s["pick"] > 0][:3],
+                          "macro": (s.get("macro") or {}).get("label")} for s in sec if is_pick(s)][:3],
         "sector_hot": [s["sector"] for s in sec if s["class"] == "過熱"][:5],
         "dip": [{"code": r["code"], "name": r["name"], "ma25": r.get("ma25"), "to_ma25": r.get("to_ma25")}
                 for r in (th.get("lists") or {}).get("dip", [])[:5]],
