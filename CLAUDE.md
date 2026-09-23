@@ -25,6 +25,9 @@ dashboard/analyze.py      想定オープン・リスク環境・セクター連
 dashboard/themes.py       銘柄→テーマ辞書でランキングを束ねる（辞書は docs/data/themes.json）
 dashboard/ledger.py       発掘台帳: 入口は機械、理由は LLM、成績は週報（docs/data/ledger.json）
 dashboard/trend.py        業種・指数の 5日／20日の時間軸
+dashboard/bars.py         日足キャッシュ（docs/data/cache/bars.json。CNBC 日足API、分割は全期間取り直し）
+dashboard/thermo.py       相場温度計（逆張りガード）: 8軸・温度・バックテスト・業種/銘柄の分類・出尽くし・成績
+dashboard/thermo_run.py   温度計の実行。docs/data/thermo.json / thermo_track.json を書く
 dashboard/commentary.py   ルールベースの見立て（LLM 分析が無い時の土台）
 dashboard/store.py        latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py        スロット単位の実行エントリ
@@ -63,6 +66,9 @@ Google ニュース RSS（見出し全部）と Yahoo!ファイナンスのニ�
 - **Routine が書いてよいファイルは `tools/verify_ai_merge.py` の ALLOWED だけ。** 増やすときはそこも直す。
 - **ラベルは実態に合わせる。** 売買代金が取れず出来高にフォールバックしたら、表示名も「出来高」に変える。
 - **見立ての土台は外部の生成AIを使わない。** commentary.py はルールベース。矛盾する指摘を同時に出さない。
+- **温度計は「予測」ではなく逆張りの物差し。** 帯の境目・判定条件は thermo.py の定数で公開し、
+  過去の成績（backtest）と必ず並べて出す。都合の良い読みだけを出さない。バックテストは先読みしない
+  （海外系列は判定日の前日まで）。温度計の数字は LLM が付け直さない。
 
 ### 動作確認
 

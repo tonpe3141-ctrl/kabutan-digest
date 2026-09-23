@@ -129,6 +129,11 @@ git pull --rebase origin main
   `articles[]`（Yahoo!ファイナンス配信の株探記事。`{headline, timestamp, body, url}`）。
   見出しは「話題株ピックアップ【夕刊】（1）：Ａ、Ｂ、Ｃ」のように、それ自体が要約になっている。
 - **`news[]`**: Yahoo!ファイナンス マーケットAIトピックス。`{headline, category, timestamp, body, url, source}`。
+- **`thermo`**（全スロット）: 相場温度計の要約。`temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
+  `consensus`（全面追い風／全面向かい風）, `factors[]`（8軸の `score` −2〜+2 と `change` 改善／悪化、`text` に根拠の数字）,
+  `turning`（底打ち／天井打ちの兆し）, `sector_picks`（押し目・下げ止まりの業種）, `sector_hot`, `dip` / `oversold` / `hot` /
+  `bad_out` / `good_out`（銘柄）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）。
+  詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・判定の成績 `track[]`）
 - 参考: `commentary`（ルールベースの見立て。なぞるだけでは意味がない）
 
 あわせて、あれば読む:
@@ -156,6 +161,14 @@ git pull --rebase origin main
 ```
 
 セクションは 2〜4 個。例: 「相場の総括」「ニュースから読む背景」「テーマと資金の向き」「注目点」。
+**`thermo` があれば、そのうち1つを必ず「逆張りの視点」にする。** 書くこと:
+- 温度と帯、どの軸が追い風／向かい風か（`factors` の数字をそのまま使う。温度やスコアを自分で付け直さない）
+- ニュースの論調と値動きのずれ（例: 好材料の見出しが続くのに `good_out` に出ている＝好材料出尽くし、
+  悪材料の見出しが続くのに `bad_out` や `themes` で「下げ止まり」＝悪材料出尽くしの兆し）。記事で裏付けが取れた範囲で
+- `sector_picks` / `dip` / `hot` のうち記事で背景が分かるもの。「買い」「売り」と断定せず、
+  「押し目を待つ」「追いかけは控えめに」「分割で」の言い方にとどめる
+- `backtest` で温度帯の過去の成績が逆張りの読みと食い違っているときは、そのことも書く（都合の良い読みだけを書かない）
+
 複数の事実を組み合わせた解釈を書く（例: 日経は上昇したが TOPIX との乖離と上昇銘柄数から
 値がさ株主導であり、株探の夕刊が挙げる AI 関連への資金集中と整合する）。
 `sources` には実際に使った記事だけを入れる（`kabutan.articles` と `news` の URL）。
@@ -223,6 +236,8 @@ git push --force origin HEAD:main || echo "force push も拒否。報告して�
 
 - タイトル: `{SLOT} の日本語名`（寄り前 / 前場 / 大引）＋ 日付
 - 本文: 4a の `headline`。大引で台帳に今日の新規候補があれば銘柄名を 3 つまで添える。
+  `thermo.zone` が「過熱」「総悲観」のとき、`thermo.consensus` があるとき、または前回の通知から帯が変わったときは、
+  本文の先頭に `温度{temp}・{zone}` を付ける（例: 「温度84・過熱｜…」）。`watch_guard` があれば「ウォッチ: {銘柄名}に注意書き」を1行添える。
   寄り前は STEP 7 の点検結果に欠けがあれば 1 行添える。
 - URL: `https://tonpe3141-ctrl.github.io/kabutan-digest/`
 
@@ -251,6 +266,7 @@ STEP 6 の通知に「昨日の {欠けた区分} が未取得」と添える。
     {"title": "指数と物色", "body": "5営業日の日経・TOPIX の動きと、強かった業種・テーマ、弱かったもの"},
     {"title": "候補の成績", "body": "台帳: 今週フラグした候補の d5 中央値、シグナル別の当たり外れ（stats から）"},
     {"title": "想定と実際", "body": "寄り前想定（implied_open）と実際の寄りの当たり具合"},
+    {"title": "温度計と逆張りの成績", "body": "今週の温度の推移（history の thermo.temp）と、thermo.json の track[]（押し目・売られすぎ・出尽くし・高値掴み注意の5日後）を台帳の順張りシグナルと比べる"},
     {"title": "来週の注目", "body": "決算・イベント・持ち越し材料"}
   ],
   "method": "Claude による週次総括",
