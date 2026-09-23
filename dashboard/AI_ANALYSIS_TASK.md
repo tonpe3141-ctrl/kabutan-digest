@@ -121,6 +121,9 @@ git pull --rebase origin main
 
 - **寄り前**: `us`（米国指数）, `macro`（為替・金利・商品）, `sectors_us`, `implied_open`, `risk`,
   `sector_outlook`, `carryover.after_hours_kessan`（前営業日引け後の開示）, `news`, `kabutan`
+- **`implied_open`**: `method` が `futures` なら CME 日経平均先物の清算値（`asof` の米国取引日）と
+  前日終値の差、`model` なら米株×為替の簡易推計。書くときは `method_label` のとおりに根拠を名指しする。
+  `futures` のときは `model.gap_pct` に簡易推計の値も入っている（連休明けなどで大きく離れることがある）。
 - **前場・大引**: `indices`, `divergence`, `sectors_jp`, `breadth`, `constituents`,
   `tables.value/gainer/loser/ytd_high/vol_surge`, `tables.kessan_intraday/kessan_after`,
   `disclosure_summary`, `ranking_delta`, `streaks`, `theme_flow`（テーマ別の資金の向き）,

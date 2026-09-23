@@ -93,6 +93,72 @@ def test_cnbc():
     check("矛盾した change_pct を再計算", round(odd["change_pct"], 3), 0.923)
 
 
+# ==================== 想定オープン（日経平均先物） ====================
+# 2026-09-23 に実測した @NK.1 の日足（抜粋）。最後の足は清算後に次のセッションの
+# 始値・高値が混ざるが、終値は清算値（67020）のまま
+NK_BARS = {"barData": {"priceBars": [
+    {"open": "64900.0000", "high": "65720.0000", "low": "64310.0000", "close": "65025.0000",
+     "tradeTime": "20260918000000"},
+    {"open": "64905.0000", "high": "66580.0000", "low": "64800.0000", "close": "66465.0000",
+     "tradeTime": "20260921000000"},
+    {"open": "67000.0000", "high": "67200.0000", "low": "66625.0000", "close": "67020.0000",
+     "tradeTime": "20260922000000"},
+]}}
+
+
+def test_futures_open():
+    from datetime import date as _d
+    from dashboard import analyze, commentary
+    from dashboard.config import FUTURES_MAX_AGE_DAYS, NIKKEI_FUTURES
+    from dashboard.sources.cnbc import parse_bars
+    print("\n想定オープン（日経平均先物）")
+
+    bars = parse_bars(NK_BARS)
+    check("日足を (日付, 終値) の古い順に", bars[-1], ("2026-09-22", 67020.0))
+
+    def pick(target, prev_date, b=bars):
+        return analyze.pick_futures(b, _d.fromisoformat(target), prev_date,
+                                    NIKKEI_FUTURES, FUTURES_MAX_AGE_DAYS)
+
+    # 3連休明け（東証 9/18 引け → 9/23 07:10 JST）。9/22 の清算値が連休中の動きを全部含む
+    fut, note = pick("2026-09-23", "2026-09-18")
+    check("連休明け: 前日付けの足を使う", (fut["last"], fut["asof"], fut["symbol"], note),
+          (67020.0, "2026-09-22", "@NK.1", None))
+    # 対象日付けの足（始まったばかりの次のセッション）は使わない
+    live = bars + [("2026-09-23", 66780.0)]
+    check("対象日付けの足は無視", pick("2026-09-23", "2026-09-18", live)[0]["asof"], "2026-09-22")
+    # 月曜の寄り前: 米国はまだ日曜なので金曜の足は2日前で使える
+    fri = [("2026-09-25", 66000.0)]
+    check("月曜の寄り前は金曜の清算値", pick("2026-09-28", "2026-09-25", fri)[0]["last"], 66000.0)
+    # 古い足・前日終値より前の足・取得失敗はモデルに戻す
+    check("足が古ければ使わない", pick("2026-09-28", "2026-09-18")[0], None)
+    check("前日終値より前の足は使わない（大引け後を含まない）",
+          pick("2026-09-24", "2026-09-23")[0], None)
+    check("前日終値の日付が不明なら使わない", pick("2026-09-23", None)[0], None)
+    fut_none, why = pick("2026-09-23", "2026-09-18", None)
+    check("取得失敗は理由つきで None", (fut_none, bool(why)), (None, True))
+
+    drivers = {"spx_pct": 0.5, "sox_pct": 1.0, "usdjpy_pct": -0.1}
+    io = analyze.implied_open(drivers, 65018.95, fut)
+    check("先物ベースのラベル", (io["method"], io["method_label"]), ("futures", "日経平均先物ベース"))
+    check("前日終値との差", (round(io["gap"], 2), round(io["gap_pct"], 2)), (2001.05, 3.08))
+    check("モデルの値も並べて残す", (io["model"]["method_label"], round(io["model"]["gap_pct"], 3)),
+          ("簡易推計（米株×為替）", 0.49))
+    io_m = analyze.implied_open(drivers, 65018.95, None)
+    check("先物なしはモデルのラベル", (io_m["method"], io_m["method_label"], "model" in io_m),
+          ("model", "簡易推計（米株×為替）", False))
+
+    c = commentary.preopen_commentary({"implied_open": io, "risk": {"label": "中立"}})
+    body = next(s["body"] for s in c["sections"] if s["title"] == "日本株への持ち込み")
+    check("見立ては先物の清算値と明示", ("清算値（2026-09-22）" in body, "簡易推計では +0.49%" in body),
+          (True, True))
+    check("先物ベースの見出しは「米国発」と言わない", c["headline"], "先物が前日終値を大きく上回る。寄り高スタートを想定")
+    c_m = commentary.preopen_commentary({"implied_open": io_m, "risk": {"label": "中立"}})
+    body_m = next(s["body"] for s in c_m["sections"] if s["title"] == "日本株への持ち込み")
+    check("モデルのときは簡易推計と明示", body_m.startswith("米株×為替の簡易推計による想定オープンは +0.49%"), True)
+    check("前場の答え合わせも先物のラベル", analyze.verify_open(io, 2.5)["method"], "日経平均先物ベース")
+
+
 # ==================== TDnet ====================
 def test_tdnet():
     print("\nTDnet 適時開示")
@@ -379,6 +445,7 @@ def test_themes_ledger_trend():
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
+    test_futures_open()
     test_tdnet()
     test_slot()
     test_news()

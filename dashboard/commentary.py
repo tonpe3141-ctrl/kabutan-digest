@@ -164,6 +164,22 @@ def _carryover(carryover: dict) -> str | None:
     return _join(out)
 
 
+def _implied_open_read(io: dict, risk: dict) -> str | None:
+    """想定オープンの一文。先物とモデルのどちらで出した値かを文中で明示する。"""
+    if io.get("gap_pct") is None:
+        return None
+    yen = f"（およそ {io['gap']:+,.0f}円）" if io.get("gap") is not None else ""
+    if io.get("method") == "futures":
+        s = (f"{io.get('source_label') or '日経平均先物'}の清算値（{io.get('asof')}）は"
+             f" {io['futures_last']:,.0f}円で、前日終値比 {_pct(io['gap_pct'])}{yen}")
+        m = io.get("model") or {}
+        if m.get("gap_pct") is not None:
+            s += f"。米株×為替の簡易推計では {_pct(m['gap_pct'])}"
+    else:
+        s = f"米株×為替の簡易推計による想定オープンは {_pct(io['gap_pct'])}{yen}"
+    return s + f"。リスク環境は「{risk.get('label')}」"
+
+
 def preopen_commentary(data: dict) -> dict | None:
     us = data.get("us") or {}
     macro = data.get("macro") or {}
@@ -174,9 +190,7 @@ def preopen_commentary(data: dict) -> dict | None:
         _section("米国市場をどう見るか", [_us_market(us)]),
         _section("金利と為替", [_rates_fx(macro)]),
         _section("日本株への持ち込み", [
-            (f"外部環境をそのまま当てはめた想定オープンは {_pct(io.get('gap_pct'))}"
-             + (f"（およそ {io['gap']:+,.0f}円）" if io.get("gap") is not None else "")
-             + f"。リスク環境は「{risk.get('label')}」" if io.get("gap_pct") is not None else None),
+            _implied_open_read(io, risk),
             _sector_read(data.get("sector_outlook"), data.get("sectors_us") or {}),
         ]),
         _section("今日の個別材料", [_carryover(data.get("carryover") or {})]),
@@ -189,10 +203,11 @@ def preopen_commentary(data: dict) -> dict | None:
     gap = io.get("gap_pct")
     sox = (us.get("sox") or {}).get("change_pct")
     spx = (us.get("spx") or {}).get("change_pct")
+    by_futures = io.get("method") == "futures"
     if gap is None:
         headline = "外部環境の整理"
     elif gap > 0.8:
-        headline = "米国発の追い風。寄り高スタートを想定"
+        headline = ("先物が前日終値を大きく上回る" if by_futures else "米国発の追い風") + "。寄り高スタートを想定"
     elif gap > 0.2:
         headline = "小幅高で始まる見込み"
     elif gap > -0.2:
@@ -200,7 +215,7 @@ def preopen_commentary(data: dict) -> dict | None:
     elif gap > -0.8:
         headline = "小幅安で始まる見込み"
     else:
-        headline = "米国発の逆風。寄り安スタートを想定"
+        headline = ("先物が前日終値を大きく下回る" if by_futures else "米国発の逆風") + "。寄り安スタートを想定"
     if sox is not None and spx is not None and sox - spx > 1.5:
         headline += "（半導体一極集中）"
 

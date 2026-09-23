@@ -560,8 +560,16 @@ function renderPreopen(d) {
     const aside = [h('span', { class: 'badge badge--accent', text: io.method_label || '' })];
     if (isNum(io.prev_close)) aside.push(h('div', { class: 'num', text: `前日終値 ${fmtNum(io.prev_close, 0)}` }));
     let note = null;
-    if (io.method === 'model' && io.contributions) {
-      note = '内訳: ' + io.contributions.map((c) => `${c.driver} ${c.display || ''} → ${fmtSigned(c.value)}pt`).join('　/　') +
+    if (io.method === 'futures') {
+      if (isNum(io.futures_last)) aside.push(h('div', { class: 'num', text: `先物 ${fmtNum(io.futures_last, 0)}` }));
+      const m = io.model;
+      note = `${io.source_label || '日経平均先物'}の清算値（${io.asof || '日付不明'}）と前日終値の差。` +
+             (m && isNum(m.gap_pct)
+               ? `参考: ${m.method_label || '簡易推計'}では ${fmtPct(m.gap_pct)}` + (isNum(m.gap) ? `（${fmtSigned(m.gap, 0)}円）` : '')
+               : '');
+    } else if (io.method === 'model' && io.contributions) {
+      note = (io.futures_note ? io.futures_note + '。' : '') +
+             '内訳: ' + io.contributions.map((c) => `${c.driver} ${c.display || ''} → ${fmtSigned(c.value)}pt`).join('　/　') +
              (io.formula ? `　（係数: ${io.formula}）` : '');
     }
     out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral', 'sec-open'));

@@ -16,8 +16,8 @@ from datetime import date, datetime, timedelta
 
 from . import analyze, commentary, ledger as ledger_mod, store, themes as themes_mod, trend
 from .config import (
-    JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
-    US_INDICES, US_SECTOR_ETFS,
+    FUTURES_MAX_AGE_DAYS, JP_INDICES, MACRO_SYMBOLS, NIKKEI_FUTURES, RANKING_PAGES,
+    SLOTS, SPARK_POINTS, US_INDICES, US_SECTOR_ETFS,
 )
 
 from .sources import cnbc, kabutan_news, news, nikkei225, tdnet, yahoojp
@@ -122,11 +122,11 @@ def build_preopen(target_date: date) -> dict:
 
     # 前営業日の日経平均終値。初日は履歴が無いので CNBC の .N225 を使う
     # （07:00 JST 時点では前営業日の大引け値が返る）。
-    prev_close = None
+    prev_close = prev_close_date = None
     jp = _safe("日経平均(前日終値)", lambda: cnbc.fetch_symbols([".N225"]), {}) or {}
     if jp.get(".N225", {}).get("last") is not None:
-        prev_close = jp[".N225"]["last"]
-        print(f"    ✅ 前営業日の日経平均終値: {prev_close:,.2f}")
+        prev_close, prev_close_date = jp[".N225"]["last"], jp[".N225"].get("asof")
+        print(f"    ✅ 前営業日の日経平均終値: {prev_close:,.2f}（{prev_close_date}）")
 
     prev_summary = None
     after_hours = []
@@ -134,18 +134,33 @@ def build_preopen(target_date: date) -> dict:
         idx = (hist.get("taibike") or {}).get("indices") or {}
         nk = idx.get("nikkei")
         if nk and nk.get("close") is not None:
-            prev_close = prev_close or nk["close"]
+            if prev_close is None:
+                prev_close, prev_close_date = nk["close"], nk.get("asof") or hist.get("date")
             prev_summary = {"date": hist.get("date"), "indices": idx,
                             "session_shift": (hist.get("taibike") or {}).get("session_shift")}
             after_hours = (hist.get("taibike") or {}).get("after_hours") or []
             break
+
+    print(f"  [CNBC] 日経平均先物（{NIKKEI_FUTURES['symbol']}）の日足を取得中...")
+    bars = _safe("日経平均先物", lambda: cnbc.fetch_bars(
+        NIKKEI_FUTURES["symbol"], target_date - timedelta(days=10), target_date))
+    futures, futures_note = _safe("日経平均先物の選別", lambda: analyze.pick_futures(
+        bars, target_date, prev_close_date, NIKKEI_FUTURES, FUTURES_MAX_AGE_DAYS),
+        (None, "先物の日足を解釈できませんでした"))
+    if futures:
+        print(f"    ✅ {futures['label']}: {futures['last']:,.0f}（{futures['asof']} 清算）")
+    else:
+        print(f"    ⚠️  {futures_note}。想定オープンは簡易推計にする")
+    implied = analyze.implied_open(drivers, prev_close, futures)
+    if implied and implied["method"] == "model" and futures_note:
+        implied["futures_note"] = futures_note
 
     spx = us.get("spx") or {}
     payload = {
         "us": us,
         "macro": macro,
         "sectors_us": sectors_us,
-        "implied_open": analyze.implied_open(drivers, prev_close, None),
+        "implied_open": implied,
         "risk": analyze.risk_regime(us, macro),
         "sector_outlook": analyze.sector_outlook(drivers),
         "carryover": {"prev_session": prev_summary, "after_hours_kessan": after_hours[:20]},

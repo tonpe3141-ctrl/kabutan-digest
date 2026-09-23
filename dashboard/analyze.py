@@ -7,6 +7,8 @@
   - 寄り前に立てた想定は当たったのか
 という「差分」と「含意」を出す。
 """
+from datetime import date, timedelta
+
 from .config import SECTOR_LINKS
 
 # 想定オープンの簡易推計モデル。
@@ -67,20 +69,57 @@ def implied_open(drivers: dict, jp_prev_close: float | None,
 
     先物が取れていればそれを最優先（実勢）。取れなければ公開係数モデルで推計する。
     どちらを使ったかは必ず method に残し、UI 側でも明示する。
+    先物を使うときもモデルの値を model に並べて残す（寄り前の時点で両方見比べられるように）。
     """
+    model = _model_open(drivers, jp_prev_close)
     if futures and jp_prev_close and futures.get("last"):
         gap = futures["last"] - jp_prev_close
         return {
             "method": "futures",
             "method_label": "日経平均先物ベース",
             "source": futures.get("symbol"),
+            "source_label": futures.get("label"),
             "futures_last": futures["last"],
             "prev_close": jp_prev_close,
             "gap": gap,
             "gap_pct": gap / jp_prev_close * 100,
             "asof": futures.get("asof"),
+            "model": ({"method_label": model["method_label"], "gap": model["gap"],
+                       "gap_pct": model["gap_pct"]} if model else None),
         }
+    return model
 
+
+def pick_futures(bars: list[tuple[str, float]] | None, target_date,
+                 prev_close_date: str | None, spec: dict,
+                 max_age_days: int) -> tuple[dict | None, str | None]:
+    """先物の日足から、寄り前に使える値を選ぶ。使えなければ (None, 理由)。
+
+    CME の日足は米国の取引日（ET）で日付が付き、終値は清算値（16:00 ET ごろ）。
+    07:10 JST は米国ではまだ前日なので、対象日の前日付けの足が最新の確定足になる。
+    対象日付けの足は始まったばかりの次のセッションなので使わない。
+    足が前日終値の日付より前なら東証の大引け後の動きを含まないので使わない。
+    """
+    if bars is None:
+        return None, "先物の日足を取得できませんでした"
+    usable = [(d, c) for d, c in bars if d < target_date.isoformat()]
+    if not usable:
+        return None, "先物の日足がありません"
+    asof, last = usable[-1]
+    us_today = target_date - timedelta(days=1)
+    age = (us_today - date.fromisoformat(asof)).days
+    if age > max_age_days:
+        return None, f"先物の最新の足が {asof} と古いため使いませんでした"
+    if not prev_close_date:
+        return None, "前日終値の日付が分からず、先物と突き合わせられませんでした"
+    if asof < prev_close_date:
+        return None, (f"先物の最新の足（{asof}）が前日終値（{prev_close_date}）より前で、"
+                      "東証の大引け後の動きを含まないため使いませんでした")
+    return {"symbol": spec["symbol"], "label": spec["label"],
+            "last": last, "asof": asof}, None
+
+
+def _model_open(drivers: dict, jp_prev_close: float | None) -> dict | None:
     parts = {k: drivers[k] * w for k, w in OPEN_MODEL.items() if k in drivers}
     if not parts:
         return None
