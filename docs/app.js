@@ -58,11 +58,13 @@ function fmtNum(v, digits = 2) {
 }
 function fmtPct(v, digits = 2) {
   if (!isNum(v)) return '—';
-  return (v > 0 ? '+' : '') + v.toFixed(digits) + '%';
+  const r = Number(v.toFixed(digits)) || 0;           // -0.001 を「-0.00%」にしない
+  return (r > 0 ? '+' : '') + r.toFixed(digits) + '%';
 }
 function fmtSigned(v, digits = 2) {
   if (!isNum(v)) return '—';
-  return (v > 0 ? '+' : '') + fmtNum(v, digits);
+  const r = Number(v.toFixed(digits)) || 0;
+  return (r > 0 ? '+' : '') + fmtNum(r, digits);
 }
 function fmtPrice(v) {
   if (!isNum(v)) return '—';
@@ -966,110 +968,392 @@ function renderDiscover() {
   return out;
 }
 
-/* ==================== 履歴 ==================== */
+/* ==================== 履歴 ====================
+   投資家が最初の1画面で「最近の指数の向き」と「強い業種・弱い業種」を掴むための画面。
+     1. 指数の推移 … 日経とTOPIXを期間の初日=0% にそろえた線（1本の軸）。ねじれが線の開きで見える
+     2. 業種の強弱 … 業種×日のヒートマップ。期間合計で並べるので、続く強さと一日だけの強さが分かれる
+     3. 日々の記録 … 列をそろえた表。同じ列は同じ尺度のバーなので、上下に目を動かすだけで比べられる
+   休場・未取得の日は数字を出さず線1本（前営業日の値が並ぶと変化が読めなくなるため）。 */
+const HIST_CHART_DAYS = 20;          // 指数の線に載せる営業日数
+const HEAT_SCALE = 3;                // ヒートマップの色が飽和する騰落率（%）
+const SECTOR_MIN_COUNT = 3;          // これ未満の銘柄数の業種は、上位・下位の代表に選ばない（1銘柄で振れるため）
+const bigSector = (count) => !isNum(count) || count >= SECTOR_MIN_COUNT;
+
 function weeklyCard() {
   const w = WEEKLY;
   if (!w || !Array.isArray(w.sections) || !w.sections.length) return null;
+  // 長文なので見出しだけ出し、本文は畳む（最初の画面をグラフに譲る）
   return card('週報', w.week_end ? fmtDate(w.week_end) + ' まで' : null, [
     h('p', { class: 'analysis__headline', text: w.headline || '' }),
-    h('div', {}, w.sections.map((s) => h('div', { class: 'analysis__sec' }, [
-      h('div', { class: 'analysis__t', text: s.title }),
-      h('div', { class: 'analysis__b', text: s.body }),
-    ]))),
+    h('details', { class: 'weekly' }, [
+      h('summary', { text: '本文を読む' }),
+      h('div', {}, w.sections.map((s) => h('div', { class: 'analysis__sec' }, [
+        h('div', { class: 'analysis__t', text: s.title }),
+        h('div', { class: 'analysis__b', text: s.body }),
+      ]))),
+    ]),
   ], (w.method || 'Claude による週次総括') + '。売買を推奨するものではありません。');
 }
 
-/* 履歴1日分から「その日の大枠」を取り出す小道具 ---------------------------- */
+/* ---- 履歴1日分から値を取り出す ---- */
 function histIndex(s, key) {
   const idx = ((s.taibike || {}).indices || (s.zenba || {}).indices || {});
-  return idx[key] || null;
+  const ix = idx[key];
+  if (!ix) return null;
+  // 始値・高値・安値がすべて 0 の気配は取得の穴埋め（9/4 など）。前日比 0 は実値ではないので「不明」にする
+  if (!ix.open && !ix.high && !ix.low && !ix.change) return { ...ix, change: null, change_pct: null };
+  return ix;
 }
+const histPartial = (s) => !(s.taibike && s.taibike.indices);     // 大引がまだ（前場の値）
 
 /* 為替・原油。大引時点の値があればそれを、無い日は寄り前（前夜の米国時間）の値に落とす。
    寄り前の値には前日比が無いので、前営業日のスナップショットと比べて自前で出す。 */
 function histMacro(s, prev, key) {
   const m = ((s.taibike || {}).macro || (s.zenba || {}).macro || {})[key];
-  if (m && isNum(m.last)) return { last: m.last, change_pct: m.change_pct, morning: false };
+  if (m && isNum(m.last)) {
+    let pct = m.change_pct;
+    if (!isNum(pct) && prev) {
+      const p = histMacro(prev, null, key);
+      if (p && p.last) pct = (m.last / p.last - 1) * 100;
+    }
+    return { last: m.last, change_pct: pct, morning: false };
+  }
   const q = ((s.preopen || {}).quotes || {})[key];
   if (!isNum(q)) return null;
-  const p = ((prev || {}).preopen || {}).quotes || {};
-  const base = p[key];
+  const base = prev ? (histMacro(prev, null, key) || {}).last : null;
   return { last: q, change_pct: isNum(base) && base ? (q / base - 1) * 100 : null, morning: true };
 }
 
-/* 強い業種・弱い業種。東証33業種（株探）が取れていればそれを、無ければ225構成銘柄の業種平均。 */
-function histSectors(s) {
-  const t = s.taibike || {}, z = s.zenba || {};
-  let rows = null, key = 'change_pct', label = '';
-  if (t.sectors33 && t.sectors33.length) { rows = t.sectors33; label = '東証33業種（大引）'; }
-  else if (z.sectors33 && z.sectors33.length) { rows = z.sectors33; label = '東証33業種（前引け）'; }
-  if (!rows) {
-    if (t.sectors && t.sectors.length) { rows = t.sectors; label = '日経225の業種平均（大引）'; }
-    else if (z.sectors && z.sectors.length) { rows = z.sectors; label = '日経225の業種平均（前引け）'; }
-    else rows = [];
-    key = 'avg_pct';
-  }
-  const vals = rows.filter((r) => r && isNum(r[key])).map((r) => ({ sector: r.sector, pct: r[key] }));
-  if (!vals.length) return null;
-  vals.sort((a, b) => b.pct - a.pct);
-  return { label, strong: vals.slice(0, 3), weak: vals.slice(-3).reverse() };
+/* 業種は日経225採用銘柄の業種平均（単純平均）に一本化する。毎営業日そろって取れる唯一の業種データで、
+   東証33業種（株探の記事）は取れる日と取れない日があり、時点も寄付／大引が混ざるため比較に使えない。 */
+function histSectorMap(s) {
+  const t = (s.taibike || {}).sectors, z = (s.zenba || {}).sectors;
+  const rows = (t && t.length) ? t : ((z && z.length) ? z : null);
+  if (!rows) return null;
+  const map = new Map();
+  rows.forEach((r) => { if (r && isNum(r.avg_pct)) map.set(r.sector, { pct: r.avg_pct, count: r.count }); });
+  return map.size ? map : null;
 }
 
-/* 畳んだ行に出す「その日の大枠」。開かずに日ごとの変化を追えるようにする。
-   1行目 日経、2行目 TOPIX、3行目 為替・原油、4-5行目 強い業種／弱い業種。 */
-function pctText(v, digits) {
-  return h('span', { class: 'num ' + cls(v), text: fmtPct(v, digits === undefined ? 2 : digits) });
+/* 終値の無い日の呼び名。過去日、または当日でも前場／大引の収集が走ったのに指数が前営業日の値なら休場。
+   当日で寄り前しか無ければまだ分からないので「未取得」 */
+function closedLabel(s) {
+  if (s.date < jstNow().toISOString().slice(0, 10)) return '休場';
+  return (s.zenba && s.zenba.indices) || (s.taibike && s.taibike.indices) ? '休場' : '未取得';
 }
 
-function histSummaryLines(s, prev) {
-  const tp = histIndex(s, 'topix');
-  const fx = histMacro(s, prev, 'usdjpy'), oil = histMacro(s, prev, 'wti');
-  const sec = histSectors(s);
-  const lines = [];
-  // 狭い画面では折り返す。切って隠すより、行が増えるほうがましと考える
-  const group = (kids) => h('span', { class: 'hist__g' }, kids);
-  const quote = (label, q, digits) => (q ? group([
-    h('span', { class: 'hist__k', text: label }),
-    h('span', { class: 'num', text: fmtNum(q.last, digits) }),
-    isNum(q.change_pct) ? pctText(q.change_pct) : null,
-  ]) : null);
+/* 終値のある営業日（古い順）。休場・未取得の日は除く */
+function tradingDays() {
+  return histSessions().slice().reverse().filter((s) => {
+    const nk = histIndex(s, 'nikkei');
+    return nk && isNum(nk.close) && !nk.stale;
+  });
+}
 
-  lines.push(h('div', { class: 'hist__line' }, [tp
-    ? quote('TOPIX', { last: tp.close, change_pct: tp.change_pct }, 2)
-    : group([h('span', { class: 'hist__k', text: 'TOPIX' }), h('span', { text: '—' })])]));
+const md = (iso) => fmtDate(iso, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' });
+const wd = (iso) => fmtDate(iso, { weekday: 'short', timeZone: 'Asia/Tokyo' });
 
-  if (fx || oil) lines.push(h('div', { class: 'hist__line' }, [quote('ドル円', fx, 2), quote('WTI', oil, 2)]));
+function niceStep(span) {
+  const raw = span / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (raw <= m * mag) return m * mag;
+  return 10 * mag;
+}
 
-  if (sec) {
-    const secLine = (title, items) => h('div', { class: 'hist__line' }, [
-      h('span', { class: 'hist__k', text: title })].concat(
-      items.slice(0, 2).map((x) => group([h('span', { text: x.sector }), pctText(x.pct, 1)]))));
-    lines.push(secLine('強', sec.strong));
-    lines.push(secLine('弱', sec.weak));
+/* ---- 1. 指数の推移 ---- */
+function indexCard(days) {
+  const pts = days.slice(-HIST_CHART_DAYS);
+  if (pts.length < 2) return null;
+  const nk0 = histIndex(pts[0], 'nikkei').close;
+  const tp0 = (histIndex(pts[0], 'topix') || {}).close;
+  const rows = pts.map((s) => {
+    const nk = histIndex(s, 'nikkei'), tp = histIndex(s, 'topix');
+    return {
+      s, nk, tp,
+      nkc: (nk.close / nk0 - 1) * 100,
+      tpc: tp && isNum(tp.close) && tp0 ? (tp.close / tp0 - 1) * 100 : null,
+    };
+  });
+  const n = rows.length;
+  const vals = [0].concat(rows.map((r) => r.nkc), rows.filter((r) => isNum(r.tpc)).map((r) => r.tpc));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const step = niceStep(Math.max(hi - lo, 1));
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+
+  const W = 340, H = 168, ML = 38, MR = 10, MT = 8, MB = 20;
+  const x = (i) => ML + (n === 1 ? 0 : i * (W - ML - MR) / (n - 1));
+  const y = (v) => MT + (hi - v) / (hi - lo) * (H - MT - MB);
+  const pathOf = (key) => rows.map((r, i) => isNum(r[key]) ? `${x(i).toFixed(1)},${y(r[key]).toFixed(1)}` : null)
+    .filter(Boolean).join(' ');
+
+  let svg = `<svg class="ix__svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="日経平均とTOPIXの推移（期間初日=0%）">`;
+  for (let v = lo; v <= hi + 1e-9; v += step) {
+    const yy = y(v).toFixed(1);
+    const zero = Math.abs(v) < 1e-9;
+    svg += `<line x1="${ML}" x2="${W - MR}" y1="${yy}" y2="${yy}" class="${zero ? 'ix__zero' : 'ix__grid'}"/>`;
+    svg += `<text x="${ML - 5}" y="${yy}" class="ix__tick" text-anchor="end" dominant-baseline="middle">${(v > 0 ? '+' : '') + (+v.toFixed(2))}%</text>`;
   }
-  return lines;
+  const every = Math.max(1, Math.ceil(n / 5));
+  rows.forEach((r, i) => {
+    if (i % every !== 0 && i !== n - 1) return;
+    if (i !== n - 1 && n - 1 - i < every * 0.6) return;     // 最後のラベルと重なるものは出さない
+    const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
+    svg += `<text x="${x(i).toFixed(1)}" y="${H - 5}" class="ix__tick" text-anchor="${anchor}">${md(r.s.date)}</text>`;
+  });
+  svg += `<line class="ix__cross" x1="0" x2="0" y1="${MT}" y2="${H - MB}" visibility="hidden"/>`;
+  svg += `<polyline points="${pathOf('tpc')}" class="ix__line ix__line--tp"/>`;
+  svg += `<polyline points="${pathOf('nkc')}" class="ix__line ix__line--nk"/>`;
+  svg += `<circle class="ix__dot ix__dot--tp" r="4"/><circle class="ix__dot ix__dot--nk" r="4"/>`;
+  svg += '</svg>';
+
+  // 読み取り欄: 既定は最新日。指でなぞるとその日に合わせて書き換える（ツールチップの代わり。指で隠れない）
+  const roDate = h('b', { class: 'ix__ro-date' });
+  const roNk = h('span', { class: 'num' }), roTp = h('span', { class: 'num' });
+  const readout = h('div', { class: 'ix__ro' }, [roDate,
+    h('span', { class: 'ix__ro-item' }, [h('i', { class: 'key key--nk' }), '日経 ', roNk]),
+    h('span', { class: 'ix__ro-item' }, [h('i', { class: 'key key--tp' }), 'TOPIX ', roTp])]);
+  const plot = h('div', { class: 'ix__plot', html: svg });
+  const q = (sel) => plot.querySelector(sel);
+  const setIdx = (i, hover) => {
+    const r = rows[i];
+    roDate.textContent = `${md(r.s.date)}(${wd(r.s.date)})` + (histPartial(r.s) ? ' 前場' : '');
+    const put = (el, ix) => {
+      el.textContent = '';
+      if (!ix) { el.textContent = '—'; return; }
+      el.appendChild(document.createTextNode(fmtNum(ix.close, ix.close >= 10000 ? 0 : 2) + ' '));
+      el.appendChild(h('span', { class: cls(ix.change_pct), text: fmtPct(ix.change_pct) }));
+    };
+    put(roNk, r.nk); put(roTp, r.tp);
+    const cross = q('.ix__cross');
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
+    cross.setAttribute('visibility', hover ? 'visible' : 'hidden');
+    const dot = (sel, v) => {
+      const c = q(sel);
+      if (!isNum(v)) { c.setAttribute('visibility', 'hidden'); return; }
+      c.setAttribute('visibility', 'visible'); c.setAttribute('cx', x(i)); c.setAttribute('cy', y(v));
+    };
+    dot('.ix__dot--nk', r.nkc); dot('.ix__dot--tp', r.tpc);
+  };
+  const pick = (ev) => {
+    const box = plot.firstElementChild.getBoundingClientRect();
+    const px = (ev.clientX - box.left) / box.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - ML) / ((W - ML - MR) / Math.max(1, n - 1)))));
+    setIdx(i, true);
+  };
+  plot.addEventListener('pointerdown', pick);
+  plot.addEventListener('pointermove', pick);
+  plot.addEventListener('pointerleave', () => setIdx(n - 1, false));
+  setIdx(n - 1, false);
+
+  // 表: 凡例を兼ねる。線の色と同じキーを行頭に置く
+  const last = rows[n - 1];
+  const back = (key, k) => {
+    if (n <= k) return null;
+    const a = histIndex(rows[n - 1 - k].s, key), b = histIndex(last.s, key);
+    return a && b && a.close ? (b.close / a.close - 1) * 100 : null;
+  };
+  const periodLabel = `${n}日`;
+  const cell = (v) => h('td', { class: 'num ' + cls(v), text: isNum(v) ? fmtPct(v) : '—' });
+  const table = h('table', { class: 'ix__table' }, [
+    h('thead', {}, h('tr', {}, ['', '前日比', '5日', periodLabel].map((t) => h('th', { text: t })))),
+    h('tbody', {}, [
+      h('tr', {}, [h('th', {}, [h('i', { class: 'key key--nk' }), '日経平均']),
+        cell(last.nk.change_pct), cell(back('nikkei', 5)), cell(last.nkc)]),
+      h('tr', {}, [h('th', {}, [h('i', { class: 'key key--tp' }), 'TOPIX']),
+        cell(last.tp && last.tp.change_pct), cell(back('topix', 5)), cell(last.tpc)]),
+    ]),
+  ]);
+
+  // NT倍率: 日経÷TOPIX。上がる＝日経（値がさ株）がTOPIXより強い
+  let nt = null;
+  if (last.tp && last.tp.close) {
+    const now = last.nk.close / last.tp.close;
+    const r5 = n > 5 ? rows[n - 6] : rows[0];
+    const then = r5.tp && r5.tp.close ? r5.nk.close / r5.tp.close : null;
+    nt = h('div', { class: 'ix__nt' }, [
+      h('span', { text: 'NT倍率 ' }), h('b', { class: 'num', text: now.toFixed(2) }),
+      then ? h('span', { class: 'num', text: `（${md(r5.s.date)} ${then.toFixed(2)} から ${fmtSigned(now - then, 2)}）` }) : null,
+      h('div', { class: 'ix__nt-hint', text: '上がるほど日経平均がTOPIXより強い（値がさ株が相場を引っ張っている）' }),
+    ]);
+  }
+
+  return card('指数の推移', `${md(rows[0].s.date)} を 0% とした騰落`, [readout, plot, table, nt],
+    '線は期間初日の終値を 0% とした騰落率（日経とTOPIXを同じ目盛りで比べるため）。' +
+    '指でなぞるとその日の終値に切り替わります。休場日は詰めて描いています。');
+}
+
+/* ---- 2. 業種の強弱（ヒートマップ） ---- */
+function heatCell(v) {
+  if (!isNum(v)) return h('div', { class: 'hm__c hm__c--na', text: '' });
+  const p = Math.min(Math.abs(v) / HEAT_SCALE, 1);
+  const el = h('div', { class: 'hm__c num' + (p > 0.55 ? ' hm__c--strong' : ''), text: (v > 0 ? '+' : '') + v.toFixed(1) });
+  el.style.background = `color-mix(in oklab, ${v >= 0 ? 'var(--up)' : 'var(--down)'} ${Math.round(p * 100)}%, var(--heat-0))`;
+  return el;
+}
+
+function sectorCard(days) {
+  // 順位は常に直近8営業日の合計で決める（端末の幅で「強い業種」が変わらないように）。
+  // 狭い画面では表示する日の列だけ減らし、合計の列は8日のまま
+  const span = days.filter((s) => histSectorMap(s)).slice(-8);
+  if (!span.length) return null;
+  const shown = window.innerWidth < 370 ? Math.min(6, span.length) : span.length;
+  const cols = span.slice(-shown);
+  const maps = span.map(histSectorMap);
+  const names = new Set();
+  maps.forEach((m) => m.forEach((_, k) => names.add(k)));
+  const rows = [...names].map((name) => {
+    const vals = maps.map((m) => (m.get(name) || {}).pct);
+    const got = vals.filter(isNum);
+    const count = (maps[maps.length - 1].get(name) || {}).count;
+    return { name, vals, count, sum: got.reduce((a, b) => a + b, 0), days: got.length,
+             ups: got.filter((v) => v > 0).length };
+  }).sort((a, b) => b.sum - a.sum);
+  const major = rows.filter((r) => bigSector(r.count));
+
+  const grid = h('div', { class: 'hm' });
+  grid.style.gridTemplateColumns = `minmax(64px, auto) repeat(${cols.length}, minmax(0, 1fr)) 44px`;
+  const draw = (all) => {
+    grid.textContent = '';
+    grid.appendChild(h('div', { class: 'hm__h hm__h--name', text: '業種' }));
+    cols.forEach((s) => grid.appendChild(h('div', { class: 'hm__h' }, [
+      document.createTextNode(md(s.date).replace(/^\d+\//, '')), h('small', { text: histPartial(s) ? '前場' : wd(s.date) })])));
+    grid.appendChild(h('div', { class: 'hm__h hm__h--sum' }, [document.createTextNode('合計'), h('small', { text: `${span.length}日` })]));
+    const K = 5;
+    const list = (all || major.length <= K * 2 + 2) ? (all ? rows : major)
+      : major.slice(0, K).concat([null], major.slice(-K));
+    list.forEach((r) => {
+      if (!r) {
+        grid.appendChild(h('div', { class: 'hm__gap', text: `… ほか ${rows.length - K * 2} 業種 …` }));
+        return;
+      }
+      const small = !bigSector(r.count);
+      grid.appendChild(h('div', { class: 'hm__name' + (small ? ' hm__name--small' : ''), title: r.count ? `採用 ${r.count} 銘柄` : null }, [
+        document.createTextNode(r.name), r.count ? h('small', { text: String(r.count) }) : null]));
+      r.vals.slice(-shown).forEach((v, i) => {
+        const c = heatCell(v);
+        if (isNum(v)) c.title = `${r.name} ${md(cols[i].date)} ${fmtPct(v)}`;
+        grid.appendChild(c);
+      });
+      // 合計の下に「何日上げたか」。合計が同じでも、毎日上げたのか1日の急騰かが分かれる
+      grid.appendChild(h('div', { class: 'hm__sum' }, [
+        h('div', { class: 'num ' + cls(r.sum), text: fmtSigned(r.sum, 1) }),
+        h('small', { class: 'num', text: `${r.ups}/${r.days}日↑` }),
+      ]));
+    });
+  };
+  draw(false);
+  const btn = rows.length > major.length || major.length > 12
+    ? h('button', { class: 'more', type: 'button', text: `${rows.length}業種すべてを見る` }) : null;
+  if (btn) {
+    let all = false;
+    btn.addEventListener('click', () => { all = !all; draw(all); btn.textContent = all ? '上位と下位だけに戻す' : `${rows.length}業種すべてを見る`; });
+  }
+  const legend = h('div', { class: 'hm__legend' }, [
+    h('span', { class: 'num', text: `−${HEAT_SCALE}%` }), h('i', { class: 'hm__ramp' }),
+    h('span', { class: 'num', text: `+${HEAT_SCALE}%` }),
+    h('span', { class: 'hm__legend-t', text: '各日の業種平均の騰落率（％）' }),
+  ]);
+  return card('業種の強弱', `${md(span[0].date)}〜${md(span[span.length - 1].date)}の合計順`, [legend, grid, btn],
+    '日経225採用銘柄を業種ごとに単純平均した大引の騰落率。期間の合計が大きい順に、上位5と下位5を出しています。' +
+    `業種名の横の小さな数字は採用銘柄数で、${SECTOR_MIN_COUNT}銘柄未満の業種は1銘柄の動きで大きく振れるため上位・下位からは外し、「すべて」にだけ薄く出します。` +
+    '合計は日々の騰落率を足したもの（複利の累積とは少し違う）。その下の「6/8日↑」は期間中に上げた日数。', false);
+}
+
+/* ---- 3. 日々の記録（列をそろえた表） ---- */
+function dayCell(v, level, max, mark) {
+  const bar = h('i', { class: 'dt__bar' });
+  if (isNum(v) && max > 0) {
+    const w = Math.min(Math.abs(v) / max, 1) * 50;
+    bar.style.width = w + '%';
+    bar.style[v >= 0 ? 'left' : 'right'] = '50%';
+    bar.style.background = v >= 0 ? 'var(--up)' : 'var(--down)';
+  }
+  return h('div', { class: 'dt__c' }, [
+    h('div', { class: 'dt__pct num ' + cls(v), text: isNum(v) ? fmtPct(v) : '—' }),
+    h('div', { class: 'dt__lv num', text: level + (mark ? '*' : '') }),
+    h('div', { class: 'dt__track' }, [bar]),
+  ]);
+}
+
+function dailyCard(sessions) {
+  // sessions は新しい順。列ごとに同じ尺度のバーにするため、先に各列の最大幅を決める
+  const tradingRows = sessions.map((s, i) => {
+    const nk = histIndex(s, 'nikkei');
+    if (!nk || nk.stale) return { s, closed: true };
+    const prevTrading = sessions.slice(i + 1).find((p) => { const x = histIndex(p, 'nikkei'); return x && !x.stale; }) || null;
+    return {
+      s, nk, tp: histIndex(s, 'topix'),
+      fx: histMacro(s, prevTrading, 'usdjpy'), oil: histMacro(s, prevTrading, 'wti'),
+      sec: histSectorMap(s),
+    };
+  });
+  const live = tradingRows.filter((r) => !r.closed);
+  const maxOf = (f) => Math.max(0.5, ...live.map(f).filter(isNum).map(Math.abs));
+  const mx = {
+    nk: maxOf((r) => r.nk.change_pct), tp: maxOf((r) => r.tp && r.tp.change_pct),
+    fx: maxOf((r) => r.fx && r.fx.change_pct), oil: maxOf((r) => r.oil && r.oil.change_pct),
+  };
+  const anyMorning = live.some((r) => (r.fx && r.fx.morning) || (r.oil && r.oil.morning));
+
+  const head = h('div', { class: 'dt__row dt__head' }, ['日付', '日経平均', 'TOPIX', 'ドル円', 'WTI原油']
+    .map((t) => h('div', { text: t })));
+  const body = tradingRows.map((r) => {
+    if (r.closed) {
+      return h('div', { class: 'histx' }, [
+        h('span', { class: 'histx__d', text: `${md(r.s.date)}(${wd(r.s.date)})` }),
+        h('span', { class: 'histx__rule' }),
+        h('span', { class: 'histx__t', text: closedLabel(r.s) }),
+      ]);
+    }
+    const { s, nk, tp, fx, oil, sec } = r;
+    const secs = sec ? [...sec.entries()].filter(([, v]) => bigSector(v.count))
+      .map(([k, v]) => ({ name: k, pct: v.pct })).sort((a, b) => b.pct - a.pct) : [];
+    const pre = (s.preopen || {}).implied_open;
+    const vr = ((s.taibike || {}).value_rows || (s.zenba || {}).value_rows || []);
+    const ah = ((s.taibike || {}).after_hours || []);
+    const ups = ah.filter((x) => disclosureTone(x) === 'up');
+    const chips = [];
+    if (pre && isNum(pre.gap_pct)) chips.push(h('span', { class: 'badge', text: `想定 ${fmtPct(pre.gap_pct)} → 実際 ${fmtPct(nk.change_pct)}` }));
+    if ((s.taibike || {}).session_shift) chips.push(h('span', { class: 'badge', text: '後場: ' + s.taibike.session_shift.verdict }));
+    if (ah.length) chips.push(h('span', { class: 'badge' + (ups.length ? ' badge--up' : ''), text: `引け後開示 ${ah.length}` + (ups.length ? `・上方 ${ups.length}` : '') }));
+    const secChip = (x) => h('span', { class: 'dt__sec' }, [h('span', { text: x.name }), h('b', { class: 'num ' + cls(x.pct), text: fmtPct(x.pct, 1) })]);
+    return h('details', { class: 'dt' }, [
+      h('summary', { class: 'dt__row' }, [
+        h('div', { class: 'dt__date' }, [document.createTextNode(md(s.date)),
+          h('small', { text: wd(s.date) + (histPartial(s) ? '・前場' : '') })]),
+        dayCell(nk.change_pct, fmtNum(nk.close, 0), mx.nk),
+        dayCell(tp && tp.change_pct, tp ? fmtNum(tp.close, 0) : '—', mx.tp),
+        dayCell(fx && fx.change_pct, fx ? fmtNum(fx.last, 2) : '—', mx.fx, fx && fx.morning),
+        dayCell(oil && oil.change_pct, oil ? fmtNum(oil.last, 1) : '—', mx.oil, oil && oil.morning),
+        secs.length ? h('div', { class: 'dt__secs' }, [
+          h('span', { class: 'dt__k up', text: '▲' }), secChip(secs[0]),
+          h('span', { class: 'dt__k down', text: '▼' }), secChip(secs[secs.length - 1]),
+        ]) : null,
+      ]),
+      h('div', { class: 'dt__body' }, [
+        chips.length ? h('div', { class: 'hist__kv' }, chips) : null,
+        secs.length ? h('div', { class: 'dt__secgrid' }, [
+          h('div', {}, [h('div', { class: 'dt__subt', text: '強い業種' })].concat(secs.slice(0, 3).map(secChip))),
+          h('div', {}, [h('div', { class: 'dt__subt', text: '弱い業種' })].concat(secs.slice(-3).reverse().map(secChip))),
+        ]) : null,
+        vr.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:8px 0 4px' }, [h('h3', { class: 'card__title', text: '売買代金上位' })]) : null,
+        vr.length ? stockRows(vr, { limit: 10 }) : null,
+        ups.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:10px 0 4px' }, [h('h3', { class: 'card__title', text: '上方修正・増配' })]) : null,
+        ups.length ? disclosureRows(ups, 10) : null,
+      ]),
+    ]);
+  });
+  const closed = tradingRows.length - live.length;
+  return card('日々の記録', `${live.length}営業日` + (closed ? `・休場 ${closed}` : ''),
+    [h('div', { class: 'dt__wrap' }, [head].concat(body))],
+    '上が直近。各列の上段が前日比、下段が終値、細いバーは列ごとに同じ尺度（長いほど大きく動いた日）。' +
+    `▲▼はその日いちばん強い／弱い業種（日経225の業種平均。${SECTOR_MIN_COUNT}銘柄未満の業種は除く）。タップで売買代金上位などを開きます。` +
+    (anyMorning ? 'ドル円・WTIは大引時点の値。* は寄り前（前夜の米国時間）の値で、前日比は前営業日の同じ時点と比べています。' : ''),
+    true);
 }
 
 function renderHistory() {
   const out = [];
-  const wk = weeklyCard();
-  if (wk) out.push(wk);
-  const sess = latestSession() || {};
-  const it = sess.index_trend;
-  const trends = (it && Array.isArray(it.indices) && it.indices.length)
-    ? it.indices
-    : (it && Array.isArray(it.series) && it.series.length >= 3
-        ? [{ key: 'nikkei', label: '日経平均', series: it.series, d5: it.d5, d20: it.d20 }] : []);
-  if (trends.length) {
-    out.push(card('指数の推移', `${Math.max(...trends.map((t) => t.series.length))}営業日`,
-      trends.map((t) => h('div', { class: 'trend' }, [
-        h('div', { class: 'trend__label', text: t.label }),
-        h('div', { class: 'tiles' }, [
-          tile('5日', isNum(t.d5) ? fmtPct(t.d5) : '—', '', t.d5, null),
-          tile('20日', isNum(t.d20) ? fmtPct(t.d20) : '—', '', t.d20, t.series),
-        ]),
-      ]))));
-  }
   if (!HIST.loaded) {
     out.push(h('section', { class: 'card' }, [h('p', { class: 'empty', text: '履歴を読み込み中…' })]));
     return out;
@@ -1082,65 +1366,14 @@ function renderHistory() {
     ]));
     return out;
   }
-  let closed = 0;
-  const rows = sessions.map((s, i) => {
-    const prev = sessions[i + 1] || null;                 // 1つ下の行が前営業日
-    const nk = histIndex(s, 'nikkei');
-    const md = fmtDate(s.date, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' });
-    const wd = fmtDate(s.date, { weekday: 'short', timeZone: 'Asia/Tokyo' });
-
-    // 指数の asof がその日でなければ、その日の終値は無い（休場、または当日ぶんが未取得）。
-    // 前営業日の値を並べると日ごとの変化が読めなくなるので、数字は出さず1本の線で流す。
-    if (!nk || nk.stale) {
-      closed += 1;
-      return h('div', { class: 'histx' }, [
-        h('span', { class: 'histx__d', text: `${md}(${wd})` }),
-        h('span', { class: 'histx__rule' }),
-        h('span', { class: 'histx__t', text: s.date < jstNow().toISOString().slice(0, 10) ? '休場' : '未取得' }),
-      ]);
-    }
-
-    const pre = (s.preopen || {}).implied_open;
-    const vr = ((s.taibike || {}).value_rows || (s.zenba || {}).value_rows || []);
-    const ah = ((s.taibike || {}).after_hours || []);
-    const ups = ah.filter((r) => disclosureTone(r) === 'up');
-    const top = vr.slice(0, 3).map((r) => cleanName(r.name) || r.code).join('・');
-    const sec = histSectors(s);
-    const fx = histMacro(s, prev, 'usdjpy'), oil = histMacro(s, prev, 'wti');
-    const chips = [];
-    if (pre && isNum(pre.gap_pct)) chips.push(h('span', { class: 'badge', text: `想定 ${fmtPct(pre.gap_pct)} → 実際 ${fmtPct(nk.change_pct)}` }));
-    if ((s.taibike || {}).session_shift) chips.push(h('span', { class: 'badge', text: '後場: ' + s.taibike.session_shift.verdict }));
-    if (top) chips.push(h('span', { class: 'badge', text: '売買代金: ' + top }));
-    if (ah.length) chips.push(h('span', { class: 'badge' + (ups.length ? ' badge--up' : ''), text: `引け後開示 ${ah.length}` + (ups.length ? `・上方 ${ups.length}` : '') }));
-    return h('details', { class: 'hist' }, [
-      h('summary', {}, [
-        h('div', { class: 'hist__date' }, [document.createTextNode(md), h('small', { text: wd })]),
-        h('div', { class: 'hist__main' }, [
-          h('b', { text: '日経 ' + fmtNum(nk.close, 0) }),
-        ].concat(histSummaryLines(s, prev))),
-        h('div', { class: 'hist__right' }, [
-          h('div', { class: 'hist__val num ' + cls(nk.change_pct), text: fmtPct(nk.change_pct) }),
-          h('div', { class: 'hist__pct num ' + cls(nk.change), text: fmtSigned(nk.change, 0) }),
-        ]),
-      ]),
-      h('div', { class: 'hist__body' }, [
-        chips.length ? h('div', { class: 'hist__kv' }, chips) : null,
-        h('div', { class: 'hist__src', text: [sec ? `業種は${sec.label}` : null,
-          (fx && fx.morning) || (oil && oil.morning) ? '為替・原油は寄り前（前夜の米国時間）の値' : null,
-        ].filter(Boolean).join('／') }),
-        vr.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:6px 0 4px' }, [h('h3', { class: 'card__title', text: '売買代金上位' })]) : null,
-        vr.length ? stockRows(vr, { limit: 10 }) : null,
-        ups.length ? h('div', { class: 'card__head', style: 'padding:0 14px;margin:10px 0 4px' }, [h('h3', { class: 'card__title', text: '上方修正・増配' })]) : null,
-        ups.length ? disclosureRows(ups, 10) : null,
-      ]),
-    ]);
-  });
-  const traded = sessions.length - closed;
-  out.push(card('営業日ごとの記録', `${traded}営業日` + (closed ? `・休場 ${closed}` : ''), h('div', {}, rows),
-    '上が直近。畳んだままでも日経・TOPIX・為替・原油・強い業種／弱い業種が読めます。' +
-    'タップすると売買代金上位・上方修正まで開きます。為替と原油は大引時点の値。' +
-    'それが無い日は寄り前（前夜の米国時間）の値に「寄り前値」と付けて出します。' +
-    '終値が取れていない日（休場・未取得）は線だけにしています。', true));
+  const days = tradingDays();
+  const ix = indexCard(days);
+  if (ix) out.push(ix);
+  const sc = sectorCard(days);
+  if (sc) out.push(sc);
+  const wk = weeklyCard();                                // 見出しだけ。本文は畳んである
+  if (wk) out.push(wk);
+  out.push(dailyCard(sessions));
   return out;
 }
 
