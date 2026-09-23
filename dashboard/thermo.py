@@ -104,13 +104,6 @@ def with_live(series: list[tuple[str, float]], today: str | None, live: float | 
     return s
 
 
-def value_ago(series: list[tuple[str, float]], asof: str | None, n: int, strict: bool = False):
-    xs = upto(series, asof, strict)
-    if len(xs) <= n:
-        return None, None
-    return xs[-1], xs[-1 - n]
-
-
 # ==================== 採点 ====================
 # cuts = (m2, m1, p1, p2): v≦m2 → −2, v≦m1 → −1, v≧p2 → +2, v≧p1 → +1。
 # orient=−1 は「値が低いほど追い風（過熱）」の指標（原油・金利・VIX）。
@@ -686,19 +679,10 @@ CLASS_TEXT = {
 
 
 def sector_board(dates: list[str], stocks: dict[str, list], members: dict[str, dict],
-                 drivers: dict, events: list[dict] | None = None,
-                 live: dict[str, float] | None = None, today: str | None = None) -> list[dict]:
-    """業種ごとの温度と分類。members: {code: {"sector", "name"}}。live: 当日の場中値 {code: price}"""
-    dates = list(dates)
-    arrs = {c: list(a) for c, a in stocks.items()}
-    if live and today and (not dates or dates[-1] < today):
-        dates.append(today)
-        for c, a in arrs.items():
-            a.append(live.get(c))
-    elif live and today and dates and dates[-1] == today:
-        for c, a in arrs.items():
-            if live.get(c) is not None:
-                a[-1] = live[c]
+                 drivers: dict, events: list[dict] | None = None) -> list[dict]:
+    """業種ごとの温度と分類。members: {code: {"sector", "name"}}。
+    当日の場中値は呼び出し側（thermo_run）が stocks の末尾に差し込んでから渡す。"""
+    arrs = stocks
     by_sector: dict[str, list[str]] = {}
     for code, info in members.items():
         if info.get("sector") and code in arrs:
