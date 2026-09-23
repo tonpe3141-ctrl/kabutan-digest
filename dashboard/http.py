@@ -22,6 +22,7 @@ HEADERS = {
 _MIN_INTERVAL = {
     "kabutan.jp": 0.25,
     "stooq.com": 0.35,
+    "ts-api.cnbc.com": 0.2,     # 日足。大引で個別株 400 銘柄ほどを取るため少し詰める
 }
 _DEFAULT_INTERVAL = 0.5
 

@@ -117,3 +117,42 @@ def fetch_spec(specs: list[dict]) -> dict:
         print(f"    ✅ {spec['label']}: {q['last']:,.2f}"
               + (f" ({pct:+.2f}%)" if pct is not None else " (前日比なし)"))
     return out
+
+
+# ==================== 日足（相場温度計の材料） ====================
+BARS_ENDPOINT = ("https://ts-api.cnbc.com/harmony/app/bars/{sym}/1D/"
+                 "{start}000000/{end}000000/adjusted/EST5EDT.json")
+
+
+def parse_bars(data: dict) -> list[tuple[str, float]]:
+    """bars API の応答を [(YYYY-MM-DD, 終値)] の古い順にする。終値 0 以下は捨てる。"""
+    out = []
+    for b in ((data or {}).get("barData") or {}).get("priceBars") or []:
+        t = str(b.get("tradeTime") or "")
+        close = _num(b.get("close"))
+        if len(t) < 8 or close is None or close <= 0:
+            continue
+        out.append((f"{t[:4]}-{t[4:6]}-{t[6:8]}", close))
+    out.sort()
+    # 同じ日付が重なったら後ろ（新しい値）を採る
+    dedup: dict[str, float] = {}
+    for d, c in out:
+        dedup[d] = c
+    return sorted(dedup.items())
+
+
+def fetch_bars(symbol: str, start, end) -> list[tuple[str, float]] | None:
+    """日足（分割調整済み）を取る。取れなければ None（例外は投げない）。
+
+    実測（2026-09-23, Actions）: 指数・為替・金利・商品・東証個別株（{コード}.T）で
+    3年分まで返る。日本の銘柄の日付は東証の営業日。
+    """
+    url = BARS_ENDPOINT.format(sym=symbol, start=start.strftime("%Y%m%d"),
+                               end=end.strftime("%Y%m%d"))
+    res = get(url, timeout=20, retries=1)
+    if res is None:
+        return None
+    try:
+        return parse_bars(res.json())
+    except ValueError:
+        return None
