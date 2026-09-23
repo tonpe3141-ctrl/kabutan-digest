@@ -82,3 +82,23 @@ for sym in (".N225", ".TOPX", "JPY=", "US10Y", "@CL.1", ".SOX", ".VIX", "7203.T"
 show("CNBC charts 1Y .N225", "https://ts-api.cnbc.com/harmony/app/charts/1Y.json?symbol=.N225", cnbc_bars)
 show("Yahoo!ファイナンス 日経平均 時系列", "https://finance.yahoo.co.jp/quote/998407.O/history", yahoo_hist)
 show("Yahoo!ファイナンス トヨタ 時系列", "https://finance.yahoo.co.jp/quote/7203.T/history", yahoo_hist)
+
+
+def nikkei_per(r):
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(r.text, "html.parser")
+    for t in soup.find_all("table")[:3]:
+        rows = [[c.get_text(strip=True) for c in tr.find_all(["td", "th"])] for tr in t.find_all("tr")]
+        print(f"    表 {len(rows)} 行: {rows[:3]} … {rows[-2:]}")
+
+
+# 業績の軸: 日経平均の PER（→ 予想EPS = 指数 / PER）
+show("日経 PER（当月）", "https://indexes.nikkei.co.jp/nkave/archives/data?list=per", nikkei_per)
+show("日経 PER（指定月）", "https://indexes.nikkei.co.jp/nkave/archives/data?list=per&year=2026&month=6", nikkei_per)
+# 国内金利・恐怖指数の候補
+for sym in ("JP10Y", "JP2Y", ".NKVI", ".JNIV", "@NK.1", "NIY.1", ".TOPX.ELEC"):
+    show(f"CNBC bars {sym}",
+         f"https://ts-api.cnbc.com/harmony/app/bars/{sym}/1D/{s}/{e}/adjusted/EST5EDT.json", cnbc_bars)
+# 取れる期間の上限
+show("CNBC bars .N225 3年", f"https://ts-api.cnbc.com/harmony/app/bars/.N225/1D/"
+     f"{(end - timedelta(days=1100)).strftime('%Y%m%d000000')}/{e}/adjusted/EST5EDT.json", cnbc_bars)
