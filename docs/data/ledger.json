@@ -20,12 +20,12 @@
    "nikkei_at_flag": 64136.25,
    "track": {
     "d1": -1.89,
-    "d5": null,
+    "d5": -3.68,
     "d20": null,
-    "last": -1.89,
-    "last_date": "2026-09-23",
-    "excess": -3.27,
-    "days": 4
+    "last": -3.68,
+    "last_date": "2026-09-24",
+    "excess": -5.83,
+    "days": 5
    },
    "status": "watching",
    "notes": null,
@@ -48,12 +48,12 @@
    "nikkei_at_flag": 64136.25,
    "track": {
     "d1": -2.68,
-    "d5": null,
+    "d5": -7.46,
     "d20": null,
-    "last": -2.68,
-    "last_date": "2026-09-23",
-    "excess": -4.06,
-    "days": 4
+    "last": -7.46,
+    "last_date": "2026-09-24",
+    "excess": -9.61,
+    "days": 5
    },
    "status": "watching",
    "notes": null,
@@ -81,7 +81,7 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
-    "days": 4
+    "days": 5
    },
    "status": "watching",
    "notes": null,
@@ -110,7 +110,7 @@
     "last": null,
     "last_date": "2026-09-17",
     "excess": null,
-    "days": 4
+    "days": 5
    },
    "status": "watching",
    "notes": null,
@@ -138,10 +138,10 @@
     "d1": 0.0,
     "d5": null,
     "d20": null,
-    "last": 0.0,
-    "last_date": "2026-09-23",
-    "excess": 0.0,
-    "days": 3
+    "last": -19.54,
+    "last_date": "2026-09-24",
+    "excess": -20.3,
+    "days": 4
    },
    "status": "watching",
    "notes": "上昇率1位（+27.94%）かつ出来高が前日の60倍に急増し、決算開示日の商いとして引っかかった。引け後15:30に通期業績予想の修正と第3四半期決算短信を開示しているが、株探記事はプライム値上がり率首位と伝えるのみで、日中の急騰理由の裏付けなし。",
@@ -169,10 +169,10 @@
     "d1": 0.0,
     "d5": null,
     "d20": null,
-    "last": 0.0,
-    "last_date": "2026-09-23",
-    "excess": 0.0,
-    "days": 3
+    "last": 5.16,
+    "last_date": "2026-09-24",
+    "excess": 4.4,
+    "days": 4
    },
    "status": "watching",
    "notes": "売買代金28位に新規ランクイン（+0.59%）し、電子部品テーマの初動として引っかかった。株探の大引け記事は「しっかり」と触れるだけで固有の材料は示しておらず、太陽誘電・村田製作所など電子部品の連想買いの一部とみられる。",
@@ -198,7 +198,7 @@
     "last": null,
     "last_date": "2026-09-18",
     "excess": null,
-    "days": 3
+    "days": 4
    },
    "status": "watching",
    "notes": "引け後15:30に上期経常を37%上方修正し19期ぶりの上期最高益、通期も12%増額、上期配当を11円→15円に増額。株探の決算速報で裏付け済み。連休明けの寄りで反応しやすい。",
@@ -221,24 +221,162 @@
     "d1": 0.0,
     "d5": null,
     "d20": null,
-    "last": 0.0,
-    "last_date": "2026-09-23",
-    "excess": 0.0,
-    "days": 3
+    "last": -1.1,
+    "last_date": "2026-09-24",
+    "excess": -1.86,
+    "days": 4
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。前日16:03の株探見出し「27年2月期業績予想及び配当予想を上方修正」が材料とみられるが、本日の終値は前日比-1.2%と高値引けではない。見出しのみでURLなし。",
    "note_url": null
+  },
+  {
+   "code": "4062",
+   "name": "イビデン",
+   "first_seen": "2026-09-24",
+   "signals": [
+    "上昇率×売買代金"
+   ],
+   "why": [
+    "上昇率 17位、かつ売買代金上位"
+   ],
+   "themes": [
+    "半導体材料",
+    "AI",
+    "データセンター"
+   ],
+   "price_at_flag": 22405.0,
+   "nikkei_at_flag": 65513.99,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-24",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "7619",
+   "name": "田中商事",
+   "first_seen": "2026-09-24",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:40 中間配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": null,
+   "nikkei_at_flag": 65513.99,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-24",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "410A",
+   "name": "Ｇ－ＧＭＯコマース",
+   "first_seen": "2026-09-24",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:01 2026年12月期配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": null,
+   "nikkei_at_flag": 65513.99,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-24",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "2385",
+   "name": "総医研ホールディングス",
+   "first_seen": "2026-09-24",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 243.0,
+   "nikkei_at_flag": 65513.99,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-24",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
   }
  ],
  "stats": {
-  "asof": "2026-09-23",
-  "by_signal": [],
+  "asof": "2026-09-24",
+  "by_signal": [
+   {
+    "signal": "新規の資金流入",
+    "count": 1,
+    "d5_median": -3.68,
+    "hit_rate": 0.0
+   },
+   {
+    "signal": "上昇率×売買代金",
+    "count": 1,
+    "d5_median": -3.68,
+    "hit_rate": 0.0
+   },
+   {
+    "signal": "出来高急増×上昇",
+    "count": 1,
+    "d5_median": -7.46,
+    "hit_rate": 0.0
+   },
+   {
+    "signal": "年初来高値×商い",
+    "count": 1,
+    "d5_median": -7.46,
+    "hit_rate": 0.0
+   }
+  ],
   "overall": {
-   "count": 0,
-   "d5_median": null
+   "count": 4,
+   "d5_median": -5.57
   }
  },
- "updated_at": "2026-09-23",
- "added_today": []
+ "updated_at": "2026-09-24",
+ "added_today": [
+  "4062",
+  "7619",
+  "410A",
+  "2385"
+ ]
 }
