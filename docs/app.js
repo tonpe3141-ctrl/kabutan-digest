@@ -1717,7 +1717,7 @@ function indexCard(days) {
 }
 
 /* ---- 2. 業種の強弱（ヒートマップ） ---- */
-function heatCell(v) {
+function sectorHeatCell(v) {
   if (!isNum(v)) return h('div', { class: 'hm__c hm__c--na', text: '' });
   const p = Math.min(Math.abs(v) / HEAT_SCALE, 1);
   const el = h('div', { class: 'hm__c num' + (p > 0.55 ? ' hm__c--strong' : ''), text: (v > 0 ? '+' : '') + v.toFixed(1) });
@@ -1764,7 +1764,7 @@ function sectorCard(days) {
       grid.appendChild(h('div', { class: 'hm__name' + (small ? ' hm__name--small' : ''), title: r.count ? `採用 ${r.count} 銘柄` : null }, [
         document.createTextNode(r.name), r.count ? h('small', { text: String(r.count) }) : null]));
       r.vals.slice(-shown).forEach((v, i) => {
-        const c = heatCell(v);
+        const c = sectorHeatCell(v);
         if (isNum(v)) c.title = `${r.name} ${md(cols[i].date)} ${fmtPct(v)}`;
         grid.appendChild(c);
       });
