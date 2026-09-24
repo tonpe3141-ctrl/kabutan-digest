@@ -257,8 +257,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "半導体材料・データセンター関連として東証33業種の電気機器が首位となる中、上昇率・売買代金の両方で上位に入り引っかかった。株探の「本日の注目個別銘柄」にも挙げられている。",
+   "note_url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFB5RC1WTG1LY2tDTGdXdDV2d1pad3lnQ24zUGxHb2VQcmhwbFQ2dXlhaVZjakFDdUpyd1htb1pBQTktUXBWSUhpbzlLVnJiRFhMeUE?oc=5"
   },
   {
    "code": "7619",
@@ -283,7 +283,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "引け際15:40に中間配当予想の増額修正を発表し機械的に引っかかった。記事での裏付けなし。",
    "note_url": null
   },
   {
@@ -309,8 +309,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "大引け後16:01に26年12月期の連結経常利益を6.5億円→7.3億円(+12.1%)に上方修正し、期末配当も50.56円→52.12円に増額したことが理由。今期から連結決算に移行したことも影響した可能性。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/89468387d8daa8d4956e79c91190e07168dd2c01"
   },
   {
    "code": "2385",
@@ -335,7 +335,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
    "note_url": null
   }
  ],
