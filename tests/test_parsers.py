@@ -519,6 +519,141 @@ def test_thermo():
     check("マクロ感応度: 国内金利上昇は銀行に追い風", fit["label"], "追い風")
 
 
+def test_plan_setups():
+    from dashboard import thermo as T
+
+    print("\n[売買計画・型の成績・作戦ボード]")
+    # 押し目: 25日線まで待つ。損切りは20日安値の1%下（値幅の1.5〜3倍の範囲）、利確は120日高値
+    mt = {"price": 1100, "ma25": 1050, "lo20": 1000, "hi60": 1300, "hi120": 1500, "vol": 2.0}
+    pl = T.trade_plan(mt, "dip")
+    check("押し目: 買う目安は25日線", (pl["entry"], pl["entry_by"], pl["to_entry"]), (1050, "ma25", -4.5))
+    check("押し目: 損切りは20日安値の1%下", (pl["stop"], pl["stop_by"], pl["stop_pct"]), (990, "lo20", -5.7))
+    check("押し目: 利確は60日高値（直近の戻り高値）、R倍", (pl["target"], pl["target_by"], pl["rr"]), (1300, "hi60", 4.2))
+    far = T.trade_plan({**mt, "lo20": 800}, "dip")
+    check("20日安値が遠すぎると値幅の3倍に収める", (far["stop"], far["stop_by"]), (987, "vol_max"))
+    near = T.trade_plan({**mt, "lo20": 1060}, "dip")
+    check("20日安値が買う目安より上なら値幅の1.5倍", (near["stop"], near["stop_by"]), (1018, "vol_min"))
+    ov = T.trade_plan({"price": 900, "ma25": 1000, "lo20": 880, "hi60": 1400, "vol": 2.0}, "oversold")
+    check("売られすぎ: 現値で買い、利確は25日線", (ov["entry"], ov["stop"], ov["target"], ov["rr"]), (900, 871, 1000, 3.5))
+    hi = T.trade_plan({"price": 1300, "ma25": 1200, "lo20": 1150, "hi60": 1300, "vol": 2.0}, "leader")
+    check("高値圏のリーダーは利確の目安なし", (hi["target"], hi["rr"]), (None, None))
+    check("値幅が無いと計画を立てない", T.trade_plan({"price": 100, "vol": None}), None)
+    check("計画の型: 押し目", T.plan_kind(["押し目"]), "dip")
+    check("計画の型: 過熱は25日線まで待つ", T.plan_kind(["高値掴み注意", "相対力リーダー"]), "dip")
+    check("計画の型: 悪材料出尽くし", T.plan_kind([], {"label": "悪材料出尽くし（アク抜け）"}), "oversold")
+
+    # 計画どおりに売買した場合（終値だけで再現）
+    check("指値が約定して利確に届く", T.simulate_plan([1080, 1040, 1100, 1310], pl),
+          {"filled": True, "exit": "target", "r": 4.33})
+    check("指値が約定して損切り", T.simulate_plan([1040, 980], pl), {"filled": True, "exit": "stop", "r": -1.17})
+    check("5日以内に目安まで下がらなければ約定せず", T.simulate_plan([1100] * 6, pl), {"filled": False})
+    check("結果がまだ出ていない", T.simulate_plan([1040, 1045], pl), None)
+    check("期間いっぱい持って終わる", T.simulate_plan([900 + i for i in range(1, 25)], ov)["exit"], "time")
+
+    # 相対力（60日騰落の順位）とリーダー
+    ranks = T.rs_ranks({f"{1000 + i}": float(i) for i in range(25)})
+    check("相対力: 最強100・最弱0", (ranks["1024"], ranks["1000"]), (100, 0))
+    check("相対力が20銘柄未満なら出さない", T.rs_ranks({"1": 1.0}), {})
+    lead = {"price": 1300, "ma25": 1200, "ma75": 1100, "from_hi": -2.0}
+    check("リーダー: 上位20%・株価>25日線>75日線・高値の近く", T.is_leader(lead, 85), True)
+    check("リーダー: 高値から遠いものは外す", T.is_leader({**lead, "from_hi": -15.0}, 85), False)
+    check("リーダー: 分類に入る", "相対力リーダー" in T.stock_class(lead, 90), True)
+
+    # 型の成績: 同じ型にいる間は1件（初日だけ数える）。比べる相手は同じ日の全銘柄の中央値
+    ds = _bdays(110)
+    stocks = {f"{2000 + i}": [1000.0] * 110 for i in range(59)}
+    stocks["1111"] = [1000.0 * 1.01 ** k for k in range(110)]            # 毎日 +1%（ずっと過熱）
+    bt = T.setup_backtest(ds, stocks)
+    by = {r["setup"]: r for r in bt["setups"]}
+    check("型の成績: 5つの型", [r["setup"] for r in bt["setups"]],
+          ["押し目", "売られすぎ・下げ止まり", "相対力リーダー", "高値掴み注意", "下落トレンド"])
+    check("ずっと過熱の銘柄は1件と数える", by["高値掴み注意"]["events"], 1)
+    check("全銘柄の中央値との差（5日で +5.1%）", by["高値掴み注意"]["x5"], 5.1)
+    check("件数が少ないと判定しない", by["高値掴み注意"]["verdict"], "件数不足")
+    check("判定: 買う型が全銘柄を上回る", T.setup_verdict("up", 40, 1.2, 60)[0], "効いている")
+    check("判定: 買う型が全銘柄を下回る", T.setup_verdict("up", 40, -1.0, 40)[0], "効いていない")
+    check("判定: 警告の型がその後に劣後", T.setup_verdict("down", 40, -2.0, 38)[0], "警告どおり（その後に劣後）")
+    check("判定: どちらとも言えない", T.setup_verdict("up", 40, 0.6, 49)[0], "はっきりしない")
+
+    # 作戦ボード: 過熱と R倍の小さいものは外し、型の成績の良い順（効いていない型は後ろ）
+    rows = {
+        "1001": {"n": "押し目株", "cls": ["押し目"], "plan": pl, "price": 1100},
+        "1002": {"n": "売られすぎ株", "cls": ["売られすぎ・下げ止まり"], "plan": ov, "price": 900},
+        "1003": {"n": "過熱株", "cls": ["高値掴み注意", "押し目"], "plan": pl, "price": 1100},
+        "1004": {"n": "R不足", "cls": ["押し目"], "plan": {**pl, "rr": 1.2}, "price": 1100},
+        "1005": {"n": "型なし", "cls": [], "plan": pl, "price": 1100},
+        "1006": {"n": "荒い", "cls": ["押し目"], "plan": {**pl, "stop_pct": -20.0}, "price": 1100},
+    }
+    setups = {"setups": [{"setup": "押し目", "verdict": "はっきりしない", "tone": "info"},
+                         {"setup": "売られすぎ・下げ止まり", "verdict": "効いていない", "tone": "warn"}]}
+    board = T.action_board(rows, setups, {"1002": {"signals": ["上方修正・増配"]}})
+    check("作戦ボード: 過熱・R不足・型なし・損切りが遠すぎるものは載せない", [b["code"] for b in board], ["1001", "1002"])
+    check("作戦ボード: 台帳の理由を添える", board[1]["why"], ["台帳: 上方修正・増配"])
+
+
+def test_ledger_stats():
+    print("\n[台帳の成績と価格の取り足し]")
+    hist = [{"date": f"2026-09-{d:02d}", "taibike": {"value_rows": []}} for d in (16, 15, 14, 11, 10, 9)]
+    payload = {"tables": {"kessan_after": {"rows": [
+        {"code": "2788", "name": "アップル", "category": "業績予想の修正", "time": "15:30",
+         "title": "業績予想の上方修正及び増配に関するお知らせ"}]}}, "streaks": [], "ranking_delta": {}}
+    led = ledger_mod.update(date(2026, 9, 17), payload, hist, THEMES, None, lambda codes: {"2788": 500.0}, 64000.0,
+                            ledger={"entries": [], "stats": {}})
+    e = led["entries"][0]
+    check("開示だけで載った銘柄も当日の価格を取り足す", e["price_at_flag"], 500.0)
+
+    led = ledger_mod.update(date(2026, 9, 17), payload, hist, THEMES, None, lambda codes: {}, 64000.0,
+                            ledger={"entries": [], "stats": {}})
+    hist2 = [{"date": "2026-09-17", "taibike": {"value_rows": []}}] + hist
+    led = ledger_mod.update(date(2026, 9, 18), {"tables": {}, "streaks": [], "ranking_delta": {}}, hist2, THEMES,
+                            None, lambda codes: {"2788": 520.0}, 64500.0, ledger=led)
+    e = led["entries"][0]
+    check("価格が後から取れたら、その日を起点にし直す",
+          (e["price_at_flag"], e.get("track_from"), e["track"]["d1"]), (520.0, "2026-09-18", None))
+
+    # 休場日の実行は営業日に数えない（同じ価格で「1営業日たった」としない）
+    hol = [{"date": "2026-09-22", "taibike": {"value_rows": [], "indices": {"nikkei": {"close": 1, "stale": True}}}},
+           {"date": "2026-09-21", "taibike": {"value_rows": [], "indices": {"nikkei": {"close": 1, "stale": True}}}},
+           {"date": "2026-09-18", "taibike": {"value_rows": [], "indices": {"nikkei": {"close": 1}}}}]
+    led = ledger_mod.update(date(2026, 9, 18), payload, hol[2:] + hist, THEMES, None, lambda codes: {"2788": 500.0},
+                            64000.0, ledger={"entries": [], "stats": {}})
+    led = ledger_mod.update(date(2026, 9, 22), {"tables": {}, "streaks": [], "ranking_delta": {},
+                                                "indices": {"nikkei": {"close": 1, "stale": True}}}, hol + hist, THEMES,
+                            None, lambda codes: {"2788": 500.0}, 64000.0, ledger=led)
+    check("休場日の実行では進めない", (led["entries"][0]["track"]["days"], led["entries"][0]["track"]["d1"]), (0, None))
+    led = ledger_mod.update(date(2026, 9, 24), {"tables": {}, "streaks": [], "ranking_delta": {}}, hol + hist, THEMES,
+                            None, lambda codes: {"2788": 510.0}, 64000.0, ledger=led)
+    check("休場日を挟んでも翌営業日が d1", (led["entries"][0]["track"]["days"], led["entries"][0]["track"]["d1"]), (1, 2.0))
+
+    # 日足での測り直し: 見つけた日の終値と、ちょうど h 営業日後の終値
+    cal = _bdays(8, "2026-09-01")
+    closes = {d: 100.0 + i * 2 for i, d in enumerate(cal)}               # 毎営業日 +2円
+    nk = {d: 1000.0 + i * 10 for i, d in enumerate(cal)}                 # 毎営業日 +1%
+    led = {"entries": [{"code": "1111", "first_seen": cal[1], "signals": ["A"], "status": "watching",
+                        "track": {"d1": 0.0, "d5": -3.0}}]}
+    ledger_mod.retrack(led, cal, lambda c, d: closes.get(d), nk.get)
+    tr = led["entries"][0]["track"]
+    check("測り直し: d1 は1営業日後の終値", tr["d1"], round((104 / 102 - 1) * 100, 2))
+    check("測り直し: d5 は5営業日後の終値、日経比も同じ日", (tr["d5"], tr["x5"]),
+          (round((112 / 102 - 1) * 100, 2), round((112 / 102 - 1) * 100 - (1060 / 1010 - 1) * 100, 2)))
+    check("測り直し: 20営業日に満たなければ d20 は空・追跡中", (tr["d20"], led["entries"][0]["status"], tr["days"]), (None, "watching", 6))
+    led["entries"][0]["first_seen"] = cal[5]
+    ledger_mod.retrack(led, cal, lambda c, d: closes.get(d), nk.get)
+    check("測り直し: 誤って埋まった d5 を消す", led["entries"][0]["track"]["d5"], None)
+
+    entries = [{"signals": ["A"], "track": {"d5": 4.0, "x5": 2.0, "d20": 6.0, "x20": 1.0}},
+               {"signals": ["A"], "track": {"d5": -2.0, "x5": -3.0}},
+               {"signals": ["A", "B"], "track": {"d5": 1.0, "x5": 0.5}},
+               {"signals": ["B"], "track": {"d5": None}}]
+    st = ledger_mod.compute_stats(entries, "2026-09-25")
+    a = next(r for r in st["by_signal"] if r["signal"] == "A")
+    check("成績: 件数・d5中央値・日経比の中央値・日経に勝った割合",
+          (a["count"], a["d5_median"], a["x5_median"], a["beat5"]), (3, 1.0, 0.5, 0.67))
+    check("成績: 20日後", (a["n20"], a["d20_median"]), (1, 6.0))
+    check("成績: 件数が少ないと enough=False", a["enough"], False)
+    check("成績: 全体", st["overall"]["count"], 3)
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
@@ -529,6 +664,8 @@ if __name__ == "__main__":
     test_ranking_layouts()
     test_themes_ledger_trend()
     test_thermo()
+    test_plan_setups()
+    test_ledger_stats()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

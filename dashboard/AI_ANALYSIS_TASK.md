@@ -132,8 +132,10 @@ git pull --rebase origin main
 - **`thermo`**（全スロット）: 相場温度計の要約。`temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
   `consensus`（全面追い風／全面向かい風）, `factors[]`（8軸の `score` −2〜+2 と `change` 改善／悪化、`text` に根拠の数字）,
   `turning`（底打ち／天井打ちの兆し）, `sector_picks`（押し目・下げ止まりの業種）, `sector_hot`, `dip` / `oversold` / `hot` /
-  `bad_out` / `good_out`（銘柄）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）。
-  詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・判定の成績 `track[]`）
+  `bad_out` / `good_out`（銘柄）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）,
+  `setups[]`（型ごとの直近成績: `verdict` 効いている／効いていない／はっきりしない、`x5`・`x20` は全銘柄比、`avg_r` は計画どおりに売買した場合の平均R）,
+  `board[]`（作戦ボードの上位: 型・買う目安 `entry`・損切り `stop`・利確の目安 `target`・`rr`）。
+  詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・判定の成績 `track[]`・型の成績 `setups.setups[]`）
 - 参考: `commentary`（ルールベースの見立て。なぞるだけでは意味がない）
 
 あわせて、あれば読む:
@@ -168,6 +170,8 @@ git pull --rebase origin main
 - `sector_picks` / `dip` / `hot` のうち記事で背景が分かるもの。「買い」「売り」と断定せず、
   「押し目を待つ」「追いかけは控えめに」「分割で」の言い方にとどめる
 - `backtest` で温度帯の過去の成績が逆張りの読みと食い違っているときは、そのことも書く（都合の良い読みだけを書かない）
+- `setups` で「効いていない」型があれば、その型の候補（例: `oversold`）を勧める書き方をしない。効いている型が無い日は
+  「見送る・小さく」も選択肢として書く。`board` の価格・R倍は数字をそのまま使い、自分で計算し直さない
 
 複数の事実を組み合わせた解釈を書く（例: 日経は上昇したが TOPIX との乖離と上昇銘柄数から
 値がさ株主導であり、株探の夕刊が挙げる AI 関連への資金集中と整合する）。

@@ -558,3 +558,43 @@ table.bt--sec td:nth-child(2), table.bt--sec td:last-child { text-align: left; }
 .check__result > .btn { margin-top: 12px; width: 100%; }
 .gauge__caption { font-size: 11.5px; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
 .card--flush > .callout, .card--flush > div > .callout { margin-left: 14px; margin-right: 14px; }
+
+/* 売買計画（買う目安・損切り・利確・R倍）と株数 */
+.plan { margin-top: 6px; }
+.plan__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.plan__cell { background: var(--surface-2); border-radius: 8px; padding: 6px 7px; min-width: 0; }
+.plan__k { font-size: 10px; color: var(--text-faint); font-weight: 650; }
+.plan__v { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.plan__v.up { color: var(--up); }
+.plan__v.down { color: var(--down); }
+.plan__s { font-size: 10px; color: var(--text-dim); line-height: 1.35; margin-top: 1px; }
+.plan__size { margin-top: 5px; font-size: 12px; font-weight: 650; color: var(--text); }
+.plan__size--none { color: var(--warn); font-weight: 600; }
+.plan__inline { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 360px) { .plan__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 作戦ボード */
+.card--flush > .chips { padding: 0 14px 6px; }
+.board__row .signal__why { color: var(--text); }
+.board__why { font-size: 11.5px; color: var(--text-dim); margin-top: 5px; line-height: 1.5; }
+.board__rec { font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5; }
+table.bt--setup tbody th { white-space: normal; width: 42%; }
+table.bt--setup tbody th .badge { display: inline-block; margin: 3px 0 1px; white-space: normal; line-height: 1.35; }
+table.bt--setup td { vertical-align: top; }
+
+/* 資金と1回の損の上限（この端末に保存） */
+details.risk { margin: 8px 14px 4px; border: 1px solid var(--border); border-radius: 10px; padding: 0 10px; }
+details.risk > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--accent); padding: 9px 0; list-style: none; }
+details.risk > summary::-webkit-details-marker { display: none; }
+.risk--empty > summary { color: var(--warn); }
+.risk__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.risk__field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-dim); font-weight: 650; min-width: 0; }
+.risk__field input { font: inherit; font-size: 16px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-width: 0; width: 100%; box-sizing: border-box; }
+.risk__field small { font-size: 10px; color: var(--text-faint); font-weight: 500; }
+details.risk .hint { margin: 6px 0 10px; }
+
+/* 発掘: 台帳の銘柄のいまの位置 */
+.lgroup__head { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px 6px; border-top: 1px solid var(--border); }
+.lgroup__head .badge { align-self: flex-start; }
+.lgroup__desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+table.bt--setup thead th:first-child { text-align: left; }
