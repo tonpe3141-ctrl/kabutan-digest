@@ -15,6 +15,7 @@ from datetime import date
 
 from . import bars as bars_mod, store, thermo as T
 from .config import THERMO_PATH, THERMO_TRACK_PATH
+from . import ledger as ledger_mod
 from .ledger import load_ledger
 from .sources import cnbc, nikkei225, nikkei_per
 from .themes import load_themes
@@ -103,6 +104,8 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     """温度計を計算して thermo.json を書き、latest.json に載せる要約と履歴に残す断片を返す。"""
     fetch = fetch or cnbc.fetch_bars
     today = target_date.isoformat()
+    nk_live = ((payload.get("indices") or {}).get("nikkei") or {})
+    stale = bool(nk_live.get("stale")) if nk_live else True      # 休場日（前営業日の値）
     tone_today = T.headline_tone(headlines(payload), (load_themes().get("themes") or []))
     events_today = _today_events(payload, today) if slot != "preopen" else []
     hist_patch = {"news_tone": tone_today}
@@ -157,12 +160,25 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     data["updated_at"] = store.now_jst().isoformat(timespec="seconds")
     bars_mod.save(data)
 
+    # 発掘台帳の追跡を東証の営業日で測り直す（休場日の実行や古い気配で d1/d5/d20 がずれないように）
+    if slot == "taibike" and not stale and ledger.get("entries"):
+        try:
+            nk_close = dict(bars_mod.series(data, "nikkei"))
+            maps: dict[str, dict] = {}
+
+            def close_of(code, d):
+                if code not in maps:
+                    maps[code] = bars_mod.stock_map(data, code)
+                return maps[code].get(d)
+            ledger_mod.retrack(ledger, [d for d in data.get("dates") or [] if d <= today], close_of, nk_close.get)
+            ledger_mod.save_ledger(ledger)
+        except Exception as e:                  # noqa: BLE001  収集は止めない
+            print(f"    ⚠️  台帳の測り直しで例外: {e}")
+
     # ---- 2. PER ----
     per = nikkei_per.update() if slot in ("preopen", "taibike") else nikkei_per.load_cache()
 
     # ---- 3. 計算 ----
-    nk_live = ((payload.get("indices") or {}).get("nikkei") or {})
-    stale = bool(nk_live.get("stale")) if nk_live else True
     live_nk = nk_live.get("close") if (nk_live and not stale) else None
     m = {spec_key: bars_mod.series(data, spec_key) for spec_key in (data.get("macro") or {})}
     m["nikkei"] = T.with_live(m.get("nikkei") or [], today, live_nk)
@@ -224,20 +240,24 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     for e in ex:
         ex_by_code.setdefault(e["code"], e)
 
-    stock_rows = {}
+    metrics = {}
     for code in stocks:
         mt = T.stock_metrics(closes(code))
-        if not mt:
-            continue
-        cls = T.stock_class(mt)
+        if mt:
+            metrics[code] = mt
+    ranks = T.rs_ranks({c: mt.get("r60") for c, mt in metrics.items()})
+    stock_rows = {}
+    for code, mt in metrics.items():
+        cls = T.stock_class(mt, ranks.get(code))
         e = ex_by_code.get(code)
+        ev = ({"label": e["label"], "tone": e["tone"], "dir": e["dir"],
+               "date": e["date"], "since": e["since_pct"], "title": e["title"]} if e else None)
         stock_rows[code] = {
             "n": names.get(code) or code, "s": sector_of.get(code),
             "th": ((themes.get("stocks") or {}).get(code) or {}).get("themes") or [],
-            **mt, "cls": cls, "ev": ({"label": e["label"], "tone": e["tone"], "dir": e["dir"],
-                                      "date": e["date"], "since": e["since_pct"], "title": e["title"]}
-                                     if e else None),
+            **mt, "rs": ranks.get(code), "cls": cls, "ev": ev,
             "sc": sector_cls.get(sector_of.get(code)),
+            "plan": T.trade_plan(mt, T.plan_kind(cls, ev)),
         }
 
     def pick_list(kind, key_fn, limit, reverse=False):
@@ -248,6 +268,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     lists = {
         "dip": pick_list("押し目", lambda r: -(r.get("r60") or 0), 8),
         "oversold": pick_list("売られすぎ・下げ止まり", lambda r: (r.get("rsi") or 50), 8),
+        "leaders": pick_list("相対力リーダー", lambda r: -(r.get("rs") or 0), 8),
         "hot": pick_list("高値掴み注意", lambda r: -max((r.get("rsi") or 0) - 75, (r.get("dev25") or 0) - 15,
                                                      (r.get("r5") or 0) - 15), 10),
         "bad_out": [_ev_brief(e, stock_rows) for e in ex if e["label"].startswith("悪材料出尽くし")][:8],
@@ -259,19 +280,29 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         nk_d1 = T.r2(T.ret(nkx, 1))
     guard = watch_guard(watch, stock_rows, sector_d1, nk_d1, recent_events, today)
 
+    # 型ごとの過去成績は確定した日足だけで測る（当日の場中値は入れない）
+    try:
+        setups = T.setup_backtest(list(data.get("dates") or []), data.get("stocks") or {})
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  型の成績の計算で例外: {e}")
+        setups = None
+    watching = {e["code"]: e for e in ledger.get("entries") or [] if e.get("status") == "watching"}
+    board = T.action_board(stock_rows, setups, watching)
+
     thermo = {
         "asof": today, "slot": slot, "generated_at": store.now_jst().isoformat(timespec="seconds"),
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
+        "setups": setups, "board": board,
         "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"]},
     }
 
-    # ---- 5. 提案の記録（大引のみ） ----
+    # ---- 5. 提案の記録（大引のみ。休場日は記録しない＝営業日として数えない） ----
     track = _read(THERMO_TRACK_PATH, {})
-    if slot == "taibike":
+    if slot == "taibike" and not stale:
         picks = []
         for s in [x for x in sectors if is_pick(x)][:3]:
             picks.append({"kind": "注目業種", "key": s["sector"], "name": s["sector"], "price": None})
@@ -279,7 +310,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             if s["class"] == "過熱":
                 picks.append({"kind": "過熱業種", "key": s["sector"], "name": s["sector"], "price": None})
         for kind, key, n in (("押し目候補", "dip", 5), ("売られすぎ反発", "oversold", 5),
-                             ("高値掴み注意", "hot", 5), ("悪材料出尽くし", "bad_out", 5),
+                             ("相対力リーダー", "leaders", 5), ("高値掴み注意", "hot", 5), ("悪材料出尽くし", "bad_out", 5),
                              ("好材料出尽くし", "good_out", 5)):
             for r in lists[key][:n]:
                 picks.append({"kind": kind, "key": r["code"], "name": r["name"], "price": r["price"]})
@@ -325,7 +356,8 @@ def is_pick(s: dict) -> bool:
 def _brief(r: dict) -> dict:
     return {"code": r["code"], "name": r["n"], "sector": r.get("s"), "price": r.get("price"),
             "d1": r.get("d1"), "r5": r.get("r5"), "r20": r.get("r20"), "r60": r.get("r60"),
-            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "ma25": r.get("ma25"),
+            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "ma25": r.get("ma25"), "rs": r.get("rs"),
+            "from_hi": r.get("from_hi"), "plan": r.get("plan"),
             "to_ma25": T.r1(T.pct(r.get("ma25"), r.get("price"))) if r.get("ma25") else None}
 
 
@@ -333,7 +365,7 @@ def _ev_brief(e: dict, rows: dict) -> dict:
     r = rows.get(e["code"]) or {}
     return {"code": e["code"], "name": r.get("n") or e.get("name"), "label": e["label"], "dir": e["dir"],
             "date": e["date"], "since": e["since_pct"], "title": e["title"], "price": r.get("price"),
-            "rsi": r.get("rsi"), "dev25": r.get("dev25")}
+            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "plan": r.get("plan")}
 
 
 def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: list[dict],
@@ -404,4 +436,13 @@ def summary(th: dict) -> dict | None:
         "themes": [{"theme": t["theme"], "label": t["label"], "tone": t["tone"]}
                    for t in th.get("themes") or [] if t.get("label")][:5],
         "watch_guard": th.get("watch_guard") or [],
+        # 型ごとの直近の成績（効いている／効いていない）と、今日計画を立てられる銘柄の上位
+        "setups": [{"setup": s["setup"], "verdict": s["verdict"], "tone": s["tone"],
+                    "x5": s.get("x5"), "x20": s.get("x20"), "n": s.get(f"n{s['judged_on']}"),
+                    "avg_r": s.get("avg_r")}
+                   for s in (th.get("setups") or {}).get("setups") or []],
+        "board": [{"code": b["code"], "name": b["name"], "setup": b["setup"], "verdict": b.get("verdict"),
+                   "entry": b["plan"].get("entry"), "stop": b["plan"].get("stop"),
+                   "target": b["plan"].get("target"), "rr": b["plan"].get("rr")}
+                  for b in (th.get("board") or [])[:5]],
     }

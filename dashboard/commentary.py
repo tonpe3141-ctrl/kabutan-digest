@@ -382,4 +382,16 @@ def thermo_section(th: dict | None) -> dict | None:
                    "、".join(f"{p['sector']}（{p['class']}）" for p in picks))
     if th.get("sector_hot"):
         out.append("短期で上がりすぎの業種は " + "、".join(th["sector_hot"][:3]) + "。追いかけ買いは控えめに")
+    # 買う側の型（押し目・売られすぎ・リーダー）の直近の成績。警告の型は作戦タブに任せる
+    buy = [s for s in th.get("setups") or [] if s.get("verdict") in ("効いている", "効いていない")
+           and s["setup"] in ("押し目", "売られすぎ・下げ止まり", "相対力リーダー")]
+    works = [s["setup"] for s in buy if s["verdict"] == "効いている"]
+    fails = [s["setup"] for s in buy if s["verdict"] == "効いていない"]
+    w, f = "」「".join(works), "」「".join(fails)
+    if works and fails:
+        out.append(f"ただし直近の銘柄レベルの検証では「{w}」は全銘柄を上回り、「{f}」は下回っている")
+    elif works:
+        out.append(f"直近の銘柄レベルの検証では「{w}」が全銘柄を上回っている")
+    elif fails:
+        out.append(f"ただし直近の銘柄レベルの検証では「{f}」が全銘柄を下回っている。この型で拾うのは慎重に")
     return _section("温度計（逆張りの視点）", out)

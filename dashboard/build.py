@@ -295,8 +295,12 @@ def build_session(target_date: date, slot: str) -> dict:
 
     payload["watchlist"] = _fetch_watchlist(tables, disc.get("rows", []), quotes_by_code)
 
-    # 発掘台帳は1日1回、大引で進める（候補の入口・追跡・成績）
-    if slot == "taibike":
+    # 発掘台帳は1日1回、大引で進める（候補の入口・追跡・成績）。休場日は進めない
+    # （前営業日の顔ぶれを新規として数え直したり、休場日を営業日として追跡したりしないため）
+    holiday = bool((indices.get("nikkei") or {}).get("stale"))
+    if slot == "taibike" and holiday:
+        print("  [台帳] 休場日のため更新しません")
+    if slot == "taibike" and not holiday:
         print("  [台帳] 候補の更新と追跡...")
         def _lookup(codes):
             have = {c: q.get("last") for c, q in quotes_by_code.items() if q.get("last") is not None}

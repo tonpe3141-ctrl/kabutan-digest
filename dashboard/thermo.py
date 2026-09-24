@@ -540,6 +540,13 @@ def material_events(rows: list[dict], date_str: str) -> list[dict]:
 # ==================== 個別株の指標 ====================
 
 
+def px(v):
+    """株価の丸め（100円以上は円単位、未満は0.1円）。"""
+    if v is None:
+        return None
+    return round(v) if v >= 100 else r1(v)
+
+
 def stock_metrics(xs: list[float]) -> dict | None:
     xs = [x for x in xs if x is not None]
     if len(xs) < 30:
@@ -548,12 +555,33 @@ def stock_metrics(xs: list[float]) -> dict | None:
     hi = max(xs[-120:])
     return {"price": xs[-1], "d1": r2(ret(xs, 1)), "r5": r1(ret(xs, 5)), "r20": r1(ret(xs, 20)),
             "r60": r1(ret(xs, 60)), "rsi": r1(rsi(xs)), "dev25": r1(dev(xs, 25)),
-            "ma25": round(ma25) if ma25 and ma25 >= 100 else r1(ma25),
-            "ma75": round(ma75) if ma75 and ma75 >= 100 else r1(ma75),
-            "from_hi": r1(pct(xs[-1], hi)), "vol": r2(daily_vol(xs))}
+            "ma25": px(ma25), "ma75": px(ma75),
+            "from_hi": r1(pct(xs[-1], hi)), "vol": r2(daily_vol(xs)),
+            "lo20": px(min(xs[-20:])), "hi60": px(max(xs[-60:])), "hi120": px(hi)}
 
 
-def stock_class(mt: dict) -> list[str]:
+# ==================== 相対力 ====================
+LEADER_RS = 80          # 60日騰落がユニバースの上位20%
+LEADER_FROM_HI = -8.0   # 120日高値から −8% 以内
+
+
+def rs_ranks(r60: dict[str, float | None]) -> dict[str, int]:
+    """60日騰落のユニバース内の順位（0〜100。100 が最も強い）。"""
+    vals = sorted((v, c) for c, v in r60.items() if v is not None)
+    n = len(vals)
+    if n < 20:
+        return {}
+    return {c: round(i / (n - 1) * 100) for i, (_, c) in enumerate(vals)}
+
+
+def is_leader(mt: dict, rs: int | None) -> bool:
+    """相対力リーダー: 60日で上位20%、株価 > 25日線 > 75日線、120日高値の近く。"""
+    p, ma25, ma75, fh = mt.get("price"), mt.get("ma25"), mt.get("ma75"), mt.get("from_hi")
+    return bool(rs is not None and rs >= LEADER_RS and p and ma25 and ma75 and p > ma25 > ma75
+                and fh is not None and fh >= LEADER_FROM_HI)
+
+
+def stock_class(mt: dict, rs_rank: int | None = None) -> list[str]:
     """個別株の分類（複数可）。順序は表示の優先度。"""
     out = []
     rs, dv, r5, r60 = mt.get("rsi"), mt.get("dev25"), mt.get("r5"), mt.get("r60")
@@ -570,7 +598,247 @@ def stock_class(mt: dict) -> list[str]:
         out.append("売られすぎ（下げ継続）")
     if ma25 and ma75 and ma25 < ma75 and mt.get("r20") is not None and mt["r20"] < 0:
         out.append("下落トレンド")
+    if is_leader(mt, rs_rank):
+        out.append("相対力リーダー")
     return out
+
+
+# ==================== 売買計画（買う目安・損切り・利確の目安） ====================
+# すべて終値と日々の値幅から機械的に出す「計算上の目安」。予測ではない。
+#   損切り: 直近20日の安値の1%下。ただし日々の値幅（60日の標準偏差）の1.5〜3倍の範囲に収める
+#           （近すぎるとノイズで掛かり、遠すぎると1回の損が大きくなるため）
+#   利確  : 押し目・リーダーは60日高値（直近の戻り高値）、売られすぎ・出尽くしは25日線（平均への戻り）。
+#           20営業日で届く距離を目安にするため、120日高値のような遠い高値は使わない
+#   R倍   : (利確 − 買い) ÷ (買い − 損切り)。1回の損を1としたときの、狙える幅
+STOP_MIN_VOL = 1.5
+STOP_MAX_VOL = 3.0
+PLAN_KINDS = ("dip", "oversold", "leader", "price")
+
+
+def plan_kind(cls: list[str], ev: dict | None = None) -> str:
+    """銘柄の分類から、どの計画の型を当てるか。"""
+    if "押し目" in cls or "高値掴み注意" in cls:
+        return "dip"                     # 25日線まで待つ
+    if "売られすぎ・下げ止まり" in cls or (ev and str(ev.get("label", "")).startswith("悪材料出尽くし")):
+        return "oversold"
+    if "相対力リーダー" in cls:
+        return "leader"
+    return "price"
+
+
+def trade_plan(mt: dict, kind: str = "price") -> dict | None:
+    p, vol = mt.get("price"), mt.get("vol")
+    if not p or not vol:
+        return None
+    ma25, lo20, hi = mt.get("ma25"), mt.get("lo20"), mt.get("hi60")
+    if kind == "dip" and ma25 and p > ma25:
+        entry, entry_by = ma25, "ma25"            # 25日線まで待つ（指値）
+    else:
+        entry, entry_by = p, "price"
+    v = vol / 100
+    far, near = entry * (1 - STOP_MAX_VOL * v), entry * (1 - STOP_MIN_VOL * v)
+    struct = lo20 * 0.99 if lo20 else None
+    if struct is None or struct > near:
+        stop, stop_by = near, "vol_min"           # 20日安値が近すぎる（または上にある）
+    elif struct < far:
+        stop, stop_by = far, "vol_max"            # 20日安値が遠すぎる
+    else:
+        stop, stop_by = struct, "lo20"
+    risk = entry - stop
+    if kind == "oversold":
+        target, target_by = (ma25, "ma25") if ma25 and ma25 > entry else (None, None)
+    else:
+        target, target_by = (hi, "hi60") if hi and hi > entry + 0.5 * risk else (None, None)
+    rr = (target - entry) / risk if target and risk > 0 else None
+    return {"kind": kind, "entry": px(entry), "entry_by": entry_by, "to_entry": r1(pct(entry, p)),
+            "stop": px(stop), "stop_by": stop_by, "stop_pct": r1(pct(stop, entry)),
+            "target": px(target), "target_by": target_by, "target_pct": r1(pct(target, entry)) if target else None,
+            "rr": r1(rr)}
+
+
+def simulate_plan(closes: list[float | None], plan: dict, fill_days: int = 5, hold: int = 20) -> dict | None:
+    """計画どおりに売買したら、を終値だけで再現する（場中の高安は見ない）。
+
+    closes: 計画を立てた日の「翌日以降」の終値。指値（買う目安が現値より下）は fill_days 以内に
+    終値が目安以下になったら目安の価格で約定したとみなす。約定後、終値が損切りを割るか利確に届くか、
+    hold 営業日たったら終わる。結果は R（1回の損を1とした損益）で返す。
+    """
+    entry, stop, target = plan["entry"], plan["stop"], plan.get("target")
+    risk = entry - stop
+    if risk <= 0:
+        return None
+    start = 0
+    if plan["entry_by"] != "price":
+        for k, c in enumerate(closes[:fill_days]):
+            if c is not None and c <= entry:
+                start = k
+                break
+        else:
+            return {"filled": False} if len(closes) >= fill_days else None
+    held = 0
+    last = entry
+    for c in closes[start:]:
+        if c is None:
+            continue
+        held += 1
+        last = c
+        if c <= stop:
+            return {"filled": True, "exit": "stop", "r": round((c - entry) / risk, 2)}
+        if target and c >= target:
+            return {"filled": True, "exit": "target", "r": round((c - entry) / risk, 2)}
+        if held >= hold:
+            return {"filled": True, "exit": "time", "r": round((c - entry) / risk, 2)}
+    return None                                    # まだ結果が出ていない
+
+
+# ==================== 型ごとの過去成績（銘柄レベルのバックテスト） ====================
+# 各営業日に、その日までの終値だけで分類をやり直し（先読みしない）、その型に「初めて入った日」を
+# 1件として数える（同じ銘柄が何日も同じ型にいると件数が水増しされるため）。
+# 比べる相手は同じ日の全銘柄の中央値（相場全体の上げ下げを差し引いた、銘柄選びの効き目）。
+SETUPS = [
+    # (型, 期待する向き, 計画の型)  expect=down は「警告」の型（その後に劣後すれば警告どおり）
+    ("押し目", "up", "dip"),
+    ("売られすぎ・下げ止まり", "up", "oversold"),
+    ("相対力リーダー", "up", "leader"),
+    ("高値掴み注意", "down", None),
+    ("下落トレンド", "down", None),
+]
+
+
+def _median_or_none(v):
+    return r2(median(v)) if v else None
+
+
+def _share(v, cond=lambda x: x > 0):
+    return round(sum(1 for x in v if cond(x)) / len(v) * 100) if v else None
+
+
+def setup_verdict(expect: str, n: int, x: float | None, beat: int | None, min_n: int = 30) -> tuple[str, str]:
+    """全銘柄比（x）と勝ち越し率（beat）から、その型がこの期間に効いたかを言う。"""
+    if n < min_n or x is None:
+        return "件数不足", "info"
+    if expect == "up":
+        if x >= 0.5 and (beat or 0) >= 52:
+            return "効いている", "chance"
+        if x <= -0.5 and (beat or 100) <= 48:
+            return "効いていない", "warn"
+        return "はっきりしない", "info"
+    if x <= -0.5 and (beat or 100) <= 48:
+        return "警告どおり（その後に劣後）", "chance"
+    if x >= 0.5 and (beat or 0) >= 52:
+        return "警告が外れている（その後も強い）", "warn"
+    return "はっきりしない", "info"
+
+
+def setup_backtest(dates: list[str], stocks: dict[str, list], horizons=(5, 20), warmup: int = 80,
+                   recent: int = 20) -> dict | None:
+    """型ごとに「その後 n 営業日の騰落・全銘柄比・計画どおりに売買した場合の R」を集計する。
+
+    stocks: {code: [終値 or None]}（dates と同じ長さ）。当日の場中値は入れない（確定値だけで測る）。
+    recent: 直近 recent 営業日に点灯したものだけの5日後も別に出す（効く型の入れ替わりを早く見る）。
+    """
+    n_days = len(dates)
+    if n_days < warmup + max(horizons) // 2 or len(stocks) < 50:
+        return None
+    # 1) その日までの値だけで指標を作る
+    mts: dict[int, dict[str, dict]] = {}
+    for code, arr in stocks.items():
+        xs: list[float] = []
+        for i, c in enumerate(arr):
+            if c is None:
+                continue
+            xs.append(c)
+            if i < warmup:
+                continue
+            mt = stock_metrics(xs)
+            if mt:
+                mts.setdefault(i, {})[code] = mt
+    # 2) 同じ日の全銘柄の先行きの中央値（比べる相手）
+    def fwd(arr, i, h):
+        if i + h >= n_days or arr[i] is None or arr[i + h] is None or not arr[i]:
+            return None
+        return pct(arr[i + h], arr[i])
+    bench = {}
+    for i in mts:
+        for h in horizons:
+            v = [f for f in (fwd(a, i, h) for a in stocks.values()) if f is not None]
+            bench[(i, h)] = median(v) if len(v) >= 20 else None
+    # 3) 型に初めて入った日を拾い、先行きと計画の結果を集める
+    acc = {name: {"events": 0, **{f"d{h}": [] for h in horizons}, **{f"x{h}": [] for h in horizons},
+                  "recent": [], "sim": [], "unfilled": 0}
+           for name, _, _ in SETUPS}
+    base = {**{f"d{h}": [] for h in horizons}, **{f"x{h}": [] for h in horizons}}
+    prev: dict[str, set] = {}
+    last_signal = n_days - 1
+    for i in sorted(mts):
+        day = mts[i]
+        ranks = rs_ranks({c: mt.get("r60") for c, mt in day.items()})
+        for code, mt in day.items():
+            arr = stocks[code]
+            cur = set(stock_class(mt, ranks.get(code)))
+            new = cur - prev.get(code, set())
+            prev[code] = cur
+            f = {h: fwd(arr, i, h) for h in horizons}
+            for h in horizons:
+                if f[h] is not None and bench.get((i, h)) is not None:
+                    base[f"d{h}"].append(f[h])
+                    base[f"x{h}"].append(f[h] - bench[(i, h)])
+            for name, _, kind in SETUPS:
+                if name not in new:
+                    continue
+                a = acc[name]
+                a["events"] += 1
+                for h in horizons:
+                    if f[h] is not None and bench.get((i, h)) is not None:
+                        a[f"d{h}"].append(f[h])
+                        a[f"x{h}"].append(f[h] - bench[(i, h)])
+                        if h == horizons[0] and i >= last_signal - recent - h:
+                            a["recent"].append(f[h] - bench[(i, h)])
+                if kind:
+                    plan = trade_plan(mt, kind)
+                    if plan:
+                        res = simulate_plan(arr[i + 1:], plan)
+                        if res and res["filled"]:
+                            a["sim"].append(res)
+                        elif res:
+                            a["unfilled"] += 1
+        # 分類できなかった銘柄は「型から外れた」とみなす
+        for code in list(prev):
+            if code not in day:
+                prev[code] = set()
+
+    h1, h2 = horizons[0], horizons[-1]
+    rows = []
+    for name, expect, kind in SETUPS:
+        a = acc[name]
+        xh = a[f"x{h2}"] if len(a[f"x{h2}"]) >= 30 else a[f"x{h1}"]
+        verdict, tone = setup_verdict(expect, len(xh), _median_or_none(xh), _share(xh))
+        sims = a["sim"]
+        row = {"setup": name, "expect": expect, "plan": kind, "events": a["events"],
+               "verdict": verdict, "tone": tone, "judged_on": h2 if xh is a[f"x{h2}"] else h1}
+        for h in horizons:
+            row[f"n{h}"] = len(a[f"d{h}"])
+            row[f"d{h}"] = _median_or_none(a[f"d{h}"])
+            row[f"x{h}"] = _median_or_none(a[f"x{h}"])
+            row[f"beat{h}"] = _share(a[f"x{h}"])
+        row["recent_n"] = len(a["recent"])
+        row["recent_x"] = _median_or_none(a["recent"])
+        if kind:
+            rs_ = [s["r"] for s in sims]
+            row.update({"trades": len(sims), "unfilled": a["unfilled"],
+                        "avg_r": r2(mean(rs_)) if rs_ else None, "win": _share(rs_),
+                        "stops": sum(1 for s in sims if s["exit"] == "stop"),
+                        "targets": sum(1 for s in sims if s["exit"] == "target"),
+                        "timeouts": sum(1 for s in sims if s["exit"] == "time")})
+        rows.append(row)
+    first = min(mts) if mts else 0
+    return {"from": dates[first], "to": dates[-1], "universe": len(stocks), "horizons": list(horizons),
+            "base": {**{f"d{h}": _median_or_none(base[f"d{h}"]) for h in horizons},
+                     **{f"n{h}": len(base[f"d{h}"]) for h in horizons}},
+            "setups": rows,
+            "note": "各営業日にその日までの終値だけで分類をやり直し、型に初めて入った日を1件として、"
+                    "その後の騰落を同じ日の全銘柄の中央値と比べた。計画の結果（R）は終値だけで再現しており、"
+                    "場中の高安・売買コストは含まない。効く型は相場によって入れ替わる。"}
 
 
 JUMP_OTHER = 12.0    # 開示からこれ以上動いたら「出尽くし」ではなく別の材料とみなす（%）
@@ -823,3 +1091,54 @@ def track_update(track: dict, today: str, picks: list[dict], ret_of, nikkei_now:
             row[f"beat{h}"] = round(sum(1 for y in x if y > 0) / len(x) * 100) if x else None
         stats.append(row)
     return {"updated_at": today, "dates": dates[-400:], "entries": entries, "stats": stats}
+
+
+# ==================== 作戦ボード（今日、計画を立てられる銘柄） ====================
+BOARD_MIN_RR = 1.5          # 利確の目安までが損切り幅の1.5倍に満たないものは載せない
+BOARD_MAX_STOP = 12.0       # 損切りまで12%を超える（値動きが荒すぎる）ものは載せない
+BOARD_SETUPS = ("押し目", "売られすぎ・下げ止まり", "相対力リーダー")
+TONE_ORDER = {"chance": 0, "info": 1, "warn": 2}
+
+
+def action_board(rows: dict[str, dict], setups: dict | None, ledger: dict[str, dict] | None = None,
+                 limit: int = 8) -> list[dict]:
+    """型に当てはまり、計画（買う目安・損切り・利確）が立つ銘柄を、型の直近成績の良い順に並べる。
+
+    rows: thermo_run の stock_rows（cls・plan・ev を持つ）。ledger: 台帳で追跡中の {code: entry}。
+    過熱（高値掴み注意）、利確までが近すぎるもの（R倍 < 1.5）、損切りまでが遠すぎるもの（12%超）は載せない。
+    """
+    verdict = {s["setup"]: s for s in (setups or {}).get("setups") or []}
+    ledger = ledger or {}
+    out = []
+    for code, r in rows.items():
+        cls = r.get("cls") or []
+        if "高値掴み注意" in cls:
+            continue
+        setup = next((s for s in BOARD_SETUPS if s in cls), None)
+        ev = r.get("ev")
+        if not setup and ev and str(ev.get("label", "")).startswith("悪材料出尽くし"):
+            setup = "悪材料出尽くし"
+        plan = r.get("plan")
+        if not setup or not plan:
+            continue
+        rr = plan.get("rr")
+        if rr is None and plan.get("kind") != "leader":
+            continue
+        if rr is not None and rr < BOARD_MIN_RR:
+            continue
+        if plan.get("stop_pct") is not None and plan["stop_pct"] < -BOARD_MAX_STOP:
+            continue
+        v = verdict.get(setup) or {}
+        why = []
+        led = ledger.get(code)
+        if led:
+            why.append("台帳: " + "・".join(led.get("signals") or []))
+        if ev:
+            why.append(f"{ev['label']}（{ev['date']} の開示から {ev['since']:+.1f}%）")
+        out.append({"code": code, "name": r.get("n"), "sector": r.get("s"), "setup": setup,
+                    "verdict": v.get("verdict"), "tone": v.get("tone") or "info",
+                    "price": r.get("price"), "d1": r.get("d1"), "rsi": r.get("rsi"), "rs": r.get("rs"),
+                    "plan": plan, "ledger": bool(led), "why": why})
+    out.sort(key=lambda x: (TONE_ORDER.get(x["tone"], 1), not x["ledger"],
+                            -(x["plan"].get("rr") or BOARD_MIN_RR), x["code"]))
+    return out[:limit]

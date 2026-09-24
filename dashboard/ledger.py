@@ -172,6 +172,15 @@ def detect_signals(payload: dict, history_sessions: list[dict], themes: dict,
 
 
 # ==================== 追跡 ====================
+def _is_trading(hs: dict) -> bool:
+    """休場日の履歴（前営業日の値が stale 付きで入っている）は営業日に数えない。"""
+    for slot in ("taibike", "zenba"):
+        nk = (((hs.get(slot) or {}).get("indices") or {}).get("nikkei"))
+        if nk:
+            return not nk.get("stale")
+    return True
+
+
 def _business_days_between(d0: str, d1: str, dates: list[str]) -> int:
     """履歴の日付リスト（営業日の代わり）で d0 から d1 までの営業日数。"""
     return len([d for d in dates if d0 < d <= d1])
@@ -186,9 +195,11 @@ def update(target_date: date, payload: dict, history_sessions: list[dict], theme
     """
     today = target_date.isoformat()
     ledger = ledger if ledger is not None else load_ledger()
+    if (((payload.get("indices") or {}).get("nikkei")) or {}).get("stale"):
+        return ledger                                  # 休場日は進めない（営業日として数えない）
     entries: list[dict] = ledger.get("entries") or []
     by_code = {e["code"]: e for e in entries}
-    dates = sorted({hs.get("date") for hs in history_sessions if hs.get("date")} | {today})
+    dates = sorted({hs.get("date") for hs in history_sessions if hs.get("date") and _is_trading(hs)} | {today})
 
     # 1) 新規・再点灯
     signals = detect_signals(payload, history_sessions, themes, theme_flow)
@@ -222,6 +233,16 @@ def update(target_date: date, payload: dict, history_sessions: list[dict], theme
         by_code[c["code"]] = entry
         added += 1
 
+    # 開示だけで載った銘柄はランキングに価格が無い。当日の終値を取り足す（無いと追跡できない）
+    no_price = [e for e in entries if e.get("first_seen") == today and e.get("price_at_flag") is None]
+    if no_price:
+        try:
+            got = price_lookup([e["code"] for e in no_price]) or {}
+        except Exception:
+            got = {}
+        for e in no_price:
+            e["price_at_flag"] = got.get(e["code"])
+
     # 2) 追跡
     open_entries = [e for e in entries if e.get("status") == "watching" and e.get("first_seen") != today]
     prices = {}
@@ -230,17 +251,23 @@ def update(target_date: date, payload: dict, history_sessions: list[dict], theme
             prices = price_lookup([e["code"] for e in open_entries]) or {}
         except Exception:
             prices = {}
-    nk_pct = None
     for e in open_entries:
         p = prices.get(e["code"])
         base = e.get("price_at_flag")
-        days = _business_days_between(e["first_seen"], today, dates)
+        if base is None and p is not None:
+            # 登録日に価格が取れなかった行は、最初に取れた日を起点にし直す（d1/d5/d20 もそこから数える）
+            e["price_at_flag"] = base = p
+            e["nikkei_at_flag"] = nikkei_close
+            e["track_from"] = today
+        days = _business_days_between(e.get("track_from") or e["first_seen"], today, dates)
         tr = e.setdefault("track", {})
         tr["days"] = days
         if p is not None and base:
             ret = round((p / base - 1) * 100, 2)
             tr["last"] = ret
             tr["last_date"] = today
+            tr["worst"] = min(ret, tr.get("worst") if tr.get("worst") is not None else ret)
+            nk_pct = None
             if nikkei_close and e.get("nikkei_at_flag"):
                 nk_pct = round((nikkei_close / e["nikkei_at_flag"] - 1) * 100, 2)
                 tr["excess"] = round(ret - nk_pct, 2)
@@ -248,6 +275,8 @@ def update(target_date: date, payload: dict, history_sessions: list[dict], theme
                 key = f"d{horizon}"
                 if tr.get(key) is None and days >= horizon:
                     tr[key] = ret
+                    if horizon in (5, 20) and nk_pct is not None:
+                        tr[f"x{horizon}"] = round(ret - nk_pct, 2)
         if days >= LEDGER_TRACK_DAYS:
             e["status"] = "closed"
 
@@ -259,24 +288,80 @@ def update(target_date: date, payload: dict, history_sessions: list[dict], theme
     return ledger
 
 
+def retrack(ledger: dict, cal: list[str], close_of, nk_of, horizons=(1, 5, 20)) -> dict:
+    """東証の営業日（日足の日付）で追跡をやり直す。
+
+    update() は実行日ごとの気配で追うため、休場日に実行されると「同じ価格で1営業日たった」と数えてしまう。
+    ここでは見つけた日の終値と「ちょうど h 営業日後の終値」で d1/d5/d20 を測り直し、日経比も同じ日で取る。
+    日足（分割調整済み）が無い銘柄は update() の値をそのまま残す。
+    close_of(code, date) -> 終値、nk_of(date) -> 日経平均の終値。
+    """
+    pos = {d: i for i, d in enumerate(cal)}
+    for e in ledger.get("entries") or []:
+        base_d = e.get("track_from") or e.get("first_seen")
+        if base_d not in pos:
+            continue
+        b = close_of(e["code"], base_d)
+        if not b:
+            continue
+        nb = nk_of(base_d)
+        after = cal[pos[base_d] + 1:]
+        tr = e.setdefault("track", {})
+        tr["days"] = len(after)
+        for h in horizons:
+            c = close_of(e["code"], after[h - 1]) if len(after) >= h else None
+            tr[f"d{h}"] = round((c / b - 1) * 100, 2) if c else None
+            if h in (5, 20):
+                n = nk_of(after[h - 1]) if c else None
+                tr[f"x{h}"] = round(tr[f"d{h}"] - (n / nb - 1) * 100, 2) if (c and n and nb) else None
+        closes = [(d, close_of(e["code"], d)) for d in after]
+        closes = [(d, c) for d, c in closes if c]
+        if closes:
+            d, c = closes[-1]
+            tr["last"] = round((c / b - 1) * 100, 2)
+            tr["last_date"] = d
+            n = nk_of(d)
+            tr["excess"] = round(tr["last"] - (n / nb - 1) * 100, 2) if (n and nb) else None
+            tr["worst"] = round((min(x for _, x in closes) / b - 1) * 100, 2)
+        e["status"] = "closed" if len(after) >= LEDGER_TRACK_DAYS else "watching"
+        e["tracked_by"] = "日足"
+    entries = ledger.get("entries") or []
+    ledger["stats"] = compute_stats(entries, cal[-1] if cal else ledger.get("updated_at"))
+    return ledger
+
+
 def _days_ago(dates: list[str], today: str, n: int) -> str:
     past = [d for d in dates if d <= today]
     return past[-n] if len(past) >= n else (past[0] if past else today)
 
 
+STATS_MIN_COUNT = 10        # これ未満の件数の成績は「まだ判断できない」と明示する
+
+
+def _summ(rows: list[dict]) -> dict:
+    """成績の要約。d = 騰落、x = 日経比。hit_rate は d5 が + の割合、beat5 は日経に勝った割合。"""
+    d5 = [r["d5"] for r in rows if r.get("d5") is not None]
+    x5 = [r["x5"] for r in rows if r.get("x5") is not None]
+    d20 = [r["d20"] for r in rows if r.get("d20") is not None]
+    x20 = [r["x20"] for r in rows if r.get("x20") is not None]
+    med = lambda v: round(median(v), 2) if v else None          # noqa: E731
+    return {"count": len(d5), "d5_median": med(d5),
+            "hit_rate": round(sum(1 for v in d5 if v > 0) / len(d5), 2) if d5 else None,
+            "x5_median": med(x5), "beat5": round(sum(1 for v in x5 if v > 0) / len(x5), 2) if x5 else None,
+            "n20": len(d20), "d20_median": med(d20), "x20_median": med(x20),
+            "enough": len(d5) >= STATS_MIN_COUNT}
+
+
 def compute_stats(entries: list[dict], today: str) -> dict:
-    by_signal: dict[str, list[float]] = {}
+    by_signal: dict[str, list[dict]] = {}
+    done = []
     for e in entries:
-        d5 = (e.get("track") or {}).get("d5")
-        if d5 is None:
+        tr = e.get("track") or {}
+        if tr.get("d5") is None:
             continue
+        done.append(tr)
         for s in e.get("signals") or []:
-            by_signal.setdefault(s, []).append(d5)
-    rows = []
-    for s, vals in by_signal.items():
-        rows.append({"signal": s, "count": len(vals), "d5_median": round(median(vals), 2),
-                     "hit_rate": round(sum(1 for v in vals if v > 0) / len(vals), 2)})
+            by_signal.setdefault(s, []).append(tr)
+    rows = [{"signal": s, **_summ(trs)} for s, trs in by_signal.items()]
     rows.sort(key=lambda r: -r["count"])
-    all_d5 = [v for vals in by_signal.values() for v in vals]
-    return {"asof": today, "by_signal": rows,
-            "overall": {"count": len(all_d5), "d5_median": round(median(all_d5), 2) if all_d5 else None}}
+    return {"asof": today, "by_signal": rows, "overall": _summ(done), "min_count": STATS_MIN_COUNT}
