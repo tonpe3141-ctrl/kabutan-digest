@@ -22,10 +22,10 @@
     "d1": -1.89,
     "d5": null,
     "d20": null,
-    "last": -3.68,
-    "last_date": "2026-09-24",
-    "excess": -5.83,
-    "days": 2,
+    "last": -2.83,
+    "last_date": "2026-09-25",
+    "excess": -6.3,
+    "days": 3,
     "worst": -3.68,
     "x5": null,
     "x20": null
@@ -54,11 +54,11 @@
     "d1": -2.68,
     "d5": null,
     "d20": null,
-    "last": -7.46,
-    "last_date": "2026-09-24",
-    "excess": -9.61,
-    "days": 2,
-    "worst": -7.46,
+    "last": -9.22,
+    "last_date": "2026-09-25",
+    "excess": -12.69,
+    "days": 3,
+    "worst": -9.22,
     "x5": null,
     "x20": null
    },
@@ -90,12 +90,15 @@
     "last_date": "2026-09-25",
     "excess": 0.0,
     "days": 0,
-    "worst": 0.0
+    "worst": 0.0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": null,
    "note_url": null,
-   "track_from": "2026-09-25"
+   "track_from": "2026-09-25",
+   "tracked_by": "日足"
   },
   {
    "code": "3498",
@@ -121,12 +124,15 @@
     "last_date": "2026-09-25",
     "excess": 0.0,
     "days": 0,
-    "worst": 0.0
+    "worst": 0.0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": null,
    "note_url": null,
-   "track_from": "2026-09-25"
+   "track_from": "2026-09-25",
+   "tracked_by": "日足"
   },
   {
    "code": "8798",
@@ -150,11 +156,11 @@
     "d1": -19.54,
     "d5": null,
     "d20": null,
-    "last": -19.54,
-    "last_date": "2026-09-24",
-    "excess": -20.3,
-    "days": 1,
-    "worst": -19.54,
+    "last": -22.99,
+    "last_date": "2026-09-25",
+    "excess": -25.06,
+    "days": 2,
+    "worst": -22.99,
     "x5": null,
     "x20": null
    },
@@ -185,10 +191,10 @@
     "d1": 5.16,
     "d5": null,
     "d20": null,
-    "last": 5.16,
-    "last_date": "2026-09-24",
-    "excess": 4.4,
-    "days": 1,
+    "last": 7.02,
+    "last_date": "2026-09-25",
+    "excess": 4.95,
+    "days": 2,
     "worst": 5.16,
     "x5": null,
     "x20": null
@@ -219,12 +225,15 @@
     "last_date": "2026-09-25",
     "excess": 0.0,
     "days": 0,
-    "worst": 0.0
+    "worst": 0.0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "引け後15:30に上期経常を37%上方修正し19期ぶりの上期最高益、通期も12%増額、上期配当を11円→15円に増額。株探の決算速報で裏付け済み。連休明けの寄りで反応しやすい。",
    "note_url": "https://finance.yahoo.co.jp/news/detail/bac54434ba34d6cd95dbdf206811a5b124ce8499",
-   "track_from": "2026-09-25"
+   "track_from": "2026-09-25",
+   "tracked_by": "日足"
   },
   {
    "code": "3075",
@@ -243,11 +252,11 @@
     "d1": -1.1,
     "d5": null,
     "d20": null,
-    "last": -1.1,
-    "last_date": "2026-09-24",
-    "excess": -1.86,
-    "days": 1,
-    "worst": -1.1,
+    "last": -1.62,
+    "last_date": "2026-09-25",
+    "excess": -3.69,
+    "days": 2,
+    "worst": -1.62,
     "x5": null,
     "x20": null
    },
@@ -274,13 +283,13 @@
    "price_at_flag": 22405.0,
    "nikkei_at_flag": 65513.99,
    "track": {
-    "d1": null,
+    "d1": 4.2,
     "d5": null,
     "d20": null,
     "last": 4.2,
     "last_date": "2026-09-25",
     "excess": 2.9,
-    "days": 0,
+    "days": 1,
     "worst": 4.2,
     "x5": null,
     "x20": null
@@ -311,12 +320,15 @@
     "last_date": "2026-09-25",
     "excess": 0.0,
     "days": 0,
-    "worst": 0.0
+    "worst": 0.0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "引け際15:40に中間配当予想の増額修正を発表し機械的に引っかかった。記事での裏付けなし。",
    "note_url": null,
-   "track_from": "2026-09-25"
+   "track_from": "2026-09-25",
+   "tracked_by": "日足"
   },
   {
    "code": "410A",
@@ -341,12 +353,15 @@
     "last_date": "2026-09-25",
     "excess": 0.0,
     "days": 0,
-    "worst": 0.0
+    "worst": 0.0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "大引け後16:01に26年12月期の連結経常利益を6.5億円→7.3億円(+12.1%)に上方修正し、期末配当も50.56円→52.12円に増額したことが理由。今期から連結決算に移行したことも影響した可能性。",
    "note_url": "https://finance.yahoo.co.jp/news/detail/89468387d8daa8d4956e79c91190e07168dd2c01",
-   "track_from": "2026-09-25"
+   "track_from": "2026-09-25",
+   "tracked_by": "日足"
   },
   {
    "code": "2385",
@@ -362,13 +377,13 @@
    "price_at_flag": 243.0,
    "nikkei_at_flag": 65513.99,
    "track": {
-    "d1": null,
+    "d1": -8.23,
     "d5": null,
     "d20": null,
     "last": -8.23,
     "last_date": "2026-09-25",
     "excess": -9.53,
-    "days": 0,
+    "days": 1,
     "worst": -8.23,
     "x5": null,
     "x20": null
@@ -400,11 +415,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "売買代金29位に新規ランクインし上昇率2位(+22.44%)。値動きの背景を裏付ける記事は見当たらず、記事での裏付けなし。",
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
   },
   {
    "code": "3905",
@@ -430,11 +448,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "AIテーマの一角として株探の「話題株ピックアップ【夕刊】」にも名前が挙がり、上昇率8位・売買代金上位に新規ランクインした。",
-   "note_url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE82aWRjQ05nZERzbE9ZcG1PMlVYUThGdllFVnVIRFF5NXExUGRla0c5RHdEWmxhdnBWQi1iRUdMbDFMbGh6MkFvREFqMmVVWDIydTVMSTBMeEFXREtDekFmTA?oc=5"
+   "note_url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE82aWRjQ05nZERzbE9ZcG1PMlVYUThGdllFVnVIRFF5NXExUGRla0c5RHdEWmxhdnBWQi1iRUdMbDFMbGh6MkFvREFqMmVVWDIydTVMSTBMeEFXREtDekFmTA?oc=5",
+   "tracked_by": "日足"
   },
   {
    "code": "7322",
@@ -456,11 +477,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "銀行業が東証33業種で首位(+4.08%)となる中、上方修正・増配の開示を機械的に検知して引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率トップ3の筆頭に挙がっている。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949",
+   "tracked_by": "日足"
   },
   {
    "code": "4436",
@@ -485,11 +509,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
   },
   {
    "code": "8154",
@@ -511,11 +538,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "通期経常の上方修正・増配に加え負ののれん発生益の計上を開示し引っかかった。株探の業種別騰落ランキング記事でも卸売業の上昇率上位3銘柄に挙がっている。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949",
+   "tracked_by": "日足"
   },
   {
    "code": "8346",
@@ -537,11 +567,14 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "中間・期末配当予想の増額修正を開示し引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率上位3銘柄に挙がっている。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949",
+   "tracked_by": "日足"
   },
   {
    "code": "1431",
@@ -563,15 +596,47 @@
     "last": null,
     "last_date": "2026-09-25",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6533",
+   "name": "オーケストラＨＤ",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "18:15 株主優待制度の拡充及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1228.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
-  "asof": "2026-09-24",
+  "asof": "2026-09-25",
   "by_signal": [],
   "overall": {
    "count": 0,
@@ -594,6 +659,7 @@
   "4436",
   "8154",
   "8346",
-  "1431"
+  "1431",
+  "6533"
  ]
 }

@@ -486,6 +486,71 @@
 "x5": null,
 "x20": null,
 "days": 0
+},
+{
+"date": "2026-09-25",
+"kind": "押し目候補",
+"key": "4443",
+"name": "Sansan",
+"price": 2060.0,
+"nk": 66364.2,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-25",
+"kind": "押し目候補",
+"key": "5032",
+"name": "ANYCOLOR",
+"price": 2960.0,
+"nk": 66364.2,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-25",
+"kind": "相対力リーダー",
+"key": "6904",
+"name": "原田工業",
+"price": 885.0,
+"nk": 66364.2,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-25",
+"kind": "高値掴み注意",
+"key": "6904",
+"name": "原田工業",
+"price": 885.0,
+"nk": 66364.2,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-25",
+"kind": "好材料出尽くし",
+"key": "2983",
+"name": "Ｇ－アールプランナー",
+"price": 1644.0,
+"nk": 66364.2,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
 }
 ],
 "stats": [
@@ -503,7 +568,7 @@
 },
 {
 "kind": "好材料出尽くし",
-"count": 2,
+"count": 3,
 "n5": 0,
 "d5_median": null,
 "x5_median": null,
@@ -527,7 +592,7 @@
 },
 {
 "kind": "押し目候補",
-"count": 9,
+"count": 11,
 "n5": 0,
 "d5_median": null,
 "x5_median": null,
@@ -551,7 +616,7 @@
 },
 {
 "kind": "相対力リーダー",
-"count": 5,
+"count": 6,
 "n5": 0,
 "d5_median": null,
 "x5_median": null,
@@ -563,7 +628,7 @@
 },
 {
 "kind": "高値掴み注意",
-"count": 6,
+"count": 7,
 "n5": 0,
 "d5_median": null,
 "x5_median": null,
