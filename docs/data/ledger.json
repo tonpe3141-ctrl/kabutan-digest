@@ -403,7 +403,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "売買代金29位に新規ランクインし上昇率2位(+22.44%)。値動きの背景を裏付ける記事は見当たらず、記事での裏付けなし。",
    "note_url": null
   },
   {
@@ -433,8 +433,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "AIテーマの一角として株探の「話題株ピックアップ【夕刊】」にも名前が挙がり、上昇率8位・売買代金上位に新規ランクインした。",
+   "note_url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE82aWRjQ05nZERzbE9ZcG1PMlVYUThGdllFVnVIRFF5NXExUGRla0c5RHdEWmxhdnBWQi1iRUdMbDFMbGh6MkFvREFqMmVVWDIydTVMSTBMeEFXREtDekFmTA?oc=5"
   },
   {
    "code": "7322",
@@ -459,8 +459,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "銀行業が東証33業種で首位(+4.08%)となる中、上方修正・増配の開示を機械的に検知して引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率トップ3の筆頭に挙がっている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
   },
   {
    "code": "4436",
@@ -488,7 +488,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
    "note_url": null
   },
   {
@@ -514,8 +514,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "通期経常の上方修正・増配に加え負ののれん発生益の計上を開示し引っかかった。株探の業種別騰落ランキング記事でも卸売業の上昇率上位3銘柄に挙がっている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
   },
   {
    "code": "8346",
@@ -540,8 +540,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "中間・期末配当予想の増額修正を開示し引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率上位3銘柄に挙がっている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/58fa8dfa650f6470608ffe97a0d31b01cbf36949"
   },
   {
    "code": "1431",
@@ -566,7 +566,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
    "note_url": null
   }
  ],
