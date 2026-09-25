@@ -20,16 +20,20 @@
    "nikkei_at_flag": 64136.25,
    "track": {
     "d1": -1.89,
-    "d5": -3.68,
+    "d5": null,
     "d20": null,
     "last": -3.68,
     "last_date": "2026-09-24",
     "excess": -5.83,
-    "days": 5
+    "days": 2,
+    "worst": -3.68,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": null,
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
   },
   {
    "code": "4762",
@@ -48,16 +52,20 @@
    "nikkei_at_flag": 64136.25,
    "track": {
     "d1": -2.68,
-    "d5": -7.46,
+    "d5": null,
     "d20": null,
     "last": -7.46,
     "last_date": "2026-09-24",
     "excess": -9.61,
-    "days": 5
+    "days": 2,
+    "worst": -7.46,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": null,
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
   },
   {
    "code": "2788",
@@ -72,20 +80,22 @@
    "themes": [
     "自動車"
    ],
-   "price_at_flag": null,
-   "nikkei_at_flag": 64136.25,
+   "price_at_flag": 414.0,
+   "nikkei_at_flag": 66364.2,
    "track": {
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-17",
-    "excess": null,
-    "days": 5
+    "last": 0.0,
+    "last_date": "2026-09-25",
+    "excess": 0.0,
+    "days": 0,
+    "worst": 0.0
    },
    "status": "watching",
    "notes": null,
-   "note_url": null
+   "note_url": null,
+   "track_from": "2026-09-25"
   },
   {
    "code": "3498",
@@ -101,20 +111,22 @@
     "不動産",
     "データセンター"
    ],
-   "price_at_flag": null,
-   "nikkei_at_flag": 64136.25,
+   "price_at_flag": 7550.0,
+   "nikkei_at_flag": 66364.2,
    "track": {
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-17",
-    "excess": null,
-    "days": 5
+    "last": 0.0,
+    "last_date": "2026-09-25",
+    "excess": 0.0,
+    "days": 0,
+    "worst": 0.0
    },
    "status": "watching",
    "notes": null,
-   "note_url": null
+   "note_url": null,
+   "track_from": "2026-09-25"
   },
   {
    "code": "8798",
@@ -135,17 +147,21 @@
    "price_at_flag": 174.0,
    "nikkei_at_flag": 65018.95,
    "track": {
-    "d1": 0.0,
+    "d1": -19.54,
     "d5": null,
     "d20": null,
     "last": -19.54,
     "last_date": "2026-09-24",
     "excess": -20.3,
-    "days": 4
+    "days": 1,
+    "worst": -19.54,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "上昇率1位（+27.94%）かつ出来高が前日の60倍に急増し、決算開示日の商いとして引っかかった。引け後15:30に通期業績予想の修正と第3四半期決算短信を開示しているが、株探記事はプライム値上がり率首位と伝えるのみで、日中の急騰理由の裏付けなし。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd",
+   "tracked_by": "日足"
   },
   {
    "code": "6752",
@@ -166,17 +182,21 @@
    "price_at_flag": 4287.0,
    "nikkei_at_flag": 65018.95,
    "track": {
-    "d1": 0.0,
+    "d1": 5.16,
     "d5": null,
     "d20": null,
     "last": 5.16,
     "last_date": "2026-09-24",
     "excess": 4.4,
-    "days": 4
+    "days": 1,
+    "worst": 5.16,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "売買代金28位に新規ランクイン（+0.59%）し、電子部品テーマの初動として引っかかった。株探の大引け記事は「しっかり」と触れるだけで固有の材料は示しておらず、太陽誘電・村田製作所など電子部品の連想買いの一部とみられる。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a6ea5165da598f3849262e0b5eaff433b2060dbd",
+   "tracked_by": "日足"
   },
   {
    "code": "5367",
@@ -189,20 +209,22 @@
     "15:30 第２四半期業績予想の修正並びに通期業績予想の修正および配当予想の修正（増配）に関するお知らせ"
    ],
    "themes": [],
-   "price_at_flag": null,
-   "nikkei_at_flag": 65018.95,
+   "price_at_flag": 1398.0,
+   "nikkei_at_flag": 66364.2,
    "track": {
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-18",
-    "excess": null,
-    "days": 4
+    "last": 0.0,
+    "last_date": "2026-09-25",
+    "excess": 0.0,
+    "days": 0,
+    "worst": 0.0
    },
    "status": "watching",
    "notes": "引け後15:30に上期経常を37%上方修正し19期ぶりの上期最高益、通期も12%増額、上期配当を11円→15円に増額。株探の決算速報で裏付け済み。連休明けの寄りで反応しやすい。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/bac54434ba34d6cd95dbdf206811a5b124ce8499"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/bac54434ba34d6cd95dbdf206811a5b124ce8499",
+   "track_from": "2026-09-25"
   },
   {
    "code": "3075",
@@ -218,17 +240,21 @@
    "price_at_flag": 1729.0,
    "nikkei_at_flag": 65018.95,
    "track": {
-    "d1": 0.0,
+    "d1": -1.1,
     "d5": null,
     "d20": null,
     "last": -1.1,
     "last_date": "2026-09-24",
     "excess": -1.86,
-    "days": 4
+    "days": 1,
+    "worst": -1.1,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。前日16:03の株探見出し「27年2月期業績予想及び配当予想を上方修正」が材料とみられるが、本日の終値は前日比-1.2%と高値引けではない。見出しのみでURLなし。",
-   "note_url": null
+   "note_url": null,
+   "tracked_by": "日足"
   },
   {
    "code": "4062",
@@ -251,14 +277,18 @@
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-24",
-    "excess": null,
-    "days": 0
+    "last": 4.2,
+    "last_date": "2026-09-25",
+    "excess": 2.9,
+    "days": 0,
+    "worst": 4.2,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "半導体材料・データセンター関連として東証33業種の電気機器が首位となる中、上昇率・売買代金の両方で上位に入り引っかかった。株探の「本日の注目個別銘柄」にも挙げられている。",
-   "note_url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFB5RC1WTG1LY2tDTGdXdDV2d1pad3lnQ24zUGxHb2VQcmhwbFQ2dXlhaVZjakFDdUpyd1htb1pBQTktUXBWSUhpbzlLVnJiRFhMeUE?oc=5"
+   "note_url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTFB5RC1WTG1LY2tDTGdXdDV2d1pad3lnQ24zUGxHb2VQcmhwbFQ2dXlhaVZjakFDdUpyd1htb1pBQTktUXBWSUhpbzlLVnJiRFhMeUE?oc=5",
+   "tracked_by": "日足"
   },
   {
    "code": "7619",
@@ -271,46 +301,52 @@
     "15:40 中間配当予想の修正（増配）に関するお知らせ"
    ],
    "themes": [],
-   "price_at_flag": null,
-   "nikkei_at_flag": 65513.99,
+   "price_at_flag": 1040.0,
+   "nikkei_at_flag": 66364.2,
    "track": {
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-24",
-    "excess": null,
-    "days": 0
+    "last": 0.0,
+    "last_date": "2026-09-25",
+    "excess": 0.0,
+    "days": 0,
+    "worst": 0.0
    },
    "status": "watching",
    "notes": "引け際15:40に中間配当予想の増額修正を発表し機械的に引っかかった。記事での裏付けなし。",
-   "note_url": null
+   "note_url": null,
+   "track_from": "2026-09-25"
   },
   {
    "code": "410A",
    "name": "Ｇ－ＧＭＯコマース",
    "first_seen": "2026-09-24",
    "signals": [
-    "上方修正・増配"
+    "上方修正・増配",
+    "出来高急増×上昇"
    ],
    "why": [
-    "16:01 2026年12月期配当予想の修正（増配）に関するお知らせ"
+    "16:01 2026年12月期配当予想の修正（増配）に関するお知らせ",
+    "上昇率 9位、かつ出来高急増"
    ],
    "themes": [],
-   "price_at_flag": null,
-   "nikkei_at_flag": 65513.99,
+   "price_at_flag": 1280.0,
+   "nikkei_at_flag": 66364.2,
    "track": {
     "d1": null,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-09-24",
-    "excess": null,
-    "days": 0
+    "last": 0.0,
+    "last_date": "2026-09-25",
+    "excess": 0.0,
+    "days": 0,
+    "worst": 0.0
    },
    "status": "watching",
    "notes": "大引け後16:01に26年12月期の連結経常利益を6.5億円→7.3億円(+12.1%)に上方修正し、期末配当も50.56円→52.12円に増額したことが理由。今期から連結決算に移行したことも影響した可能性。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/89468387d8daa8d4956e79c91190e07168dd2c01"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/89468387d8daa8d4956e79c91190e07168dd2c01",
+   "track_from": "2026-09-25"
   },
   {
    "code": "2385",
@@ -329,54 +365,235 @@
     "d1": null,
     "d5": null,
     "d20": null,
+    "last": -8.23,
+    "last_date": "2026-09-25",
+    "excess": -9.53,
+    "days": 0,
+    "worst": -8.23,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "627A",
+   "name": "ａｋｉｐｐａ",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "新規の資金流入",
+    "上昇率×売買代金"
+   ],
+   "why": [
+    "売買代金 29位に新規ランクイン（+22.44%）",
+    "上昇率 2位、かつ売買代金上位"
+   ],
+   "themes": [],
+   "price_at_flag": 1637.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
     "last": null,
-    "last_date": "2026-09-24",
+    "last_date": "2026-09-25",
     "excess": null,
     "days": 0
    },
    "status": "watching",
-   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "3905",
+   "name": "データセクション",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "新規の資金流入",
+    "上昇率×売買代金"
+   ],
+   "why": [
+    "売買代金 27位に新規ランクイン（+14.94%）",
+    "上昇率 8位、かつ売買代金上位"
+   ],
+   "themes": [
+    "AI"
+   ],
+   "price_at_flag": 2077.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "7322",
+   "name": "３３ＦＧ",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "12:30 業績予想の修正及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 2238.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "4436",
+   "name": "ミンカブ・ジ・インフォノイド",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [
+    "金融サービス",
+    "ITサービス"
+   ],
+   "price_at_flag": 715.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "8154",
+   "name": "加賀電子",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "12:30 2027年３月期通期業績予想の修正（上方修正）、配当予想の修正（増配）ならびに特別利益（負ののれん発生益）の計上に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 5420.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "8346",
+   "name": "東邦銀",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "12:00 2027年３月期中間配当予想および期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1097.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
+  },
+  {
+   "code": "1431",
+   "name": "Ｌｉｂ　Ｗｏｒｋ",
+   "first_seen": "2026-09-25",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 648.0,
+   "nikkei_at_flag": 66364.2,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-09-25",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
    "note_url": null
   }
  ],
  "stats": {
   "asof": "2026-09-24",
-  "by_signal": [
-   {
-    "signal": "新規の資金流入",
-    "count": 1,
-    "d5_median": -3.68,
-    "hit_rate": 0.0
-   },
-   {
-    "signal": "上昇率×売買代金",
-    "count": 1,
-    "d5_median": -3.68,
-    "hit_rate": 0.0
-   },
-   {
-    "signal": "出来高急増×上昇",
-    "count": 1,
-    "d5_median": -7.46,
-    "hit_rate": 0.0
-   },
-   {
-    "signal": "年初来高値×商い",
-    "count": 1,
-    "d5_median": -7.46,
-    "hit_rate": 0.0
-   }
-  ],
+  "by_signal": [],
   "overall": {
-   "count": 4,
-   "d5_median": -5.57
-  }
+   "count": 0,
+   "d5_median": null,
+   "hit_rate": null,
+   "x5_median": null,
+   "beat5": null,
+   "n20": 0,
+   "d20_median": null,
+   "x20_median": null,
+   "enough": false
+  },
+  "min_count": 10
  },
- "updated_at": "2026-09-24",
+ "updated_at": "2026-09-25",
  "added_today": [
-  "4062",
-  "7619",
-  "410A",
-  "2385"
+  "627A",
+  "3905",
+  "7322",
+  "4436",
+  "8154",
+  "8346",
+  "1431"
  ]
 }
