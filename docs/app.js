@@ -789,11 +789,40 @@ function effectiveWatchlist(d) {
     local = null;
   }
   const codes = local || serverCodes;
-  return codes.map((c) => byCode.get(String(c)) || { code: String(c), pending: true });
+  const missing = codes.filter((c) => !byCode.has(String(c)));
+  const fallback = missing.length ? localQuotes(missing.map(String)) : new Map();
+  return codes.map((c) => byCode.get(String(c))
+    || Object.assign({ code: String(c) }, fallback.get(String(c)) || {}, { pending: true }));
+}
+
+/* サーバの watchlist.json に無いコード（端末だけで登録した分）は、手元にあるデータで埋める。
+   温度計の日足（thermo.json: 225採用・台帳・テーマ辞書の銘柄）→ 今日の一覧・直近の履歴の順。 */
+function localQuotes(codes) {
+  const out = new Map();
+  const stocks = (THERMO || {}).stocks || {};
+  codes.forEach((c) => {
+    const st = stocks[c];
+    if (st && isNum(st.price)) {
+      out.set(c, { name: st.n, price: st.price, change_pct: st.d1, sector: st.s, asof: THERMO.asof });
+    }
+  });
+  const rest = codes.filter((c) => !out.has(c));
+  if (rest.length) {
+    searchIndex().forEach((x) => {
+      if (!rest.includes(x.code) || out.has(x.code) || !isNum(x.price)) return;
+      out.set(x.code, { name: x.name, price: x.price, change_pct: x.change_pct });
+    });
+  }
+  return out;
+}
+
+function hasGitHubToken() {
+  try { return !!localStorage.getItem(LS.token); } catch (e) { return false; }
 }
 
 function watchlistCard(d, id) {
   const items = effectiveWatchlist(d);
+  const linked = hasGitHubToken();
   const editBtn = h('button', { class: 'btn btn--ghost', type: 'button', text: '編集', onclick: () => openSheet(d) });
 
   if (!items.length) {
@@ -806,7 +835,10 @@ function watchlistCard(d, id) {
     if (s.sector) meta.push(h('span', { text: s.sector }));
     (s.tags || []).forEach((t) => meta.push(h('span', { class: 'tag', text: t })));
     (s.disclosures || []).forEach((m) => meta.push(h('span', { class: 'tag tag--warn', text: '📄 ' + m })));
-    if (s.pending) meta.push(h('span', { text: '次回更新後に反映' }));
+    if (s.pending) {
+      if (s.asof) meta.push(h('span', { text: fmtDate(s.asof, { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' }) + ' 終値' }));
+      meta.push(h('span', { class: 'tag tag--warn', text: linked ? 'リポジトリ反映待ち' : 'この端末だけ' }));
+    }
     return h('a', { class: 'row', href: stockUrl(s.code), target: '_blank', rel: 'noopener' }, [
       h('div', { class: 'row__rank' }, []),
       h('div', { class: 'row__main' }, [
@@ -815,13 +847,22 @@ function watchlistCard(d, id) {
       ]),
       h('div', { class: 'row__right' }, [
         isNum(s.price) ? h('div', { class: 'row__price num', text: fmtPrice(s.price) }) : null,
-        h('div', { class: 'row__delta num ' + cls(s.change_pct), text: s.pending ? '—' : fmtPct(s.change_pct) }),
+        h('div', { class: 'row__delta num ' + cls(s.change_pct), text: isNum(s.change_pct) ? fmtPct(s.change_pct) : '—' }),
       ]),
     ]);
   }));
   const hits = items.filter((s) => (s.tags || []).length || (s.disclosures || []).length);
-  return card('ウォッチリスト', editBtn, rows,
-    hits.length ? `${hits.length}銘柄が今日のランキング／開示に登場しています。` : null, true, id);
+  const notes = [];
+  if (hits.length) notes.push(`${hits.length}銘柄が今日のランキング／開示に登場しています。`);
+  const pending = items.filter((s) => s.pending).length;
+  if (pending) {
+    notes.push(linked
+      ? `${pending}銘柄はまだリポジトリに届いていません。「編集」→「保存して反映」をもう一度押してください。`
+      : `${pending}銘柄はこの端末にだけ保存されていて、サーバ側の収集は対象にしていません（開示・ランキングの突き合わせ、保有チェックは行われません）。`
+        + '「編集」→「連携設定」で GitHub トークンを保存し、「保存して反映」を押すとリポジトリに書き込まれます。');
+    notes.push('株価は手元のデータ（温度計の日足・今日の一覧）から埋めたもので、無い銘柄は「—」です。');
+  }
+  return card('ウォッチリスト', editBtn, rows, notes.join(' ') || null, true, id);
 }
 
 /* ==================== 発掘 ==================== */
@@ -2305,7 +2346,8 @@ function openSheet(d) {
   $('wlToken').value = localStorage.getItem(LS.token) || '';
   $('wlStatus').textContent = '';
   $('wlStatus').className = 'status';
-  $('wlSettingsBox').hidden = true;
+  // 端末だけの登録が残っていてトークンも無いなら、最初から連携設定を開いておく
+  $('wlSettingsBox').hidden = !(items.some((s) => s.pending) && !hasGitHubToken());
   drawSheet();
   $('wlSheet').showModal();
 }
@@ -2382,8 +2424,13 @@ function bindSheet() {
     setStatus('この端末に保存しました。反映中…');
     try {
       const r = await pushToGitHub(sheetCodes);
-      setStatus(r.synced ? 'リポジトリに保存しました。株価の取得が走ります（数分後に再読み込みしてください）'
-                         : 'この端末に保存しました。株価は次回の自動更新で取得されます', 'ok');
+      if (r.synced) {
+        setStatus('リポジトリに保存しました。株価の取得が走ります（数分後に再読み込みしてください）', 'ok');
+      } else {
+        // トークンが無いとサーバは端末の編集内容を知る手段がない（自動更新を待っても反映されない）
+        setStatus('この端末にだけ保存しました。サーバ側の収集に載せるには、下の連携設定でトークンを保存してから、もう一度「保存して反映」を押してください', 'err');
+        $('wlSettingsBox').hidden = false;
+      }
     } catch (e) {
       setStatus('端末には保存しましたが、リポジトリ側は失敗しました: ' + e.message, 'err');
     }
