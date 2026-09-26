@@ -128,6 +128,9 @@ jobs:
         run: |
           args="--slot ${{ steps.slot.outputs.slot }}"
           if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
+          # 保険の cron は、Routine の合図でその日の区分が既に作られていれば何もしない
+          # （2〜7時間遅れて発火し、夜に取り直して東証33業種や記事が欠けた実測があるため）
+          if [ "${{ github.event_name }}" = "schedule" ]; then args="$args --insurance"; fi
           python -m dashboard.build $args
 
       # 古い app.js をブラウザが掴んだままにならないよう内容ハッシュを打つ

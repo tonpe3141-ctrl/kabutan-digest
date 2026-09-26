@@ -294,7 +294,7 @@ ZONES = [
     (62, "楽観", "warm",
      "買うなら押し目を待つ局面。急騰した銘柄を追いかけるより、25日線まで下がるのを待つ"),
     (39, "中立", "neutral",
-     "全体の方向感は中立。個別の押し目・売られすぎを選んで拾う局面"),
+     "全体の方向感は中立。いま効いている型に当てはまる個別の候補を選んで拾う局面"),
     (21, "悲観", "cool",
      "悲観に傾いている。狼狽売りは避け、分割で拾い始める候補を探す局面"),
     (-1, "総悲観", "cold",
@@ -552,10 +552,13 @@ def stock_metrics(xs: list[float]) -> dict | None:
     if len(xs) < 30:
         return None
     ma25, ma75 = sma(xs, 25), sma(xs, 75)
+    ma25_before = sma(xs[:-5], 25)
     hi = max(xs[-120:])
     return {"price": xs[-1], "d1": r2(ret(xs, 1)), "r5": r1(ret(xs, 5)), "r20": r1(ret(xs, 20)),
             "r60": r1(ret(xs, 60)), "rsi": r1(rsi(xs)), "dev25": r1(dev(xs, 25)),
             "ma25": px(ma25), "ma75": px(ma75),
+            # 25日線の向き（5営業日前の25日線からの変化率）。上向きに変わったかを見る
+            "slope25": r2(pct(ma25, ma25_before)) if ma25 and ma25_before else None,
             "from_hi": r1(pct(xs[-1], hi)), "vol": r2(daily_vol(xs)),
             "lo20": px(min(xs[-20:])), "hi60": px(max(xs[-60:])), "hi120": px(hi)}
 
@@ -581,6 +584,14 @@ def is_leader(mt: dict, rs: int | None) -> bool:
                 and fh is not None and fh >= LEADER_FROM_HI)
 
 
+# 2026-09-26 に足した型（DESIGN.md 11章）。どちらも毎日の検証（setup_backtest）で効き目を測り直す。
+#   深押し   : 上昇トレンド（60日+5%以上・25日線≧75日線）の中で、5日で −7% 以上の急落
+#   上向き転換: 25日線が上を向き（5営業日前より上）、株価が25日線の上。ただし25日線はまだ75日線の下
+#               （下落トレンドからの転換の初動）。25日線から離れすぎたもの（+8%超）は追いかけになるので外す
+DEEP_DIP_R5 = -7.0
+TURN_MAX_DEV = 8.0
+
+
 def stock_class(mt: dict, rs_rank: int | None = None) -> list[str]:
     """個別株の分類（複数可）。順序は表示の優先度。"""
     out = []
@@ -600,18 +611,30 @@ def stock_class(mt: dict, rs_rank: int | None = None) -> list[str]:
         out.append("下落トレンド")
     if is_leader(mt, rs_rank):
         out.append("相対力リーダー")
+    if (r5 is not None and r5 <= DEEP_DIP_R5 and r60 is not None and r60 >= 5
+            and ma25 and ma75 and ma25 >= ma75):
+        out.append("深押し")
+    p, slope = mt.get("price"), mt.get("slope25")
+    if (p and ma25 and ma75 and slope is not None and slope > 0 and p > ma25 and ma25 < ma75
+            and dv is not None and dv <= TURN_MAX_DEV):
+        out.append("上向き転換")
     return out
 
 
 # ==================== 売買計画（買う目安・損切り・利確の目安） ====================
 # すべて終値と日々の値幅から機械的に出す「計算上の目安」。予測ではない。
-#   損切り: 直近20日の安値の1%下。ただし日々の値幅（60日の標準偏差）の1.5〜3倍の範囲に収める
-#           （近すぎるとノイズで掛かり、遠すぎると1回の損が大きくなるため）
+#   損切り: 直近20日の安値の1%下。ただし日々の値幅（60日の標準偏差）の2.5〜3.5倍の範囲に収める
+#           （近すぎるとふだんの揺れで掛かり、遠すぎると1回の損が大きくなるため）。
+#           2026-09-26 に 1.5〜3倍 から広げた: 1.5倍は1日の揺れの範囲で、損切りの直後に戻される形が多かった
+#           （389銘柄×約50営業日の再現で、押し目の勝率 45%→53%、平均Rは +0.27→+0.28。DESIGN.md 11章）
 #   利確  : 押し目・リーダーは60日高値（直近の戻り高値）、売られすぎ・出尽くしは25日線（平均への戻り）。
-#           20営業日で届く距離を目安にするため、120日高値のような遠い高値は使わない
+#           ただし20営業日のふだんの値幅（日々の値幅×√20）の1.5倍までに抑える。届きそうにない利確で
+#           R倍を大きく見せないため
 #   R倍   : (利確 − 買い) ÷ (買い − 損切り)。1回の損を1としたときの、狙える幅
-STOP_MIN_VOL = 1.5
-STOP_MAX_VOL = 3.0
+STOP_MIN_VOL = 2.5
+STOP_MAX_VOL = 3.5
+TARGET_MAX_SIGMA = 1.5
+HOLD_DAYS = 20
 PLAN_KINDS = ("dip", "oversold", "leader", "price")
 
 
@@ -621,6 +644,8 @@ def plan_kind(cls: list[str], ev: dict | None = None) -> str:
         return "dip"                     # 25日線まで待つ
     if "売られすぎ・下げ止まり" in cls or (ev and str(ev.get("label", "")).startswith("悪材料出尽くし")):
         return "oversold"
+    if "深押し" in cls:
+        return "oversold"                # 急落の戻り（25日線まで）を狙う
     if "相対力リーダー" in cls:
         return "leader"
     return "price"
@@ -649,6 +674,9 @@ def trade_plan(mt: dict, kind: str = "price") -> dict | None:
         target, target_by = (ma25, "ma25") if ma25 and ma25 > entry else (None, None)
     else:
         target, target_by = (hi, "hi60") if hi and hi > entry + 0.5 * risk else (None, None)
+    cap = entry * (1 + TARGET_MAX_SIGMA * v * HOLD_DAYS ** 0.5)
+    if target and target > cap:
+        target, target_by = cap, "cap"            # 20営業日で届く距離に抑える
     rr = (target - entry) / risk if target and risk > 0 else None
     return {"kind": kind, "entry": px(entry), "entry_by": entry_by, "to_entry": r1(pct(entry, p)),
             "stop": px(stop), "stop_by": stop_by, "stop_pct": r1(pct(stop, entry)),
@@ -700,6 +728,8 @@ SETUPS = [
     ("押し目", "up", "dip"),
     ("売られすぎ・下げ止まり", "up", "oversold"),
     ("相対力リーダー", "up", "leader"),
+    ("深押し", "up", "oversold"),
+    ("上向き転換", "up", "price"),
     ("高値掴み注意", "down", None),
     ("下落トレンド", "down", None),
 ]
@@ -1096,7 +1126,7 @@ def track_update(track: dict, today: str, picks: list[dict], ret_of, nikkei_now:
 # ==================== 作戦ボード（今日、計画を立てられる銘柄） ====================
 BOARD_MIN_RR = 1.5          # 利確の目安までが損切り幅の1.5倍に満たないものは載せない
 BOARD_MAX_STOP = 12.0       # 損切りまで12%を超える（値動きが荒すぎる）ものは載せない
-BOARD_SETUPS = ("押し目", "売られすぎ・下げ止まり", "相対力リーダー")
+BOARD_SETUPS = ("押し目", "深押し", "上向き転換", "売られすぎ・下げ止まり", "相対力リーダー")
 TONE_ORDER = {"chance": 0, "info": 1, "warn": 2}
 
 
@@ -1106,6 +1136,8 @@ def action_board(rows: dict[str, dict], setups: dict | None, ledger: dict[str, d
 
     rows: thermo_run の stock_rows（cls・plan・ev を持つ）。ledger: 台帳で追跡中の {code: entry}。
     過熱（高値掴み注意）、利確までが近すぎるもの（R倍 < 1.5）、損切りまでが遠すぎるもの（12%超）は載せない。
+    直近の検証で「効いていない」型だけに当てはまる銘柄も載せない（負けている型で入らない）。
+    複数の型に当てはまるときは、成績の良い型で載せる。
     """
     verdict = {s["setup"]: s for s in (setups or {}).get("setups") or []}
     ledger = ledger or {}
@@ -1114,7 +1146,10 @@ def action_board(rows: dict[str, dict], setups: dict | None, ledger: dict[str, d
         cls = r.get("cls") or []
         if "高値掴み注意" in cls:
             continue
-        setup = next((s for s in BOARD_SETUPS if s in cls), None)
+        live = [s for s in BOARD_SETUPS if s in cls and (verdict.get(s) or {}).get("verdict") != "効いていない"]
+        live.sort(key=lambda s: (TONE_ORDER.get((verdict.get(s) or {}).get("tone"), 1),
+                                 -((verdict.get(s) or {}).get("avg_r") or 0)))
+        setup = live[0] if live else None
         ev = r.get("ev")
         if not setup and ev and str(ev.get("label", "")).startswith("悪材料出尽くし"):
             setup = "悪材料出尽くし"
@@ -1139,6 +1174,71 @@ def action_board(rows: dict[str, dict], setups: dict | None, ledger: dict[str, d
                     "verdict": v.get("verdict"), "tone": v.get("tone") or "info",
                     "price": r.get("price"), "d1": r.get("d1"), "rsi": r.get("rsi"), "rs": r.get("rs"),
                     "plan": plan, "ledger": bool(led), "why": why})
-    out.sort(key=lambda x: (TONE_ORDER.get(x["tone"], 1), not x["ledger"],
+    avg_r = {k: (v.get("avg_r") or 0) for k, v in verdict.items()}
+    out.sort(key=lambda x: (TONE_ORDER.get(x["tone"], 1), not x["ledger"], -avg_r.get(x["setup"], 0),
                             -(x["plan"].get("rr") or BOARD_MIN_RR), x["code"]))
     return out[:limit]
+
+
+# ==================== 今日のスタンス（攻め／選んで小さく／守り） ====================
+# 画面の先頭に出す「今日どうするか」。地合い（日経平均の25日線・75日線）、いま効いている買いの型、
+# 温度帯の過去の成績の3つを −1／0／+1 で数え、合計で決める。どの条件で何点かは reasons にそのまま出す。
+# risk は「1回の損の上限」に掛ける倍率（負けやすい地合いでは株数を減らす）。予測ではなく、資金管理の目安。
+STANCES = [
+    # (合計の下限, キー, 名前, 1回の損に掛ける倍率, 読み方)
+    (2, "attack", "攻め", 1.0, "効いている型の候補を、計画どおりの株数で。損切りの価格は先に決める"),
+    (0, "select", "選んで小さく", 0.5, "効いている型の候補だけを、株数は通常の半分で。上がった銘柄の追いかけ買いはしない"),
+    (-99, "defend", "守り", 0.25, "新規の買いは見送るか、通常の1/4の株数で試すだけ。保有株は損切りの価格を確かめる"),
+]
+STANCE_ZONE_EDGE = 1.0   # 温度帯の20日後の中央値が全期間よりこれ以上良い／悪いときに ±1
+
+
+def market_stance(market: dict | None, setups: dict | None, nk_closes: list[float],
+                  bt: dict | None = None) -> dict | None:
+    """今日のスタンス。market: market_thermo、setups: setup_backtest、nk_closes: 日経平均の終値（古い順）。"""
+    reasons = []
+    score = 0
+    if len(nk_closes) >= 75:
+        p, m25, m75 = nk_closes[-1], sma(nk_closes, 25), sma(nk_closes, 75)
+        where = f"日経平均 {p:,.0f}、25日線 {m25:,.0f}・75日線 {m75:,.0f}"
+        if p > m25 > m75:
+            score += 1
+            reasons.append({"pt": 1, "text": f"{where}。両方の上で上昇基調"})
+        elif p < m25 < m75:
+            score -= 1
+            reasons.append({"pt": -1, "text": f"{where}。両方の下で下落基調"})
+        else:
+            reasons.append({"pt": 0, "text": f"{where}。線がねじれていて方向感がはっきりしない"})
+    rows = (setups or {}).get("setups") or []
+    buy = [s for s in rows if s.get("expect") == "up"]
+    works = [s["setup"] for s in buy if s.get("verdict") == "効いている"]
+    fails = [s["setup"] for s in buy if s.get("verdict") == "効いていない"]
+    if buy:
+        if works:
+            score += 1
+            reasons.append({"pt": 1, "text": "直近の検証で全銘柄を上回っている買いの型: " + "・".join(works)})
+        else:
+            score -= 1
+            reasons.append({"pt": -1, "text": "直近の検証で全銘柄を上回っている買いの型が無い"
+                            + (f"（下回っている: {'・'.join(fails)}）" if fails else "")})
+    if market and market.get("temp") is not None:
+        zone = market.get("zone")
+        zr = next((z for z in (bt or {}).get("zones") or [] if z.get("zone") == zone), None)
+        base = ((bt or {}).get("all") or {}).get("median20")
+        if zr and zr.get("median20") is not None and base is not None and (zr.get("n20") or 0) >= 20:
+            diff = zr["median20"] - base
+            txt = (f"温度 {market['temp']}（{zone}）。過去この帯の日の20日後の日経平均は中央値 {zr['median20']:+.1f}%"
+                   f"（全期間 {base:+.1f}%）")
+            pt = 1 if diff >= STANCE_ZONE_EDGE else -1 if diff <= -STANCE_ZONE_EDGE else 0
+            score += pt
+            reasons.append({"pt": pt, "text": txt})
+        if zone == "過熱":
+            score -= 1
+            reasons.append({"pt": -1, "text": "温度が「過熱」。良い材料が出そろった形で、高値掴みになりやすい"})
+    if not reasons:
+        return None
+    for lo, key, name, risk, text in STANCES:
+        if score >= lo:
+            return {"key": key, "label": name, "risk": risk, "text": text, "score": score, "reasons": reasons,
+                    "works": works, "fails": fails}
+    return None

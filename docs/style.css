@@ -598,3 +598,53 @@ details.risk .hint { margin: 6px 0 10px; }
 .lgroup__head .badge { align-self: flex-start; }
 .lgroup__desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
 table.bt--setup thead th:first-child { text-align: left; }
+
+/* 今日の結論（スタンス・買うなら・避ける・見張り） */
+.decision { border-left: 4px solid var(--accent); }
+.decision--ok { border-left-color: var(--ok); }
+.decision--warn { border-left-color: var(--warn); }
+.decision__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.decision__k { font-size: 11.5px; color: var(--text-dim); font-weight: 700; }
+.decision__label { font-size: 24px; font-weight: 850; letter-spacing: -.01em; line-height: 1.25; }
+.decision__label--ok { color: var(--ok); }
+.decision__label--accent { color: var(--accent); }
+.decision__label--warn { color: var(--warn); }
+.decision__aside { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.decision__text { font-size: 13.5px; font-weight: 650; line-height: 1.6; margin: 6px 0 4px; }
+.decision__reasons { list-style: none; padding: 0; margin: 6px 0 0; }
+.decision__reasons li { display: grid; grid-template-columns: 1.4em 1fr; gap: 4px; font-size: 12.5px; line-height: 1.55; color: var(--text-dim); padding: 2px 0; }
+.decision__pt { font-weight: 850; text-align: center; }
+.decision__block { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.decision__bh { font-size: 11.5px; font-weight: 750; color: var(--text-dim); margin-bottom: 4px; }
+.decision__row {
+  appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
+  width: 100%; padding: 7px 0; cursor: pointer; display: block; border-top: 1px solid var(--border);
+}
+.decision__block .decision__row:first-child { border-top: 0; }
+.decision__rowhead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.decision__rowhead .row__name { font-size: 14px; }
+.decision__code { font-size: 11px; color: var(--text-faint); }
+.badge--btn { appearance: none; border: 0; font: inherit; font-size: 11px; cursor: pointer; white-space: normal; text-align: left; }
+.risk__toggle { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.5; }
+.risk__toggle input { margin-top: 3px; }
+
+/* 買う前チェックの日足チャート（終値・25日線・75日線・計画の横線） */
+.pc { margin: 10px 0 2px; }
+.pc__svg { display: block; width: 100%; height: 150px; }
+.pc__close { fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linejoin: round; }
+.pc__ma25 { fill: none; stroke: var(--series-tp); stroke-width: 1.3; }
+.pc__ma75 { fill: none; stroke: var(--series-nk); stroke-width: 1.3; stroke-dasharray: 4 3; }
+.pc__lv { stroke-width: 1; stroke-dasharray: 5 3; }
+.pc__lv--entry { stroke: var(--accent); }
+.pc__lv--stop { stroke: var(--down); }
+.pc__lv--target { stroke: var(--up); }
+.pc__lt { font-size: 9px; font-weight: 700; }
+.pc__lt--entry { fill: var(--accent); }
+.pc__lt--stop { fill: var(--down); }
+.pc__lt--target { fill: var(--up); }
+.pc__legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
+.pc__k::before { content: ""; display: inline-block; width: 12px; height: 2px; vertical-align: middle; margin-right: 4px; }
+.pc__k--close::before { background: var(--text); }
+.pc__k--ma25::before { background: var(--series-tp); }
+.pc__k--ma75::before { background: var(--series-nk); }
+.pc__axis { margin-left: auto; }
