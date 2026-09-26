@@ -418,9 +418,42 @@ def run(slot: str, target_date: date | None = None) -> dict:
     return payload
 
 
+def refresh_watchlist() -> dict:
+    """アプリからウォッチリストを保存したとき（watchlist.json の push）に走る。
+
+    区分を作り直さず、latest.json の既存の各区分の watchlist だけを差し替える。
+    以前は通常の収集（--slot auto）を走らせていたが、休場日や時間外に走ると
+    前営業日の区分が消え、休場日の区分と履歴ができてしまっていた（2026-09-26 土曜の実測）。
+    ランキング・開示との突き合わせは、その区分が保存済みの一覧で行う。
+    """
+    latest = store.load_latest()
+    slots = latest.get("slots") or {}
+    if not slots:
+        print("  latest.json に区分が無いため、ウォッチリストは次回の収集で反映します")
+        return latest
+    codes = store.load_watchlist().get("codes", [])
+    quotes = {}
+    if codes:
+        print(f"  [CNBC] ウォッチリスト {len(codes)} 銘柄を取得中...")
+        quotes = _safe("ウォッチリスト", lambda: cnbc.fetch_jp_stocks(codes), {}) or {}
+    for name, s in slots.items():
+        data = s.get("data") or {}
+        if name == "preopen":
+            tables, disc = {}, (data.get("carryover") or {}).get("after_hours_kessan") or []
+        else:
+            tables = data.get("tables") or {}
+            disc = [r for key in ("kessan_after", "kessan_intraday")
+                    for r in (tables.get(key) or {}).get("rows") or []]
+        data["watchlist"] = _fetch_watchlist(tables, disc, quotes)
+        print(f"    ✅ {name}: {len(data['watchlist'])} 銘柄")
+    latest["generated_at"] = store.now_jst().isoformat(timespec="seconds")
+    store.save_latest(latest)
+    return latest
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="マーケットダッシュボードのデータ生成")
-    parser.add_argument("--slot", choices=SLOTS + ["auto"], default="auto")
+    parser.add_argument("--slot", choices=SLOTS + ["auto", "watchlist"], default="auto")
     parser.add_argument("--date", help="対象日 YYYYMMDD（省略時は今日）")
     args = parser.parse_args(argv)
 
@@ -431,6 +464,9 @@ def main(argv=None):
         except ValueError:
             parser.error(f"日付形式が不正です: {args.date}（例: 20260906）")
 
+    if args.slot == "watchlist":
+        refresh_watchlist()
+        return
     run(resolve_slot() if args.slot == "auto" else args.slot, target_date)
 
 
