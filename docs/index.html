@@ -102,8 +102,9 @@
       <h3 style="font-size:13px;margin:0 0 6px">GitHub 連携（任意）</h3>
       <p class="hint">
         トークンを登録すると、このページから直接ウォッチリストを保存でき、
-        保存と同時にデータ再取得が走ります。未登録でも編集内容はこの端末に保存され、
-        次回の自動更新まで株価は「未取得」表示になります。<br>
+        保存と同時にデータ再取得が走ります。未登録だと編集内容は<b>この端末にだけ</b>保存され、
+        サーバ側は登録を知らないため、自動更新を待っても開示・ランキングの突き合わせには載りません
+        （株価は手元のデータから分かる範囲だけ表示します）。<br>
         推奨は <b>Fine-grained personal access token</b>／対象リポジトリを
         <code>kabutan-digest</code> のみに限定／権限は <code>Contents: Read and write</code> だけ。
         トークンはこの端末のブラウザ内にのみ保存されます。
@@ -122,6 +123,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=8185f470"></script>
+<script src="app.js?v=a69fe999"></script>
 </body>
 </html>
