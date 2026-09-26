@@ -12,6 +12,10 @@
 """
 import re
 
+# 買う側の型（dashboard/thermo.py の SETUPS のうち expect="up"）
+BUY_SETUPS = ("押し目", "深押し", "上向き転換", "売られすぎ・下げ止まり", "相対力リーダー")
+
+
 # ==================== 文章づくりの小道具 ====================
 def _clean_name(name: str | None) -> str:
     if not name:
@@ -365,8 +369,12 @@ def thermo_section(th: dict | None) -> dict | None:
     """温度計の要約を1節にする。数字は thermo_run.summary の値だけを使う。"""
     if not th or th.get("temp") is None:
         return None
-    out = [f"相場温度は {th['temp']}（{th['zone']}）。{th['n']}つの軸のうち追い風 {th['tailwind']}・"
-           f"向かい風 {th['headwind']}"]
+    out = []
+    st = th.get("stance")
+    if st:
+        out.append(f"今日のスタンスは「{st['label']}」（{st['text']}）")
+    out.append(f"相場温度は {th['temp']}（{th['zone']}）。{th['n']}つの軸のうち追い風 {th['tailwind']}・"
+               f"向かい風 {th['headwind']}")
     if th.get("consensus"):
         out.append(f"ほぼすべての軸が同じ向き（{th['consensus']}）")
     if th.get("temp_before") is not None:
@@ -382,9 +390,9 @@ def thermo_section(th: dict | None) -> dict | None:
                    "、".join(f"{p['sector']}（{p['class']}）" for p in picks))
     if th.get("sector_hot"):
         out.append("短期で上がりすぎの業種は " + "、".join(th["sector_hot"][:3]) + "。追いかけ買いは控えめに")
-    # 買う側の型（押し目・売られすぎ・リーダー）の直近の成績。警告の型は作戦タブに任せる
+    # 買う側の型の直近の成績。警告の型は作戦タブに任せる
     buy = [s for s in th.get("setups") or [] if s.get("verdict") in ("効いている", "効いていない")
-           and s["setup"] in ("押し目", "売られすぎ・下げ止まり", "相対力リーダー")]
+           and s["setup"] in BUY_SETUPS]
     works = [s["setup"] for s in buy if s["verdict"] == "効いている"]
     fails = [s["setup"] for s in buy if s["verdict"] == "効いていない"]
     w, f = "」「".join(works), "」「".join(fails)

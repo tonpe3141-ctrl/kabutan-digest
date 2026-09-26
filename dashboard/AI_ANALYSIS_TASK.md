@@ -129,10 +129,11 @@ git pull --rebase origin main
   `articles[]`（Yahoo!ファイナンス配信の株探記事。`{headline, timestamp, body, url}`）。
   見出しは「話題株ピックアップ【夕刊】（1）：Ａ、Ｂ、Ｃ」のように、それ自体が要約になっている。
 - **`news[]`**: Yahoo!ファイナンス マーケットAIトピックス。`{headline, category, timestamp, body, url, source}`。
-- **`thermo`**（全スロット）: 相場温度計の要約。`temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
+- **`thermo`**（全スロット）: 相場温度計の要約。`stance`（今日のスタンス: `label` 攻め／選んで小さく／守り、
+  `risk` は株数に掛ける倍率、`reasons[]` は地合い・効いている型・温度帯の過去の成績の ＋1／±0／－1 と根拠の文）, `temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
   `consensus`（全面追い風／全面向かい風）, `factors[]`（8軸の `score` −2〜+2 と `change` 改善／悪化、`text` に根拠の数字）,
   `turning`（底打ち／天井打ちの兆し）, `sector_picks`（押し目・下げ止まりの業種）, `sector_hot`, `dip` / `oversold` / `hot` /
-  `bad_out` / `good_out`（銘柄）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）,
+  `bad_out` / `good_out` / `deep`（深押し: 上昇トレンド中の急落）/ `turn`（上向き転換: 25日線が上を向いた初動）（銘柄）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）,
   `setups[]`（型ごとの直近成績: `verdict` 効いている／効いていない／はっきりしない、`x5`・`x20` は全銘柄比、`avg_r` は計画どおりに売買した場合の平均R）,
   `board[]`（作戦ボードの上位: 型・買う目安 `entry`・損切り `stop`・利確の目安 `target`・`rr`）。
   詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・判定の成績 `track[]`・型の成績 `setups.setups[]`）
@@ -170,6 +171,8 @@ git pull --rebase origin main
 - `sector_picks` / `dip` / `hot` のうち記事で背景が分かるもの。「買い」「売り」と断定せず、
   「押し目を待つ」「追いかけは控えめに」「分割で」の言い方にとどめる
 - `backtest` で温度帯の過去の成績が逆張りの読みと食い違っているときは、そのことも書く（都合の良い読みだけを書かない）
+- `stance` があれば、その `label` を見出しか冒頭で1回だけ伝える（例:「今日は『選んで小さく』」）。
+  スタンスを自分で付け直さない。`reasons` の数字はそのまま使う
 - `setups` で「効いていない」型があれば、その型の候補（例: `oversold`）を勧める書き方をしない。効いている型が無い日は
   「見送る・小さく」も選択肢として書く。`board` の価格・R倍は数字をそのまま使い、自分で計算し直さない
 
@@ -241,7 +244,8 @@ git push --force origin HEAD:main || echo "force push も拒否。報告して�
 - タイトル: `{SLOT} の日本語名`（寄り前 / 前場 / 大引）＋ 日付
 - 本文: 4a の `headline`。大引で台帳に今日の新規候補があれば銘柄名を 3 つまで添える。
   `thermo.zone` が「過熱」「総悲観」のとき、`thermo.consensus` があるとき、または前回の通知から帯が変わったときは、
-  本文の先頭に `温度{temp}・{zone}` を付ける（例: 「温度84・過熱｜…」）。`watch_guard` があれば「ウォッチ: {銘柄名}に注意書き」を1行添える。
+  本文の先頭に `温度{temp}・{zone}` を付ける（例: 「温度84・過熱｜…」）。`thermo.stance` があれば本文の末尾に
+  「スタンス: {label}」を1行添える（通知だけ見て今日の構えが分かるように）。`watch_guard` があれば「ウォッチ: {銘柄名}に注意書き」を1行添える。
   寄り前は STEP 7 の点検結果に欠けがあれば 1 行添える。
 - URL: `https://tonpe3141-ctrl.github.io/kabutan-digest/`
 

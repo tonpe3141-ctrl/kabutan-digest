@@ -124,8 +124,12 @@ def build_preopen(target_date: date) -> dict:
     # （07:00 JST 時点では前営業日の大引け値が返る）。
     prev_close = None
     jp = _safe("日経平均(前日終値)", lambda: cnbc.fetch_symbols([".N225"]), {}) or {}
-    if jp.get(".N225", {}).get("last") is not None:
-        prev_close = jp[".N225"]["last"]
+    q = jp.get(".N225") or {}
+    # 寄り付き（09:00）より後に走ると last は当日の場中値になる（保険の cron が遅れて発火したとき）。
+    # その場合は前日終値（prev）を使う。場中値を基準にすると想定オープンが当日の値動きと混ざる
+    base = q.get("prev") if q.get("asof") == target_date.isoformat() else q.get("last")
+    if base is not None:
+        prev_close = base
         print(f"    ✅ 前営業日の日経平均終値: {prev_close:,.2f}")
 
     prev_summary = None
@@ -321,11 +325,49 @@ def build_session(target_date: date, slot: str) -> dict:
             }
             print(f"    ✅ 台帳: 新規 {len(payload['ledger_today']['added'])} / 追跡中 {payload['ledger_today']['watching']}")
 
+    carry_over(payload, (slots.get(slot) or {}).get("data"))
     payload["commentary"] = commentary.session_commentary(payload, slot)
     # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary を消さない
     payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
     payload["_after_hours"] = split["after"]
     return payload
+
+
+def carry_over(payload: dict, before: dict | None) -> list[str]:
+    """同じ日の同じ区分を取り直したとき、今回取れなかった区画は前回の値を引き継ぐ。
+
+    夜に遅れて走った実行では、株探の「業種騰落ランキング」記事が一覧から落ちて東証33業種が
+    消える、ランキングの取得に失敗する、といった形で、先に取れていた情報が欠けていた
+    （2026-09-25 23:36 の実測）。取り直しで情報が減らないようにする。戻り値は引き継いだ区画名。
+    """
+    if not before:
+        return []
+    kept = []
+    if not payload.get("sectors33") and before.get("sectors33"):
+        payload["sectors33"] = before["sectors33"]
+        kept.append("sectors33")
+    tables, old = payload.setdefault("tables", {}), before.get("tables") or {}
+    for key, t in old.items():
+        if (t or {}).get("rows") and not ((tables.get(key) or {}).get("rows")):
+            tables[key] = t
+            kept.append(f"tables.{key}")
+    kb, okb = payload.get("kabutan") or {}, before.get("kabutan") or {}
+    if okb.get("articles"):
+        have = {a.get("headline") for a in kb.get("articles") or []}
+        lost = [a for a in okb["articles"] if a.get("headline") not in have]
+        if lost:
+            kb["articles"] = list(kb.get("articles") or []) + lost
+            payload["kabutan"] = kb
+            kept.append(f"kabutan.articles+{len(lost)}")
+    if kept:
+        print(f"  ↩︎ 前回の同じ区分から引き継ぎ: {', '.join(kept)}")
+    return kept
+
+
+def already_done(slot: str, target_date: date) -> bool:
+    """保険の cron 用。その日のその区分が既に作られていれば True（取り直さない）。"""
+    latest = store.load_latest()
+    return latest.get("date") == target_date.isoformat() and slot in (latest.get("slots") or {})
 
 
 # ==================== エントリポイント ====================
@@ -455,6 +497,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="マーケットダッシュボードのデータ生成")
     parser.add_argument("--slot", choices=SLOTS + ["auto", "watchlist"], default="auto")
     parser.add_argument("--date", help="対象日 YYYYMMDD（省略時は今日）")
+    parser.add_argument("--insurance", action="store_true",
+                        help="保険の cron。その日の区分が既にあれば何もしない（遅れて発火した実行で上書きしない）")
     args = parser.parse_args(argv)
 
     target_date = None
@@ -467,7 +511,13 @@ def main(argv=None):
     if args.slot == "watchlist":
         refresh_watchlist()
         return
-    run(resolve_slot() if args.slot == "auto" else args.slot, target_date)
+    slot = resolve_slot() if args.slot == "auto" else args.slot
+    if args.insurance:
+        slot = adjust_slot(slot)
+        if already_done(slot, target_date or store.now_jst().date()):
+            print(f"  {slot} は今日すでに更新済みです（Routine の合図で実行済み）。保険の実行は見送ります")
+            return
+    run(slot, target_date)
 
 
 if __name__ == "__main__":

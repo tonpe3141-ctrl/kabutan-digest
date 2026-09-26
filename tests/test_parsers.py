@@ -159,6 +159,25 @@ ARTICLE_HTML = """<html><body>
 </body></html>"""
 
 
+def test_rerun_carry_over():
+    from dashboard.build import carry_over
+
+    print("\n[同じ区分の取り直しで情報を減らさない]")
+    before = {"sectors33": {"rows": [{"sector": "銀行業", "change_pct": 1.2}] * 33},
+              "tables": {"value": {"rows": [{"code": "7203"}]}, "gainer": {"rows": [{"code": "1111"}]}},
+              "kabutan": {"articles": [{"headline": "本日の【業種】騰落ランキング ＝ 大引け"}, {"headline": "A"}]}}
+    now = {"sectors33": None, "tables": {"value": {"rows": [{"code": "9984"}]}, "gainer": {"rows": []}},
+           "kabutan": {"articles": [{"headline": "A"}, {"headline": "B"}]}}
+    kept = carry_over(now, before)
+    check("東証33業種が消えたら前回を使う", len(now["sectors33"]["rows"]), 33)
+    check("今回取れた表は上書きしない", now["tables"]["value"]["rows"][0]["code"], "9984")
+    check("今回空だった表は前回を使う", now["tables"]["gainer"]["rows"][0]["code"], "1111")
+    check("記事は前回にあって今回落ちたものを足す", [a["headline"] for a in now["kabutan"]["articles"]],
+          ["A", "B", "本日の【業種】騰落ランキング ＝ 大引け"])
+    check("引き継いだ区画を返す", kept, ["sectors33", "tables.gainer", "kabutan.articles+1"])
+    check("前回が無ければ何もしない", carry_over({"sectors33": None}, None), [])
+
+
 def test_news():
     print("\nYahoo AIマーケット記事")
     art = _parse_article(ARTICLE_HTML, "https://finance.yahoo.co.jp/news/ai-market/detail/2956")
@@ -523,18 +542,24 @@ def test_plan_setups():
     from dashboard import thermo as T
 
     print("\n[売買計画・型の成績・作戦ボード]")
-    # 押し目: 25日線まで待つ。損切りは20日安値の1%下（値幅の1.5〜3倍の範囲）、利確は120日高値
+    # 押し目: 25日線まで待つ。損切りは20日安値の1%下（値幅の2.5〜3.5倍の範囲）、利確は60日高値
+    # （ただし20営業日のふだんの値幅の1.5倍まで）
     mt = {"price": 1100, "ma25": 1050, "lo20": 1000, "hi60": 1300, "hi120": 1500, "vol": 2.0}
     pl = T.trade_plan(mt, "dip")
     check("押し目: 買う目安は25日線", (pl["entry"], pl["entry_by"], pl["to_entry"]), (1050, "ma25", -4.5))
     check("押し目: 損切りは20日安値の1%下", (pl["stop"], pl["stop_by"], pl["stop_pct"]), (990, "lo20", -5.7))
-    check("押し目: 利確は60日高値（直近の戻り高値）、R倍", (pl["target"], pl["target_by"], pl["rr"]), (1300, "hi60", 4.2))
+    check("押し目: 60日高値が遠すぎると20日の値幅の1.5倍に抑える", (pl["target"], pl["target_by"], pl["rr"]),
+          (1191, "cap", 2.3))
+    near_hi = T.trade_plan({**mt, "hi60": 1150}, "dip")
+    check("押し目: 利確は60日高値（直近の戻り高値）、R倍", (near_hi["target"], near_hi["target_by"], near_hi["rr"]),
+          (1150, "hi60", 1.7))
     far = T.trade_plan({**mt, "lo20": 800}, "dip")
-    check("20日安値が遠すぎると値幅の3倍に収める", (far["stop"], far["stop_by"]), (987, "vol_max"))
+    check("20日安値が遠すぎると値幅の3.5倍に収める", (far["stop"], far["stop_by"]), (976, "vol_max"))
     near = T.trade_plan({**mt, "lo20": 1060}, "dip")
-    check("20日安値が買う目安より上なら値幅の1.5倍", (near["stop"], near["stop_by"]), (1018, "vol_min"))
+    check("20日安値が買う目安より上なら値幅の2.5倍（ふだんの揺れで掛からない距離）", (near["stop"], near["stop_by"]),
+          (998, "vol_min"))
     ov = T.trade_plan({"price": 900, "ma25": 1000, "lo20": 880, "hi60": 1400, "vol": 2.0}, "oversold")
-    check("売られすぎ: 現値で買い、利確は25日線", (ov["entry"], ov["stop"], ov["target"], ov["rr"]), (900, 871, 1000, 3.5))
+    check("売られすぎ: 現値で買い、利確は25日線", (ov["entry"], ov["stop"], ov["target"], ov["rr"]), (900, 855, 1000, 2.2))
     hi = T.trade_plan({"price": 1300, "ma25": 1200, "lo20": 1150, "hi60": 1300, "vol": 2.0}, "leader")
     check("高値圏のリーダーは利確の目安なし", (hi["target"], hi["rr"]), (None, None))
     check("値幅が無いと計画を立てない", T.trade_plan({"price": 100, "vol": None}), None)
@@ -565,8 +590,8 @@ def test_plan_setups():
     stocks["1111"] = [1000.0 * 1.01 ** k for k in range(110)]            # 毎日 +1%（ずっと過熱）
     bt = T.setup_backtest(ds, stocks)
     by = {r["setup"]: r for r in bt["setups"]}
-    check("型の成績: 5つの型", [r["setup"] for r in bt["setups"]],
-          ["押し目", "売られすぎ・下げ止まり", "相対力リーダー", "高値掴み注意", "下落トレンド"])
+    check("型の成績: 7つの型", [r["setup"] for r in bt["setups"]],
+          ["押し目", "売られすぎ・下げ止まり", "相対力リーダー", "深押し", "上向き転換", "高値掴み注意", "下落トレンド"])
     check("ずっと過熱の銘柄は1件と数える", by["高値掴み注意"]["events"], 1)
     check("全銘柄の中央値との差（5日で +5.1%）", by["高値掴み注意"]["x5"], 5.1)
     check("件数が少ないと判定しない", by["高値掴み注意"]["verdict"], "件数不足")
@@ -586,9 +611,41 @@ def test_plan_setups():
     }
     setups = {"setups": [{"setup": "押し目", "verdict": "はっきりしない", "tone": "info"},
                          {"setup": "売られすぎ・下げ止まり", "verdict": "効いていない", "tone": "warn"}]}
-    board = T.action_board(rows, setups, {"1002": {"signals": ["上方修正・増配"]}})
-    check("作戦ボード: 過熱・R不足・型なし・損切りが遠すぎるものは載せない", [b["code"] for b in board], ["1001", "1002"])
-    check("作戦ボード: 台帳の理由を添える", board[1]["why"], ["台帳: 上方修正・増配"])
+    board = T.action_board(rows, setups, {"1001": {"signals": ["上方修正・増配"]}})
+    check("作戦ボード: 過熱・R不足・型なし・損切りが遠すぎる・効いていない型のものは載せない",
+          [b["code"] for b in board], ["1001"])
+    check("作戦ボード: 台帳の理由を添える", board[0]["why"], ["台帳: 上方修正・増配"])
+    setups["setups"][1] = {"setup": "売られすぎ・下げ止まり", "verdict": "効いている", "tone": "chance", "avg_r": 0.4}
+    board = T.action_board(rows, setups, {})
+    check("作戦ボード: 効いている型が先", [b["code"] for b in board], ["1002", "1001"])
+    both = {"2001": {"n": "両方", "cls": ["押し目", "深押し"], "plan": pl, "price": 1100}}
+    setups["setups"].append({"setup": "深押し", "verdict": "効いている", "tone": "chance", "avg_r": 0.2})
+    check("作戦ボード: 複数の型なら成績の良い型で載せる", T.action_board(both, setups)[0]["setup"], "深押し")
+
+    # 今日のスタンス: 地合い・効いている型・温度帯の過去の成績を数える
+    up = [1000.0 + i * 2 for i in range(80)]
+    st_ok = {"setups": [{"setup": "押し目", "expect": "up", "verdict": "効いている"}]}
+    st_ng = {"setups": [{"setup": "押し目", "expect": "up", "verdict": "効いていない"}]}
+    bt = {"all": {"median20": 2.0}, "zones": [{"zone": "悲観", "median20": 7.6, "n20": 60},
+                                              {"zone": "過熱", "median20": -0.1, "n20": 20}]}
+    s = T.market_stance({"temp": 30, "zone": "悲観"}, st_ok, up, bt)
+    check("スタンス: 上昇基調＋効く型＋悲観の帯は過去良い → 攻め", (s["key"], s["score"], s["risk"]), ("attack", 3, 1.0))
+    s = T.market_stance({"temp": 85, "zone": "過熱"}, st_ng, list(reversed(up)), bt)
+    check("スタンス: 下落基調＋効く型なし＋過熱 → 守り", (s["key"], s["score"], s["risk"]), ("defend", -4, 0.25))
+    s = T.market_stance({"temp": 50, "zone": "中立"}, st_ok, [1100.0] * 55 + [1000.0] * 20 + [1010.0] * 5, bt)
+    check("スタンス: 線がねじれていれば地合いは0点、根拠を1行ずつ出す", [r["pt"] for r in s["reasons"]], [0, 1])
+    check("スタンス: 効く型だけで選んで小さく", s["key"], "select")
+
+    # 足した型: 深押し（上昇中の急落）と上向き転換（25日線が上を向いた初動）
+    check("深押し", "深押し" in T.stock_class({"r5": -8.0, "r60": 12.0, "ma25": 1100, "ma75": 1000, "rsi": 40,
+                                               "dev25": -5.0, "d1": -1.0}), True)
+    check("深押し: 下落トレンドの急落は入れない", "深押し" in T.stock_class({"r5": -8.0, "r60": -3.0, "ma25": 900,
+                                                                  "ma75": 1000, "rsi": 30, "dev25": -9.0}), False)
+    turn = {"price": 960, "ma25": 930, "ma75": 1000, "slope25": 0.8, "dev25": 3.2, "rsi": 58, "r20": 4.0}
+    check("上向き転換", "上向き転換" in T.stock_class(turn), True)
+    check("上向き転換: 25日線が下向きなら入れない", "上向き転換" in T.stock_class({**turn, "slope25": -0.3}), False)
+    check("上向き転換: 25日線から離れすぎは入れない", "上向き転換" in T.stock_class({**turn, "dev25": 12.0}), False)
+    check("25日線の向きを指標に持つ", T.stock_metrics([100.0 + i for i in range(40)])["slope25"], 4.1)
 
 
 def test_ledger_stats():
@@ -659,6 +716,7 @@ if __name__ == "__main__":
     test_cnbc()
     test_tdnet()
     test_slot()
+    test_rerun_carry_over()
     test_news()
     test_kabutan()
     test_ranking_layouts()
