@@ -26,7 +26,7 @@ on:
         description: "更新する区分"
         type: choice
         default: auto
-        options: [auto, preopen, zenba, taibike]
+        options: [auto, preopen, zenba, taibike, watchlist]
       date:
         description: "対象日 YYYYMMDD（省略時は今日）"
         type: string
@@ -60,7 +60,9 @@ jobs:
         run: |
           slot=""
           if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            slot=auto
+            # アプリからのウォッチリスト保存。区分は作り直さず、表示中の各区分の
+            # ウォッチリストだけ差し替える（休場日に走っても前営業日の区分を消さない）
+            slot=watchlist
           elif [ "$EVENT" = "push" ]; then
             # 直近2時間以内に書かれた合図のうち、いちばん新しいものを採用する
             slot=$(python3 - <<'PY'

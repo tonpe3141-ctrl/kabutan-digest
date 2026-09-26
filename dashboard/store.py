@@ -46,6 +46,11 @@ def load_latest() -> dict:
     return _read_json(latest_path(), {})
 
 
+def save_latest(latest: dict) -> None:
+    """区分の中身だけを書き換えたとき用（日付・区分の構成は変えない）。"""
+    _write_json(latest_path(), latest)
+
+
 def save_slot(target_date: date, slot: str, payload: dict) -> dict:
     """1 スロット分を latest.json に差し込む。日付が変わっていれば作り直す。"""
     latest = load_latest()
