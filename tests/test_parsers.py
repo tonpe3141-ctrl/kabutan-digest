@@ -633,9 +633,37 @@ def test_swing():
     # 並べ方: 25日線からの下離れが大きい順、1日5銘柄まで、同じ業種は2銘柄まで
     rows = [{"code": str(1000 + k), "dev25": -k} for k in range(8)]
     sector = {"1007": "電力", "1006": "電力", "1005": "電力"}
-    picked, rest = W.rank_orders(rows, sector)
+    picked, rest, skip = W.rank_orders(rows, sector)
     check("下離れの大きい順・同じ業種は2つまで", [r["code"] for r in picked], ["1007", "1006", "1004", "1003", "1002"])
     check("上限や業種で外れたものは次点", [r["code"] for r in rest][:2], ["1005", "1001"])
+
+    # 業種の中での位置: 業種（自分を除いた中央値）の20日騰落と、業種との差で押しの形を決める
+    check("業種ぐるみの押し（業種 −5% 以下）", W.peer_class(-6.0, -1.0), "dip")
+    check("業種ぐるみの押しで、業種の中でも下げが大きい", W.peer_class(-6.0, -7.0), "dip_lag")
+    check("出遅れの押し（業種は +3% 以上、自分は −5pt 以上遅れ）", W.peer_class(4.0, -6.0), "lag")
+    check("業種の上げに沿った押しは見送り", W.peer_class(4.0, -2.0), "hot")
+    check("業種がふつうなら、ふつうの押し", W.peer_class(0.0, -9.0), "plain")
+    check("比べる業種が無ければ none", W.peer_class(None, None), "none")
+    groups = W.peer_groups(["1", "2", "3", "4", "5", "6"],
+                           {"1": {"themes": ["半導体", "AI"]}, "2": {"themes": ["半導体"]}, "3": {"themes": ["半導体"]},
+                            "4": {"themes": ["半導体"]}, "5": {"themes": ["電線"]}},
+                           {"5": "非鉄", "6": "機械"})
+    check("グループ: 主テーマで束ね、4銘柄に満たないグループは使わない", groups,
+          {"1": "半導体", "2": "半導体", "3": "半導体", "4": "半導体"})
+    ctx = W.peer_context({"1": -20.0, "2": -8.0, "3": -6.0, "4": -10.0}, groups)
+    check("業種は自分を除いた中央値・差は自分との差", (ctx["1"]["g20"], ctx["1"]["rel20"], ctx["1"]["cls"]),
+          (-8.0, -12.0, "dip_lag"))
+    check("自分を除くと3銘柄に満たない日は比べない", W.peer_context({"1": -20.0, "2": -8.0, "3": -6.0}, groups), {})
+    board = W.peer_board(ctx, {"1": -20.0, "2": -8.0, "3": -6.0, "4": -10.0}, groups)
+    check("業種の中の位置: 業種ぐるみの下げと、業種との差の順", (board[0]["kind"], board[0]["g20"],
+                                                   [m["code"] for m in board[0]["members"]]),
+          ("dip", -9.0, ["1", "4", "2", "3"]))
+    rows = [{"code": "2001", "dev25": -3.0, "peer": {"cls": "hot", "rel20": 1.0}},
+            {"code": "2002", "dev25": -3.0, "peer": {"cls": "lag", "rel20": -8.0}},
+            {"code": "2003", "dev25": -6.0, "peer": None}]
+    picked, rest, skip = W.rank_orders(rows, {})
+    check("見送りの形は注文にも次点にも入れず、並べ方は下離れ＋業種より遅れている分",
+          ([r["code"] for r in picked], [r["code"] for r in skip]), (["2002", "2003"], ["2001"]))
 
     # アプリが出した注文の実績: 記録して、結果が出たら凍結する
     done = after((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2))
@@ -653,6 +681,12 @@ def test_swing():
                   "2222": _swing_bars(drift=-0.003)})
     check("検証: 約定して結果が出た売買を数える", (v["all"]["n"], v["all"]["win"]), (1, 100))
     check("検証: 比べる相手がある", v["base"]["n"] > 0, True)
+    # 業種と比べる検証: 同じ業種の3銘柄が20日で +4% ほど上げ、自分（+1% ほど）も業種並みの押しは見送りに数える
+    sig_bars = after_bars((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2))
+    peers = {c: _swing_bars(n=len(sig_bars), drift=0.002) for c in ("3001", "3002", "3003")}
+    grp = {c: "テスト" for c in ("1111", "3001", "3002", "3003")}
+    vg = W.verify({"1111": sig_bars, **peers}, groups=grp)
+    check("検証: 業種の上げに沿った押しは注文に数えず、見送りの成績に", (vg["all"].get("n", 0), vg["skipped"]["n"]), (0, 1))
 
 
 def test_ohlc_cache():
