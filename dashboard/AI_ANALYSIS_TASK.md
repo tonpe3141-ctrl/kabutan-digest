@@ -120,15 +120,23 @@ git pull --rebase origin main
 読むもの（すべて `docs/data/latest.json` の `slots.{SLOT}.data`）:
 
 - **寄り前**: `us`（米国指数）, `macro`（為替・金利・商品）, `sectors_us`, `implied_open`, `risk`,
-  `sector_outlook`, `carryover.after_hours_kessan`（前営業日引け後の開示）, `news`, `kabutan`
+  `sector_outlook`, `carryover.after_hours_kessan`（前営業日引け後の開示）, `news`, `kabutan`, `press`
 - **前場・大引**: `indices`, `divergence`, `sectors_jp`, `breadth`, `constituents`,
   `tables.value/gainer/loser/ytd_high/vol_surge`, `tables.kessan_intraday/kessan_after`,
   `disclosure_summary`, `ranking_delta`, `streaks`, `theme_flow`（テーマ別の資金の向き）,
-  `news`, `kabutan`
+  `news`, `kabutan`, `press`
 - **`kabutan`**: `headlines[]`（株探の見出し。`{title, published}`。本文なし）と
   `articles[]`（Yahoo!ファイナンス配信の株探記事。`{headline, timestamp, body, url}`）。
   見出しは「話題株ピックアップ【夕刊】（1）：Ａ、Ｂ、Ｃ」のように、それ自体が要約になっている。
 - **`news[]`**: Yahoo!ファイナンス マーケットAIトピックス。`{headline, category, timestamp, body, url, source}`。
+  **AI が生成した要約なので、事実の裏付けには使わない**（他の情報源で確かめられた範囲で参考にする）。
+- **`press`**（株探以外の信頼できる情報源。配信元はドメインで照合済み）:
+  - `official[]` … 日本銀行・財務省・日本取引所グループ・FRB の公式発表の表題 `{title, published, url, source}`。**一次情報**
+  - `headlines[]` … ロイター・ブルームバーグ・日本経済新聞・時事通信・NHK の見出し `{title, published, url, source}`（本文なし）
+  - `articles[]` … 時事通信・トレーダーズ・ウェブ・ウエルスアドバイザーの本文 `{headline, timestamp, body, url, provider, partial}`。
+    `partial: true` は有料部分の手前までしか無い（書かれていない続きを推測しない）
+  - `overseas[]` … CNBC（英語）の見出しと要約 `{title, summary, published, url, source}`
+  - `status[]` … 情報源ごとの取得結果。`ok: false` の情報源は「取れなかった」のであって「何も無かった」ではない
 - **`thermo`**（全スロット）: 相場温度計の要約。`stance`（今日のスタンス: `label` 攻め／選んで小さく／守り、
   `risk` は株数に掛ける倍率、`reasons[]` は地合い・効いている型・温度帯の過去の成績の ＋1／±0／－1 と根拠の文）, `temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
   `consensus`（全面追い風／全面向かい風）, `factors[]`（8軸の `score` −2〜+2 と `change` 改善／悪化、`text` に根拠の数字）,
@@ -176,15 +184,28 @@ git pull --rebase origin main
 - `setups` で「効いていない」型があれば、その型の候補（例: `oversold`）を勧める書き方をしない。効いている型が無い日は
   「見送る・小さく」も選択肢として書く。`board` の価格・R倍は数字をそのまま使い、自分で計算し直さない
 
+**情報源を突き合わせる。** 株探だけに寄らず、次の順で重みを付ける:
+1. 一次情報（`press.official`、TDnet の開示）… 事実として書いてよい
+2. 通信社・全国紙・公共放送（`press.headlines` / `press.articles` / `press.overseas`）… 2社以上が同じ事実を報じていれば事実扱い。
+   1社だけなら「〇〇（媒体名）によると」と出所を明記する
+3. 株探（`kabutan`）… 市場の受け止め・話題株の把握に使う。背景の説明は 1・2 で裏付けが取れたときに書く
+4. `news`（AI 生成の要約）… 補助。これだけを根拠にしない
+
+媒体によって見方が割れていれば（例: ある社は「円高警戒」、別の社は「利上げ観測」を主因に挙げる）、どちらか一方に寄せず
+両論として書く。寄り前は `press.overseas` と `press.headlines` の米国市況・為替で夜間の材料を、前場・大引は
+`press.official`（日銀・財務省の発言や介入）と国内報道で場中の材料を確かめる。
+
 複数の事実を組み合わせた解釈を書く（例: 日経は上昇したが TOPIX との乖離と上昇銘柄数から
 値がさ株主導であり、株探の夕刊が挙げる AI 関連への資金集中と整合する）。
-`sources` には実際に使った記事だけを入れる（`kabutan.articles` と `news` の URL）。
+`sources` には実際に使った記事だけを入れる（`kabutan.articles` / `press.*` / `news` の URL）。
+見出しだけで使った記事（`press.headlines`・`kabutan.headlines`）も、根拠にしたなら入れてよい。`title` には媒体名を添える
+（例: `"ロイター: 東京株式市場・大引け＝5日続伸"`）。
 
 ### 4b. 台帳の理由づけ（大引のみ。台帳があれば）
 
 `docs/data/ledger.json` の `entries[]` で `first_seen` が今日かつ `notes` が空の各行に、
 `notes` を 1〜2 文で書く。**候補の追加・削除・シグナルの変更はしない**（機械が決める）。
-書くのは「なぜ数字に引っかかったか」に、記事で裏付けが取れれば「何が材料か」を添えるだけ。
+書くのは「なぜ数字に引っかかったか」に、記事（`kabutan` / `press`）で裏付けが取れれば「何が材料か」を添えるだけ。
 裏付けが無ければ「記事での裏付けなし」と書く。裏付けた記事の URL を `note_url` に入れる。
 
 ### 4c. テーマ辞書の育成（前場・大引。未知銘柄があれば）
@@ -289,5 +310,5 @@ STEP 6 の通知に「昨日の {欠けた区分} が未取得」と添える。
 
 ## 最後に
 
-実行した内容を短く報告する（対象、見出し、参照した記事数、台帳に書いた件数、
+実行した内容を短く報告する（対象、見出し、参照した記事数と媒体の数、台帳に書いた件数、
 辞書に足した銘柄数、コミットできたか、通知を送ったか）。この作業に承認は不要。

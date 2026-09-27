@@ -548,6 +548,70 @@ function kabutanCards(kb) {
   return out;
 }
 
+/* 株探以外の報道・公的機関（dashboard/sources/press.py）。配信元はドメインで照合済み */
+function pressRows(items, n, withSummary) {
+  return h('div', { class: 'rows' }, items.slice(0, n).map((x) => {
+    const iso = x.published || '';
+    const inner = [
+      h('div', { class: 'row__rank num press__time' }, iso ? [
+        h('div', { text: `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` }),
+        h('div', { text: iso.slice(11, 16) }),
+      ] : []),
+      h('div', { class: 'row__main' }, [
+        h('div', { class: 'row__name press__title', text: x.title }),
+        h('div', { class: 'row__meta' }, [h('span', { class: 'tag', text: x.source })]),
+        withSummary && x.summary ? h('div', { class: 'press__summary', text: x.summary }) : null,
+      ]),
+      h('div', { class: 'row__right' }, []),
+    ];
+    const cls = 'row row--press';
+    return x.url ? h('a', { class: cls, href: x.url, target: '_blank', rel: 'noopener' }, inner) : h('div', { class: cls }, inner);
+  }));
+}
+
+function pressCards(pr) {
+  const out = [];
+  if (!pr) return out;
+  const official = pr.official || [];
+  const heads = pr.headlines || [];
+  const arts = pr.articles || [];
+  const overseas = pr.overseas || [];
+  const failed = (pr.status || []).filter((s) => !s.ok).map((s) => s.label);
+  const failNote = failed.length ? `取得できなかった情報源: ${failed.join('、')}。` : '';
+  const id = () => (out.length ? null : 'sec-press');
+
+  if (official.length) {
+    out.push(card('公的機関の発表', `${official.length}件`,
+      foldable((n) => pressRows(official, n), official.length, 6, '全件'),
+      '日本銀行・財務省・日本取引所グループ・FRB の公式 RSS（一次情報）。相場に関係する表題だけに絞っている。', true, id()));
+  }
+  if (heads.length) {
+    const counts = {};
+    heads.forEach((x) => { counts[x.source] = (counts[x.source] || 0) + 1; });
+    const sub = Object.entries(counts).map(([k, v]) => `${k}${v}`).join('・');
+    out.push(card('報道各社の見出し', sub,
+      foldable((n) => pressRows(heads, n), heads.length, 10, '全件'),
+      'ロイター・ブルームバーグ・日本経済新聞・時事通信（Google ニュース経由。配信元ドメインで照合）と NHK の見出し。本文は各社サイトで読む。' + failNote,
+      true, id()));
+  }
+  if (arts.length) {
+    out.push(card('他社の配信記事', `${arts.length}本`,
+      h('div', {}, arts.map((a) => accordion(a.headline || '（見出しなし）',
+        [a.provider, a.timestamp, a.partial ? '冒頭のみ' : null].filter(Boolean).join('　'),
+        a.body, a.url, 'Yahoo!ファイナンスで開く'))),
+      '時事通信・トレーダーズ・ウェブ（DZH）・ウエルスアドバイザーの Yahoo!ファイナンス配信。「冒頭のみ」は有料部分の手前まで。', true, id()));
+  }
+  if (overseas.length) {
+    out.push(card('海外の報道（CNBC）', `${overseas.length}本`,
+      foldable((n) => pressRows(overseas, n, true), overseas.length, 6, '全件'),
+      'CNBC の Markets・Economy・Earnings（英語）。', true, id()));
+  }
+  if (!out.length && failed.length) {
+    out.push(card('報道・公的機関', 'データなし', null, failNote, false, 'sec-press'));
+  }
+  return out;
+}
+
 /* ==================== 今日: 寄り前 ==================== */
 function renderPreopen(d) {
   const out = [];
@@ -617,6 +681,7 @@ function renderPreopen(d) {
   }
 
   kabutanCards(d.kabutan).forEach((c) => out.push(c));
+  pressCards(d.press).forEach((c) => out.push(c));
   const news = newsCard(d.news);
   if (news) out.push(news);
   out.push(watchlistCard(d, 'sec-watch'));
@@ -764,6 +829,7 @@ function renderSession(d, slot) {
   if (intraday) out.push(intraday);
 
   kabutanCards(d.kabutan).forEach((c) => out.push(c));
+  pressCards(d.press).forEach((c) => out.push(c));
   const news = newsCard(d.news);
   if (news) out.push(news);
   out.push(watchlistCard(d, 'sec-watch'));
@@ -2644,7 +2710,7 @@ const JUMP_LABELS = [
   ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'], ['sec-outlook', '連想'], ['sec-ussector', '米セクター'],
   ['sec-sector33', '業種'], ['sec-theme', 'テーマ'], ['sec-trend', '時間軸'], ['sec-heat', 'ヒートマップ'],
   ['sec-value', '売買代金'], ['sec-moves', '値動き'], ['sec-ytd', '高値更新'], ['sec-volsurge', '出来高'],
-  ['sec-disc', '開示'], ['sec-kabutan', '株探'], ['sec-news', 'ニュース'], ['sec-watch', 'ウォッチ'],
+  ['sec-disc', '開示'], ['sec-kabutan', '株探'], ['sec-press', '報道'], ['sec-news', 'ニュース'], ['sec-watch', 'ウォッチ'],
 ];
 const THERMO_JUMPS = [
   ['th-decision', '結論'], ['th-board', 'ボード'], ['th-watch', 'ウォッチ'], ['th-check', 'チェック'], ['th-setups', '型の成績'],

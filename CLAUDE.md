@@ -10,7 +10,7 @@ GitHub Pages の固定 URL で読む。設計の経緯と採点は `DESIGN.md`�
 | 役者 | 担当 | 動く場所 |
 |---|---|---|
 | **Claude Routine**（時計・分析） | 時刻どおりに発火し、収集の合図を push → main の更新を待つ → 記事と数字を読んで見立て・台帳の理由づけ・テーマ辞書の追記を書く → push → PushNotification | claude.ai の Routine（`dashboard/AI_ANALYSIS_TASK.md` が手順書） |
-| **GitHub Actions**（収集） | 合図の push で即時起動。CNBC / Yahoo!ファイナンス / TDnet / 日経 / 株探の配信先から取得し、分析値を付けて `docs/data/` に書く | `.github/workflows/dashboard.yml` |
+| **GitHub Actions**（収集） | 合図の push で即時起動。CNBC / Yahoo!ファイナンス / TDnet / 日経 / 株探の配信先 / 報道各社・公的機関から取得し、分析値を付けて `docs/data/` に書く | `.github/workflows/dashboard.yml` |
 | **GitHub Pages**（表示） | `docs/` をそのまま公開 | `docs/index.html app.js style.css sw.js` |
 
 平日の発火時刻（JST）: 寄り前 07:10 / 前場 11:40 / 大引 16:45 / 週報 金 17:00。
@@ -20,7 +20,8 @@ GitHub の cron は毎日2〜7時間遅れる（実測）ので **時計は Rout
 dashboard/config.py       定数・米→日セクター連想マップ・取得対象・台帳の閾値
 dashboard/http.py         リトライ／レート制御。例外を投げず None を返す
 dashboard/sources/        cnbc.py（相場）, yahoojp.py（ランキング）, tdnet.py（開示）,
-                          news.py（Yahoo 市況記事）, kabutan_news.py（株探の配信先）, nikkei225.py
+                          news.py（Yahoo 市況記事）, kabutan_news.py（株探の配信先）, nikkei225.py,
+                          press.py（株探以外の報道・公的機関。許可リストは config.PRESS_FEEDS）
 dashboard/analyze.py      想定オープン・リスク環境・セクター連想・上げの中身・差分
 dashboard/themes.py       銘柄→テーマ辞書でランキングを束ねる（辞書は docs/data/themes.json）
 dashboard/ledger.py       発掘台帳: 入口は機械、理由は LLM、成績は週報（docs/data/ledger.json）
@@ -47,6 +48,13 @@ tests/test_parsers.py     パーサ・台帳・テーマ・時間軸の回帰テ
 株探の記事は本体ではなく **配信先** から取る（`sources/kabutan_news.py`）:
 Google ニュース RSS（見出し全部）と Yahoo!ファイナンスのニュース一覧（株探ニュースとして配信された本文。
 大引け記事・マーケット日報・**東証33業種の騰落**・PTS・増資など）。自宅 Mac は不要。
+
+株探以外のニュースは `sources/press.py` が集める（`data.press`）: 公的機関（日銀・財務省・JPX・FRB の公式 RSS）、
+報道の見出し（ロイター・ブルームバーグ・日経・時事は Google ニュース RSS、NHK は公式 RSS）、
+Yahoo!ファイナンスに本文付きで配信される時事通信・トレーダーズ・ウェブ・ウエルスアドバイザー、CNBC（英語）。
+**信頼性は絶対条件。** 情報源を足すときは一次情報／通信社・全国紙・公共放送／市況の事実報道を業とするベンダーに限り、
+Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照合する（媒体名の表記は揺れるので見出しの文字列では照合しない）。
+コラム中心の媒体・まとめ・SNS・プレスリリース転載は入れない。
 
 取得が壊れたら、まず Actions の「データ源の疎通診断」を手動実行して、
 相手サイトの遮断なのかパーサの不具合なのかを切り分けること。

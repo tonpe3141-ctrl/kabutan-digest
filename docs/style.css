@@ -256,6 +256,12 @@ main { max-width: 720px; margin: 0 auto; padding: 12px 12px 0; }
 .row__right { text-align: right; }
 .row__price { font-size: 13px; font-weight: 650; }
 .row__delta { font-size: 12px; font-weight: 700; }
+/* 報道・公的機関の見出し（時刻が日付つきなので左欄を広げ、見出しは折り返す） */
+.row--press { grid-template-columns: 38px 1fr; align-items: start; }
+.row--press .row__right { display: none; }
+.press__time { line-height: 1.35; padding-top: 1px; }
+.press__title { white-space: normal; font-weight: 550; }
+.press__summary { font-size: 11.5px; color: var(--text-dim); line-height: 1.45; margin-top: 3px; }
 
 .seg { display: flex; gap: 3px; background: var(--surface-2); border-radius: 9px; padding: 2px; }
 .seg__btn {
