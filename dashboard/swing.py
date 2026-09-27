@@ -11,12 +11,16 @@
   売り   : 翌日から毎日、指値 = 直近4日の終値の平均（「終値が5日線を上回ったら売る」を前もって置ける注文にしたもの）
   損切り : 約定値 − 3×ATR(14)。場中に割ったらその価格で、寄りで割っていたら寄りで
   期限   : 10営業日たっても売れなければ引けで売る
-  並べ方 : 25日線からの下離れが大きい順。1日5銘柄まで・同じ業種は2銘柄まで
+  業種   : 同じ業種（テーマ辞書の主テーマ、無ければ日経の業種）の20日騰落（自分を除いた中央値）と比べる。
+           業種が +3% 以上上げているのに、自分も業種並み（差が −5pt より上）の押しは注文を出さない（見送り）。
+           業種ぐるみの押し（業種 −5% 以下）と出遅れの押し（業種は上げ、自分は −5pt 以上遅れ）が成績の良い形（DESIGN.md 14章）
+  並べ方 : 25日線からの下離れ ＋ 業種より遅れている分（マイナスだけ）が大きい順。1日5銘柄まで・同じ業種は2銘柄まで
 
 すべて純関数。同じ日足からは同じ注文が出る（tests で固定）。検証（verify）と、アプリが出した注文の実績（paper_update）は
 同じ simulate() で測る。「予測」ではなく、過去に同じ形で同じ注文を置いたらこうだった、という規則。
 """
 import math
+from collections import Counter
 from statistics import mean, median
 
 RSI_N = 2
@@ -34,10 +38,27 @@ MAX_ORDERS = 5          # 1日に出す注文の数
 SECTOR_CAP = 2          # 同じ業種は2銘柄まで
 COST = 0.1              # 往復の売買コスト（%）
 WARMUP = MA_LONG        # 200日線が引けるまでは判定しない
+# 業種の中での位置（DESIGN.md 14章。2023-24 の成績だけで決め、2025-26 で確かめた）
+PEER_N = 20             # 業種と比べる騰落の日数
+PEER_MIN = 4            # グループの銘柄数（ユニバースの中）の下限。少ないと1銘柄で中央値が振れる
+PEER_OTHERS = 3         # 自分を除いて、この数以上の銘柄の騰落がそろった日だけ比べる
+PEER_DIP = -5.0         # 業種の20日騰落（自分を除いた中央値）がこれ以下 → 業種ぐるみの押し
+PEER_UP = 3.0           # これ以上 → 業種が上げている
+PEER_LAG = -5.0         # 業種との差がこれ以下 → 業種より下げが大きい／出遅れている
+PEER_CLASSES = {
+    "dip_lag": "業種ぐるみの押し・業種の中でも下げが大きい",
+    "dip": "業種ぐるみの押し",
+    "lag": "出遅れの押し",
+    "plain": "ふつうの押し",
+    "none": "比べる業種なし",
+    "hot": "業種の上げに沿った押し（見送り）",
+}
+PEER_SKIP = ("hot",)    # 注文を出さない形
 RULES = {"rsi_n": RSI_N, "rsi_max": RSI_MAX, "ma_long": MA_LONG, "ma_mid": MA_MID, "liq_min": LIQ_MIN,
          "min_price": MIN_PRICE,
          "entry_atr": ENTRY_ATR, "stop_atr": STOP_ATR, "exit_n": EXIT_N, "max_hold": MAX_HOLD,
-         "max_orders": MAX_ORDERS, "sector_cap": SECTOR_CAP, "cost": COST}
+         "max_orders": MAX_ORDERS, "sector_cap": SECTOR_CAP, "cost": COST,
+         "peer_n": PEER_N, "peer_dip": PEER_DIP, "peer_up": PEER_UP, "peer_lag": PEER_LAG}
 
 
 def r1(v):
@@ -175,6 +196,84 @@ def trend_holds_at(ind: dict, i: int, p: float) -> bool:
     return p > m200 and m50 > m200
 
 
+# ==================== 業種の中での位置 ====================
+
+
+def peer_groups(codes, theme_stocks: dict, sector_of: dict, min_n: int = PEER_MIN) -> dict[str, str]:
+    """銘柄 → 比べるグループ。テーマ辞書の最初のテーマ（主テーマ）、無ければ日経の業種。
+
+    ユニバースに min_n 銘柄以上あるグループだけ使う。テーマの「機械」と日経の業種の「機械」は別のグループ。"""
+    raw = {}
+    for c in codes:
+        th = ((theme_stocks or {}).get(c) or {}).get("themes") or []
+        if th:
+            raw[c] = th[0]
+        elif sector_of.get(c):
+            raw[c] = f"{sector_of[c]}（業種）"
+    cnt = Counter(raw.values())
+    return {c: g for c, g in raw.items() if cnt[g] >= min_n}
+
+
+def ret_n(ind: dict | None, i: int, n: int = PEER_N):
+    """i 日目までの n 営業日の騰落率（%）。"""
+    if not ind or i < n or not ind["c"][i - n]:
+        return None
+    return (ind["c"][i] / ind["c"][i - n] - 1) * 100
+
+
+def peer_class(g20, rel20) -> str:
+    """業種の20日騰落（自分を除いた中央値）と、業種との差から、押しの形を決める。"""
+    if g20 is None or rel20 is None:
+        return "none"
+    if g20 <= PEER_DIP:
+        return "dip_lag" if rel20 <= PEER_LAG else "dip"
+    if g20 >= PEER_UP:
+        return "lag" if rel20 <= PEER_LAG else "hot"
+    return "plain"
+
+
+def peer_context(rets: dict[str, float | None], groups: dict[str, str]) -> dict[str, dict]:
+    """同じ日の各銘柄の20日騰落から、業種（自分を除いた中央値）・業種との差・押しの形。
+
+    自分を除くのは、1銘柄の急落がそのまま「業種の下げ」に数えられないようにするため。"""
+    by: dict[str, list[str]] = {}
+    for c, g in groups.items():
+        if rets.get(c) is not None:
+            by.setdefault(g, []).append(c)
+    out = {}
+    for g, cs in by.items():
+        for c in cs:
+            others = [rets[x] for x in cs if x != c]
+            if len(others) < PEER_OTHERS:
+                continue
+            m = median(others)
+            rel = rets[c] - m
+            out[c] = {"g": g, "g20": r1(m), "rel20": r1(rel), "r20": r1(rets[c]), "peers": len(others),
+                      "cls": peer_class(m, rel)}
+    return out
+
+
+def peer_board(ctx: dict[str, dict], rets: dict[str, float | None], groups: dict[str, str]) -> list[dict]:
+    """業種ぐるみで下げている／上げているグループと、その中の銘柄を業種との差の順に（アプリの「業種の中の位置」）。"""
+    by: dict[str, list[str]] = {}
+    for c, g in groups.items():
+        if rets.get(c) is not None:
+            by.setdefault(g, []).append(c)
+    out = []
+    for g, cs in by.items():
+        if len(cs) < PEER_OTHERS + 1:
+            continue
+        m = median(rets[c] for c in cs)
+        kind = "dip" if m <= PEER_DIP else "up" if m >= PEER_UP else None
+        if not kind:
+            continue
+        mem = sorted((c for c in cs if c in ctx), key=lambda c: (ctx[c]["rel20"], c))
+        out.append({"g": g, "g20": r1(m), "n": len(cs), "kind": kind,
+                    "members": [{"code": c, "r20": ctx[c]["r20"], "rel20": ctx[c]["rel20"]} for c in mem]})
+    out.sort(key=lambda x: (x["kind"] != "dip", x["g20"] if x["kind"] == "dip" else -x["g20"]))
+    return out
+
+
 # ==================== 1回の売買の再現 ====================
 
 
@@ -243,34 +342,58 @@ def summarize(trades: list[dict]) -> dict:
             "times": round(why.count("time") / len(rs) * 100)}
 
 
-def verify(stocks: dict[str, list[tuple]], recent: int = 120) -> dict | None:
+def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, str] | None = None) -> dict | None:
     """ユニバース全体で、毎日このルールで注文を置いていたらどうだったかを再現する（銘柄ごと・重ならないように）。
 
     stocks: {code: compact() の出力}。比べる相手は「同じ銘柄を毎日、翌日の寄りで買って5営業日後の引けで売る」。
-    期間は日足キャッシュの長さ（200日線が引けるようになってから）。直近 recent 営業日の分も別に出す。
+    groups（peer_groups の出力）を渡すと、その日の業種の中での位置で押しの形を決め、見送る形（PEER_SKIP）は
+    注文に数えず、別に skipped として成績を出す。期間は日足キャッシュの長さ（200日線が引けるようになってから）。
+    直近 recent 営業日の分も別に出す。
     """
-    trades, base = [], []
+    inds = {code: indicators(bars) for code, bars in stocks.items() if len(bars) > PEER_N}
+    rets_on: dict[str, dict[str, float | None]] = {}
+    if groups:
+        for code, ind in inds.items():
+            if code in groups:
+                for i in range(PEER_N, len(ind["c"])):
+                    rets_on.setdefault(ind["d"][i], {})[code] = ret_n(ind, i)
+    ctx_on: dict[str, dict] = {}
+
+    def peer_at(d, code):
+        if not groups or code not in groups:
+            return None
+        if d not in ctx_on:
+            ctx_on[d] = peer_context(rets_on.get(d, {}), groups)
+        return ctx_on[d].get(code)
+
+    trades, skipped, base = [], [], []
     cal: set[str] = set()
-    for code, bars in stocks.items():
-        if len(bars) < WARMUP + 5:
+    for code, ind in inds.items():
+        n = len(ind["c"])
+        if n < WARMUP + 5:
             continue
-        ind = indicators(bars)
-        n = len(bars)
         cal.update(ind["d"][WARMUP - 1:])
-        busy = -1
+        busy = skip_busy = -1
         for i in range(WARMUP - 1, n - 1):
             if i + 6 < n:
                 base.append((ind["d"][i], (ind["c"][i + 6] / ind["o"][i + 1] - 1) * 100 - COST))
             if i <= busy or not is_signal(ind, i):
                 continue
-            res = simulate(ind, i)
-            if res is None:
+            pc = peer_at(ind["d"][i], code)
+            k = pc["cls"] if pc else "none"
+            if k in PEER_SKIP and i <= skip_busy:
                 continue
-            if not res["filled"]:
+            res = simulate(ind, i)
+            if res is None or not res["filled"]:
+                continue
+            if k in PEER_SKIP:
+                if not res.get("open"):
+                    skipped.append({"code": code, "sig": ind["d"][i], "peer": k, **res})
+                    skip_busy = ind["d"].index(res["out"])
                 continue
             if res.get("open"):
                 break
-            trades.append({"code": code, "sig": ind["d"][i], **res})
+            trades.append({"code": code, "sig": ind["d"][i], "peer": k, **res})
             busy = ind["d"].index(res["out"])
     if not cal:
         return None
@@ -278,7 +401,7 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120) -> dict | None:
     cut = days[-recent] if len(days) > recent else days[0]
     half = days[len(days) // 2]
     b_all = [r for _, r in base]
-    return {
+    out = {
         "from": days[0], "to": days[-1], "universe": len(stocks), "days": len(days),
         "all": summarize(trades),
         "early": {**summarize([t for t in trades if t["in"] < half]), "from": days[0], "to": half},
@@ -290,6 +413,11 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120) -> dict | None:
                 "10営業日で手仕舞い、往復0.1%のコスト。同じ銘柄は手仕舞うまで次の注文を数えない。"
                 "同時に持つ数の上限は置いていない（1回ごとの成績）。",
     }
+    if groups:
+        out["peer"] = {k: summarize([t for t in trades if t["peer"] == k]) for k in PEER_CLASSES if k not in PEER_SKIP}
+        out["skipped"] = summarize(skipped)
+        out["note"] += "業種の上げに沿った押し（見送り）は注文に数えず、同じ規則で測った成績を別に出す。"
+    return out
 
 
 # ==================== 今日の注文 ====================
@@ -347,10 +475,21 @@ def order_of(ind: dict) -> dict | None:
             "sell_pct": r1((sell / limit - 1) * 100), "atr": r2(atr)}
 
 
+def rank_key(r: dict) -> float:
+    """並べ方の値（小さいほど先）。25日線からの下離れ ＋ 業種より遅れている分（マイナスだけ）。"""
+    rel = (r.get("peer") or {}).get("rel20")
+    dev = r.get("dev25") if r.get("dev25") is not None else 0
+    return dev + (min(rel, 0) if rel is not None else 0)
+
+
 def rank_orders(rows: list[dict], sector_of: dict[str, str | None], limit: int = MAX_ORDERS,
-                cap: int = SECTOR_CAP) -> tuple[list[dict], list[dict]]:
-    """注文対象を25日線からの下離れが大きい順に並べ、上限と業種の偏りの上限で「注文」と「次点」に分ける。"""
-    rows = sorted(rows, key=lambda r: (r.get("dev25") if r.get("dev25") is not None else 0, r["code"]))
+                cap: int = SECTOR_CAP) -> tuple[list[dict], list[dict], list[dict]]:
+    """注文対象を「注文」「次点」「見送り」に分ける。
+
+    見送り: 業種の上げに沿った押し（PEER_SKIP）。残りを rank_key の順に並べ、上限と業種の偏りの上限で注文と次点に。"""
+    skip = [r for r in rows if (r.get("peer") or {}).get("cls") in PEER_SKIP]
+    rows = sorted((r for r in rows if (r.get("peer") or {}).get("cls") not in PEER_SKIP),
+                  key=lambda r: (rank_key(r), r["code"]))
     picked, rest, per = [], [], {}
     for r in rows:
         s = sector_of.get(r["code"])
@@ -360,7 +499,7 @@ def rank_orders(rows: list[dict], sector_of: dict[str, str | None], limit: int =
                 per[s] = per.get(s, 0) + 1
         else:
             rest.append(r)
-    return picked, rest
+    return picked, rest, skip
 
 
 # ==================== アプリが出した注文の実績 ====================

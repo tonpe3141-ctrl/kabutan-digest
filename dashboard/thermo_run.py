@@ -272,7 +272,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         row = W.today_row(ind) if ind else None
         if row:
             sw_rows[code] = row
-    swing = swing_block(ohlc, sw_rows, ind_of, names, sector_of)
+    swing = swing_block(ohlc, sw_rows, ind_of, names, sector_of, themes.get("stocks") or {})
 
     stock_rows = {}
     for code, mt in metrics.items():
@@ -402,18 +402,31 @@ def _sw_brief(row: dict | None) -> dict | None:
            "rsi2": row.get("rsi2"), "tv": row.get("tv"), "up": row.get("up"), "ma200": row.get("ma200")}
     if row.get("trig") is not None:
         out.update({"trig": row["trig"], "to": row.get("to_trig"), "ok": row.get("trig_ok")})
+    pc = row.get("peer")
+    if pc:
+        # 業種の中での位置（g: 比べるグループ、g20: 業種の20日騰落、rel: 業種との差、pc: 押しの形）
+        out.update({"g": pc["g"], "g20": pc["g20"], "rel": pc["rel20"], "pc": pc["cls"]})
     return out
 
 
 NEAR_PCT = -3.0      # 「もうすぐ注文対象」: あと3%以内の下げで入口に入り、その価格でも上昇トレンドを保つ
 
 
-def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict) -> dict:
-    """thermo.json の swing（作戦タブの中心）。注文・次点・もうすぐ注文対象・ルールの検証。
+def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, theme_stocks: dict | None = None) -> dict:
+    """thermo.json の swing（作戦タブの中心）。注文・次点・見送り・もうすぐ注文対象・業種の中の位置・ルールの検証。
 
     注文は最新の日付（asof）の引けまで日足がそろった銘柄からだけ出す。大引の時点で当日の日足がまだ無い銘柄は、
-    前の営業日の引けの注文（もう期限が過ぎている）を出さない。"""
+    前の営業日の引けの注文（もう期限が過ぎている）を出さない。業種と比べるのも asof の日足がそろった銘柄どうしだけ。"""
     asof = max((r["asof"] for r in rows.values()), default=None)
+    groups = W.peer_groups(list(rows), theme_stocks or {}, sector_of)
+    rets = {}
+    for c, r in rows.items():
+        ind = ind_of(c)
+        if r["asof"] == asof and ind:
+            rets[c] = W.ret_n(ind, len(ind["c"]) - 1)
+    ctx = W.peer_context(rets, groups)
+    for c, r in rows.items():
+        r["peer"] = ctx.get(c)
     sig = []
     for code, r in rows.items():
         if r["state"] != "signal" or r["asof"] != asof:
@@ -421,24 +434,35 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict) ->
         o = W.order_of(ind_of(code))
         if o:
             sig.append({"code": code, "name": names.get(code) or code, "sector": sector_of.get(code),
-                        **o, "dev25": r.get("dev25"), "r5": r.get("r5"), "rsi2": r.get("rsi2"), "tv": r.get("tv")})
-    orders, more = W.rank_orders(sig, sector_of)
+                        **o, "dev25": r.get("dev25"), "r5": r.get("r5"), "rsi2": r.get("rsi2"), "tv": r.get("tv"),
+                        "peer": r.get("peer")})
+    orders, more, skip = W.rank_orders(sig, sector_of)
     near = [{"code": c, "name": names.get(c) or c, "sector": sector_of.get(c), "price": r["price"],
-             "trig": r["trig"], "to": r["to_trig"], "rsi2": r.get("rsi2"), "dev25": r.get("dev25")}
+             "trig": r["trig"], "to": r["to_trig"], "rsi2": r.get("rsi2"), "dev25": r.get("dev25"),
+             "peer": r.get("peer")}
             for c, r in rows.items() if r["state"] == "wait" and r.get("trig_ok") and r.get("to_trig") is not None
-            and r["to_trig"] >= NEAR_PCT and r["asof"] == asof]
+            and r["to_trig"] >= NEAR_PCT and r["asof"] == asof
+            and (r.get("peer") or {}).get("cls") not in W.PEER_SKIP]
     near.sort(key=lambda x: (-x["to"], x["code"]))
+    board = W.peer_board(ctx, rets, groups)
+    for g in board:
+        for m in g["members"]:
+            r = rows.get(m["code"]) or {}
+            m.update({"name": names.get(m["code"]) or m["code"], "st": r.get("state"), "trig": r.get("trig"), "to": r.get("to_trig"),
+                      "ok": r.get("trig_ok"), "pc": (r.get("peer") or {}).get("cls"), "price": r.get("price")})
     try:
         verify = W.verify({c: W.compact(ohlc.get("dates") or [], (ohlc.get("stocks") or {}).get(c))
-                           for c in rows})
+                           for c in rows}, groups=groups)
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  短期の押し目買いの検証で例外: {e}")
         verify = None
     if orders:
-        print(f"    ✅ 短期の押し目買い: 注文 {len(orders)}（次点 {len(more)}）、もうすぐ {len(near)}、{asof} の引けから")
+        print(f"    ✅ 短期の押し目買い: 注文 {len(orders)}（次点 {len(more)}・見送り {len(skip)}）、もうすぐ {len(near)}、"
+              f"{asof} の引けから")
     else:
-        print(f"    ✅ 短期の押し目買い: 注文なし、もうすぐ {len(near)}、{asof} の引けから")
-    return {"asof": asof, "rules": W.RULES, "orders": orders, "more": more[:10], "near": near[:12],
+        print(f"    ✅ 短期の押し目買い: 注文なし（見送り {len(skip)}）、もうすぐ {len(near)}、{asof} の引けから")
+    return {"asof": asof, "rules": W.RULES, "classes": W.PEER_CLASSES, "orders": orders, "more": more[:10],
+            "skip": skip[:10], "near": near[:12], "peers": board[:12], "groups": len(set(groups.values())),
             "verify": verify, "cal": (ohlc.get("dates") or [])[-40:]}
 
 
@@ -467,7 +491,10 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
                                                         "狼狽売りになりやすい場面"})
             else:
                 notes.append({"tone": "info", "text": "個別に大きく下げた。開示が無いか、ニュースを確かめる"})
-        if sw.get("st") == "signal":
+        if sw.get("st") == "signal" and sw.get("pc") in W.PEER_SKIP:
+            notes.append({"tone": "info", "text": f"押した形だが、業種（{sw.get('g')} {sw.get('g20'):+.1f}%）の上げに沿った押しなので"
+                                                  "注文は見送り（検証で勝率が低かった形）"})
+        elif sw.get("st") == "signal":
             notes.append({"tone": "chance", "text": "短期の押し目買いの注文対象（作戦タブの注文を参照）"})
         if "高値掴み注意" in r["cls"]:
             notes.append({"tone": "warn", "text": "短期で上がりすぎ。買い増しは押すまで待つ"})
@@ -479,6 +506,13 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
             out.append({"code": code, "name": r["n"], "price": r.get("price"), "d1": d1,
                         "rsi": r.get("rsi"), "dev25": r.get("dev25"), "notes": notes})
     return out
+
+
+def _peer_brief(pc: dict | None) -> dict | None:
+    """業種の中での位置を、要約用に（押しの形の名前・比べたグループ・業種の20日騰落・業種との差）。"""
+    if not pc:
+        return None
+    return {"label": W.PEER_CLASSES.get(pc["cls"]), "group": pc["g"], "g20": pc["g20"], "rel20": pc["rel20"]}
 
 
 def summary(th: dict) -> dict | None:
@@ -513,13 +547,19 @@ def summary(th: dict) -> dict | None:
         # 短期の押し目買い: asof の引けで出た注文（次の営業日だけ有効）と、ルールの検証・注文の実績
         "swing": {
             "asof": sw.get("asof"),
-            "orders": [{k: o.get(k) for k in ("code", "name", "sector", "close", "limit", "to_limit", "stop",
-                                               "stop_pct", "sell", "sell_pct", "dev25", "rsi2")}
+            "orders": [{**{k: o.get(k) for k in ("code", "name", "sector", "close", "limit", "to_limit", "stop",
+                                                  "stop_pct", "sell", "sell_pct", "dev25", "rsi2")},
+                        "peer": _peer_brief(o.get("peer"))}
                        for o in sw.get("orders") or []],
             "more": len(sw.get("more") or []),
+            "skip": [{"code": o["code"], "name": o.get("name"), "peer": _peer_brief(o.get("peer"))}
+                     for o in (sw.get("skip") or [])[:5]],
             "near": [{k: x.get(k) for k in ("code", "name", "trig", "to")} for x in (sw.get("near") or [])[:5]],
             "verify": {"all": pick(ver.get("all")), "recent": pick(ver.get("recent")),
-                       "base": ver.get("base"), "from": ver.get("from"), "to": ver.get("to")} if ver else None,
+                       "base": ver.get("base"), "from": ver.get("from"), "to": ver.get("to"),
+                       "peer": {W.PEER_CLASSES[k]: pick(v) for k, v in (ver.get("peer") or {}).items() if v.get("n")},
+                       "skipped": pick(ver.get("skipped")) if (ver.get("skipped") or {}).get("n") else None}
+            if ver else None,
             "paper": pick(sw.get("paper")) if (sw.get("paper") or {}).get("n") else None,
         },
     }
