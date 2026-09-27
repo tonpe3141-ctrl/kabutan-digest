@@ -8,7 +8,8 @@
            20日平均の売買代金が10億円以上（指値が約定しやすく、1銘柄の事情で振れにくい）、株価300円以上
            （呼値1円が値段の0.3%を超える低位株は、指値と損切りの刻みが粗すぎる）
   買い   : 翌営業日だけ有効の指値 = その日の終値 − 0.5×ATR(14)（押した日の、さらに下で拾う）
-  売り   : 翌日から毎日、指値 = 直近4日の終値の平均（「終値が5日線を上回ったら売る」を前もって置ける注文にしたもの）
+  売り   : 翌日から毎日、指値 = 直近4日の終値の平均（「終値が5日線を上回ったら売る」を前もって置ける注文にしたもの）。
+           ただし約定値 +0.2% より下には置かない（含み損のうちは売り指値で損を確定させず、戻りを待つ。DESIGN.md 15章）
   損切り : 約定値 − 3×ATR(14)。場中に割ったらその価格で、寄りで割っていたら寄りで
   期限   : 10営業日たっても売れなければ引けで売る
   業種   : 同じ業種（テーマ辞書の主テーマ、無ければ日経の業種）の20日騰落（自分を除いた中央値）と比べる。
@@ -33,6 +34,7 @@ ATR_N = 14
 ENTRY_ATR = 0.5         # 買いの指値 = 終値 − 0.5×ATR
 STOP_ATR = 3.0          # 損切り = 約定値 − 3×ATR
 EXIT_N = 4              # 売りの指値 = 直近4日の終値の平均
+FLOOR = 0.2             # 売りの指値の下限 = 約定値 ×（1 + 0.2%）。往復の売買コスト（0.1%）を引いてもプラスで終わる値
 MAX_HOLD = 10           # 営業日
 MAX_ORDERS = 5          # 1日に出す注文の数
 SECTOR_CAP = 2          # 同じ業種は2銘柄まで
@@ -56,7 +58,7 @@ PEER_CLASSES = {
 PEER_SKIP = ("hot",)    # 注文を出さない形
 RULES = {"rsi_n": RSI_N, "rsi_max": RSI_MAX, "ma_long": MA_LONG, "ma_mid": MA_MID, "liq_min": LIQ_MIN,
          "min_price": MIN_PRICE,
-         "entry_atr": ENTRY_ATR, "stop_atr": STOP_ATR, "exit_n": EXIT_N, "max_hold": MAX_HOLD,
+         "entry_atr": ENTRY_ATR, "stop_atr": STOP_ATR, "exit_n": EXIT_N, "floor": FLOOR, "max_hold": MAX_HOLD,
          "max_orders": MAX_ORDERS, "sector_cap": SECTOR_CAP, "cost": COST,
          "peer_n": PEER_N, "peer_dip": PEER_DIP, "peer_up": PEER_UP, "peer_lag": PEER_LAG}
 
@@ -163,11 +165,18 @@ def is_signal(ind: dict, i: int) -> bool:
                 and c > m200 and m50 > m200 and rs < RSI_MAX and tv >= LIQ_MIN)
 
 
-def sell_level(ind: dict, j: int):
-    """j 日目に置く売りの指値（直近4日＝j−4〜j−1 日目の終値の平均。j 日目の寄り前に決まっている）。"""
+def sell_level(ind: dict, j: int, entry: float | None = None):
+    """j 日目に置く売りの指値（直近4日＝j−4〜j−1 日目の終値の平均。j 日目の寄り前に決まっている）。
+
+    entry（約定値）を渡すと、約定値 ×（1 + FLOOR%）を下限にする。直近4日の平均が約定値より下にあるうちに
+    売り指値で手仕舞うと、戻りの途中で小さな損を確定させることになる（4年の検証で、そうした売りの多くは
+    10営業日のうちに約定値の上へ戻っていた。DESIGN.md 15章）。"""
     if j < EXIT_N:
         return None
-    return sum(ind["c"][j - EXIT_N:j]) / EXIT_N
+    g = sum(ind["c"][j - EXIT_N:j]) / EXIT_N
+    if entry is not None:
+        g = max(g, entry * (1 + FLOOR / 100))
+    return g
 
 
 def trigger_price(ind: dict, i: int):
@@ -282,6 +291,7 @@ def simulate(ind: dict, i: int, max_hold: int = MAX_HOLD, cost: float = COST) ->
 
     買い: i+1 日目だけ有効の指値。安値が指値以下なら約定（寄りが指値より下なら寄りで）。
     約定した日も、安値が損切り以下なら損切り（同じ日に両方なら損切りを先に数える＝保守的に）。
+    売り指値は直近4日の終値の平均、ただし約定値 +FLOOR% が下限（sell_level）。
     翌日から: 寄りが損切り以下 → 寄りで損切り／寄りが売り指値以上 → 寄りで売り／
               安値が損切り以下 → 損切り／高値が売り指値以上 → 売り指値／max_hold 日目 → 引けで売り。
     まだ結果が出ていなければ、約定前は None、約定後は open=True を返す。
@@ -306,7 +316,7 @@ def simulate(ind: dict, i: int, max_hold: int = MAX_HOLD, cost: float = COST) ->
     while x is None and k + 1 < n:
         k += 1
         o, h, lo, c = ind["o"][k], ind["h"][k], ind["l"][k], ind["c"][k]
-        g = sell_level(ind, k)
+        g = sell_level(ind, k, e)
         if o <= stop:
             x, why = o, "stop"
         elif g is not None and o >= g:
@@ -339,7 +349,10 @@ def summarize(trades: list[dict]) -> dict:
             "avg_win": r2(mean(win)) if win else None, "avg_loss": r2(mean(loss)) if loss else None,
             "worst": r2(min(rs)), "days": r1(mean(t["days"] for t in trades if t.get("ret") is not None)),
             "stops": round(why.count("stop") / len(rs) * 100), "sells": round(why.count("sell") / len(rs) * 100),
-            "times": round(why.count("time") / len(rs) * 100)}
+            "times": round(why.count("time") / len(rs) * 100),
+            # 勝ちの中身を正直に: +0.5% 以下の小さな勝ち（売り指値の下限で終わった売りが多い）と、−5% 以下の大きな負け
+            "small": round(sum(1 for x in rs if 0 < x <= 0.5) / len(rs) * 100),
+            "big_loss": round(sum(1 for x in rs if x <= -5) / len(rs) * 100)}
 
 
 def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, str] | None = None) -> dict | None:
@@ -409,7 +422,8 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, 
         "recent": {**summarize([t for t in trades if t["in"] >= cut]), "from": cut},
         "base": {"n": len(b_all), "win": round(sum(1 for x in b_all if x > 0) / len(b_all) * 100) if b_all else None,
                  "avg": r2(mean(b_all)) if b_all else None},
-        "note": "四本値で再現: 翌日だけ有効の指値、場中の安値での損切り（寄りで割れていれば寄り）、毎日の売り指値、"
+        "note": "四本値で再現: 翌日だけ有効の指値、場中の安値での損切り（寄りで割れていれば寄り）、"
+                "毎日の売り指値（直近4日の平均、約定値+0.2%が下限）、"
                 "10営業日で手仕舞い、往復0.1%のコスト。同じ銘柄は手仕舞うまで次の注文を数えない。"
                 "同時に持つ数の上限は置いていない（1回ごとの成績）。",
     }
@@ -440,7 +454,8 @@ def today_row(ind: dict) -> dict | None:
            "ma200": r1(m200), "ma50": r1(m50), "dev25": r1((c / m25 - 1) * 100) if m25 else None,
            "r5": r1((c / ind["c"][i - 5] - 1) * 100) if i >= 5 else None,
            "up": up, "liq": liq, "sig": sig,
-           # 明日（次の営業日）に置く売りの指値（保有中の人向け）
+           # 明日（次の営業日）に置く売りの指値のうち、直近4日の平均の部分（保有中の人向け）。
+           # 下限（約定値 +FLOOR%）は約定値しだいなので、アプリが保有中の記録から max を取る
            "sell": r1(sum(ind["c"][i - EXIT_N + 1:i + 1]) / EXIT_N)}
     if sig:
         row["state"] = "signal"
@@ -468,10 +483,11 @@ def order_of(ind: dict) -> dict | None:
     c, atr = ind["c"][i], ind["atr"][i]
     limit = tick_down(c - ENTRY_ATR * atr)
     stop = tick_down(limit - STOP_ATR * atr)
-    # 約定した日の翌日に置く売り指値の目安（約定した日の終値を指値と同じと仮定）
-    sell = tick_up((sum(ind["c"][i - EXIT_N + 2:i + 1]) + limit) / EXIT_N)
+    # 約定した日の翌日に置く売り指値の目安（約定した日の終値を指値と同じと仮定。下限は指値 +FLOOR%）
+    floor = tick_up(limit * (1 + FLOOR / 100))
+    sell = max(tick_up((sum(ind["c"][i - EXIT_N + 2:i + 1]) + limit) / EXIT_N), floor)
     return {"asof": ind["d"][i], "close": c, "limit": limit, "to_limit": r1((limit / c - 1) * 100),
-            "stop": stop, "stop_pct": r1((stop / limit - 1) * 100), "sell": sell,
+            "stop": stop, "stop_pct": r1((stop / limit - 1) * 100), "sell": sell, "floor": floor,
             "sell_pct": r1((sell / limit - 1) * 100), "atr": r2(atr)}
 
 

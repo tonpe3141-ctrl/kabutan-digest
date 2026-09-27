@@ -5,6 +5,7 @@
 セルの子要素（stripped_strings）単位で分解して読む。
 """
 import re
+import unicodedata
 
 from bs4 import BeautifulSoup
 
@@ -148,6 +149,31 @@ def fetch_ranking(page: dict) -> dict:
             "rows": rows, "ok": ok}
 
 
+CORP_RE = re.compile(r"[(（]\s*(株|有|同|合)\s*[)）]")
+
+
+def stock_name_from_title(title: str | None) -> str | None:
+    """銘柄ページの題名から社名だけを取り出す。
+
+    例: "(株)アシックス【7936】：株価・株式情報（夜間PTS含む） - Yahoo!ファイナンス" → "アシックス"。
+    全角英数（"ＳＷＣＣ"）は半角にそろえる。"""
+    if not title:
+        return None
+    t = title.split("【")[0]
+    t = CORP_RE.sub("", t)
+    t = unicodedata.normalize("NFKC", t).strip()
+    return t or None
+
+
+def fetch_name(code: str) -> str | None:
+    """個別銘柄ページの題名から日本語の社名を取る（取れなければ None）。"""
+    html = get_text(f"{BASE}/quote/{code}.T", timeout=20)
+    if not html:
+        return None
+    title = BeautifulSoup(html, "html.parser").find("title")
+    return stock_name_from_title(title.get_text(strip=True)) if title else None
+
+
 def fetch_stock(code: str) -> dict | None:
     """個別銘柄の株価を取得する。ページ構造の変更に弱いので防御的に読む。"""
     html = get_text(f"{BASE}/quote/{code}.T", timeout=20)
@@ -158,7 +184,7 @@ def fetch_stock(code: str) -> dict | None:
     name = None
     title = soup.find("title")
     if title:
-        name = re.split(r"[【(]", title.get_text(strip=True))[0].strip()
+        name = stock_name_from_title(title.get_text(strip=True))
 
     board = soup.find(attrs={"class": re.compile(r"PriceBoard__priceInfo")})
     price = change = change_pct = None

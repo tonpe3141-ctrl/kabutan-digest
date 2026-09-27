@@ -29,7 +29,8 @@ dashboard/trend.py        業種・指数の 5日／20日の時間軸
 dashboard/bars.py         日足キャッシュ（docs/data/cache/bars.json は終値、ohlc.json は四本値と出来高の約2年。
                           CNBC 日足API、分割は全期間取り直し）
 dashboard/swing.py        短期の押し目買い（作戦の中心の1つのルール）: 入口・業種の中での位置（押しの形・見送り）・注文・
-                          約定と手仕舞いの再現・検証・注文の実績
+                          約定と手仕舞いの再現（売り指値は直近4日の平均、買値+0.2%が下限）・検証・注文の実績
+dashboard/names.py        銘柄コード → 日本語の社名（CNBC の社名は英語。日経225・テーマ辞書・台帳・Yahoo の銘柄ページ）
 dashboard/thermo.py       相場温度計（逆張りガード）: 8軸・温度・バックテスト・業種の分類・銘柄の注意書き・出尽くし・成績
 dashboard/thermo_run.py   温度計と押し目買いの実行。docs/data/thermo.json / thermo_track.json / swing_track.json を書く
 dashboard/commentary.py   ルールベースの見立て（LLM 分析が無い時の土台）

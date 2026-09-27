@@ -142,11 +142,13 @@ git pull --rebase origin main
   `turning`（底打ち／天井打ちの兆し）, `sector_picks`（押し目・下げ止まりの業種）, `sector_hot`, `hot`（高値掴み注意）/
   `bad_out` / `good_out`（出尽くし）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）,
   **`swing`**（短期の押し目買い。買う候補を出すのはこのルールだけ）: `asof`（この日の引けで出た注文。次の営業日だけ有効）,
-  `orders[]`（`code`・`name`・買いの指値 `limit`・損切り `stop`・売りの目安 `sell` とそれぞれの率、`peer` = 業種の中での位置
+  `orders[]`（`code`・`name`・買いの指値 `limit`・損切り `stop`・売りの目安 `sell`（毎朝の売り指値＝直近4日の終値の平均。
+  ただし買値 +0.2% の `floor` より下には置かない）とそれぞれの率、`peer` = 業種の中での位置
   `{label（押しの形）, group, g20（業種の20日騰落）, rel20（業種との差）}`）, `more`（上限で外れた次点の数）,
   `skip[]`（押したが「業種の上げに沿った押し」で見送った銘柄）,
   `near[]`（あと少しの下げで注文対象になる銘柄と、その終値 `trig`）, `verify`（このルールを日足キャッシュの期間に当てた
-  `all`/`recent` の回数 `n`・勝率 `win`・平均 `avg`・PF `pf` と、比べる相手 `base`）, `paper`（アプリが出した注文の実績。結果が出てから）。
+  `all`/`recent` の回数 `n`・勝率 `win`・平均 `avg`・PF `pf` と、比べる相手 `base`。勝率を書くときは、+0.5% 以下の小さな勝ちの割合
+  `small` と −5% 以下の大きな負けの割合 `big_loss` も読んで、「勝率は高いが負けは1回が大きい」ことを落とさない）, `paper`（アプリが出した注文の実績。結果が出てから）。
   詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・警告の成績 `track[]`・`swing` の全体）、
   注文の記録は `docs/data/swing_track.json`
 - 参考: `commentary`（ルールベースの見立て。なぞるだけでは意味がない）
