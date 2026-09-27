@@ -3,8 +3,10 @@
   1. 日足キャッシュを更新する（マクロは毎スロット末尾だけ、個別株は大引で全銘柄・ほかは不足分だけ）
   2. 日経平均の PER を取り足す（寄り前・大引）
   3. 履歴から業績修正・見出しの論調の日次を集め、当日の値（場中値）を差し込んで計算する
-  4. docs/data/thermo.json（アプリが読む全体）を書き、latest.json には要約だけを載せる
-  5. 大引では提案を docs/data/thermo_track.json に記録し、5日／20日後の成績を更新する
+  4. 短期の押し目買い（swing.py）: 四本値から今日の注文・もうすぐ注文対象・ルールの検証を出す
+  5. docs/data/thermo.json（アプリが読む全体）を書き、latest.json には要約だけを載せる
+  6. 大引では、出した注文を docs/data/swing_track.json に記録して結果を四本値で測り、
+     業種・警告の判定を docs/data/thermo_track.json に記録して 5日／20日後の成績を更新する
 
 どの段階で失敗しても例外を外に出さない（収集は完走させる）。取れなかった材料は
 「材料不足」として温度計から外し、何軸で計算したかを必ず出す。
@@ -13,8 +15,8 @@ import json
 import os
 from datetime import date
 
-from . import bars as bars_mod, store, thermo as T
-from .config import THERMO_PATH, THERMO_TRACK_PATH
+from . import bars as bars_mod, store, swing as W, thermo as T
+from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
 from .sources import cnbc, nikkei225, nikkei_per, press
@@ -101,9 +103,12 @@ def _live_prices(payload: dict, stale: bool) -> dict[str, float]:
     return out
 
 
-def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch=None) -> dict:
-    """温度計を計算して thermo.json を書き、latest.json に載せる要約と履歴に残す断片を返す。"""
-    fetch = fetch or cnbc.fetch_bars
+def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch=None, fetch_ohlc=None) -> dict:
+    """温度計を計算して thermo.json を書き、latest.json に載せる要約と履歴に残す断片を返す。
+
+    fetch だけを渡した場合（tests）は四本値を取りに行かない。"""
+    if fetch is None:
+        fetch, fetch_ohlc = cnbc.fetch_bars, fetch_ohlc or cnbc.fetch_ohlc
     today = target_date.isoformat()
     nk_live = ((payload.get("indices") or {}).get("nikkei") or {})
     stale = bool(nk_live.get("stale")) if nk_live else True      # 休場日（前営業日の値）
@@ -115,6 +120,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
 
     # ---- 1. 日足 ----
     data = bars_mod.load()
+    ohlc = bars_mod.load_ohlc()
     try:
         bars_mod.update_macro(data, fetch, target_date)
     except Exception as e:                      # noqa: BLE001  収集は止めない
@@ -151,15 +157,19 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     universe = [c for c in universe if c and len(c) == 4][:520]
     try:
         if slot == "taibike" or not data.get("stocks"):
-            bars_mod.update_stocks(data, universe, fetch, target_date)
+            bars_mod.update_stocks(data, universe, fetch, target_date, ohlc=ohlc, fetch_ohlc=fetch_ohlc)
         else:
-            missing = [c for c in universe if c not in (data.get("stocks") or {})]
+            missing = [c for c in universe if c not in (data.get("stocks") or {})
+                       or (fetch_ohlc and c not in (ohlc.get("stocks") or {}))]
             if missing:
-                bars_mod.add_missing_stocks(data, missing, fetch, target_date)
+                bars_mod.add_missing_stocks(data, missing, fetch, target_date, ohlc=ohlc, fetch_ohlc=fetch_ohlc)
     except Exception as e:                      # noqa: BLE001
         print(f"    ⚠️  個別株日足の更新で例外: {e}")
     data["updated_at"] = store.now_jst().isoformat(timespec="seconds")
     bars_mod.save(data)
+    if fetch_ohlc:
+        ohlc["updated_at"] = data["updated_at"]
+        bars_mod.save_ohlc(ohlc)
 
     # 発掘台帳の追跡を東証の営業日で測り直す（休場日の実行や古い気配で d1/d5/d20 がずれないように）
     if slot == "taibike" and not stale and ledger.get("entries"):
@@ -246,19 +256,36 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         mt = T.stock_metrics(closes(code))
         if mt:
             metrics[code] = mt
-    ranks = T.rs_ranks({c: mt.get("r60") for c, mt in metrics.items()})
+
+    # ---- 4. 短期の押し目買い（確定した四本値だけで計算する。場中値は使わない） ----
+    ind_cache: dict[str, dict | None] = {}
+
+    def ind_of(code):
+        if code not in ind_cache:
+            bars = W.compact(ohlc.get("dates") or [], (ohlc.get("stocks") or {}).get(code))
+            ind_cache[code] = W.indicators(bars) if len(bars) >= 30 else None
+        return ind_cache[code]
+
+    sw_rows = {}
+    for code in (ohlc.get("stocks") or {}):
+        ind = ind_of(code)
+        row = W.today_row(ind) if ind else None
+        if row:
+            sw_rows[code] = row
+    swing = swing_block(ohlc, sw_rows, ind_of, names, sector_of)
+
     stock_rows = {}
     for code, mt in metrics.items():
-        cls = T.stock_class(mt, ranks.get(code))
+        cls = T.stock_class(mt)
         e = ex_by_code.get(code)
         ev = ({"label": e["label"], "tone": e["tone"], "dir": e["dir"],
                "date": e["date"], "since": e["since_pct"], "title": e["title"]} if e else None)
         stock_rows[code] = {
             "n": names.get(code) or code, "s": sector_of.get(code),
             "th": ((themes.get("stocks") or {}).get(code) or {}).get("themes") or [],
-            **mt, "rs": ranks.get(code), "cls": cls, "ev": ev,
+            **mt, "cls": cls, "ev": ev,
             "sc": sector_cls.get(sector_of.get(code)),
-            "plan": T.trade_plan(mt, T.plan_kind(cls, ev)),
+            "sw": _sw_brief(sw_rows.get(code)),
         }
 
     def pick_list(kind, key_fn, limit, reverse=False):
@@ -267,11 +294,6 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         return [_brief(r) for r in rows[:limit]]
 
     lists = {
-        "dip": pick_list("押し目", lambda r: -(r.get("r60") or 0), 8),
-        "oversold": pick_list("売られすぎ・下げ止まり", lambda r: (r.get("rsi") or 50), 8),
-        "leaders": pick_list("相対力リーダー", lambda r: -(r.get("rs") or 0), 8),
-        "deep": pick_list("深押し", lambda r: (r.get("r5") or 0), 8),
-        "turn": pick_list("上向き転換", lambda r: -(r.get("slope25") or 0), 8),
         "hot": pick_list("高値掴み注意", lambda r: -max((r.get("rsi") or 0) - 75, (r.get("dev25") or 0) - 15,
                                                      (r.get("r5") or 0) - 15), 10),
         "bad_out": [_ev_brief(e, stock_rows) for e in ex if e["label"].startswith("悪材料出尽くし")][:8],
@@ -283,26 +305,27 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         nk_d1 = T.r2(T.ret(nkx, 1))
     guard = watch_guard(watch, stock_rows, sector_d1, nk_d1, recent_events, today)
 
-    # 型ごとの過去成績は確定した日足だけで測る（当日の場中値は入れない）
-    try:
-        setups = T.setup_backtest(list(data.get("dates") or []), data.get("stocks") or {})
-    except Exception as e:                      # noqa: BLE001  収集は止めない
-        print(f"    ⚠️  型の成績の計算で例外: {e}")
-        setups = None
-    watching = {e["code"]: e for e in ledger.get("entries") or [] if e.get("status") == "watching"}
-    board = T.action_board(stock_rows, setups, watching)
-    stance = T.market_stance(market, setups, nkx, bt)
-
     thermo = {
         "asof": today, "slot": slot, "generated_at": store.now_jst().isoformat(timespec="seconds"),
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "setups": setups, "board": board, "stance": stance,
-        "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
-                     "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"]},
+                     "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
+                     "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
     }
+
+    # 出した注文の記録と結果（大引のみ。休場日は進めない）。結果は四本値で swing.simulate と同じ規則で測る
+    sw_track = _read(SWING_TRACK_PATH, {})
+    if slot == "taibike" and not stale and swing.get("orders"):
+        sw_track = W.paper_update(sw_track, today, swing["orders"], ind_of)
+        _write(SWING_TRACK_PATH, sw_track, indent=0)
+    elif slot == "taibike" and not stale and sw_track.get("orders"):
+        sw_track = W.paper_update(sw_track, today, [], ind_of)
+        _write(SWING_TRACK_PATH, sw_track, indent=0)
+    swing["paper"] = {**(sw_track.get("stats") or {}),
+                      "recent": [o for o in (sw_track.get("orders") or [])][-40:]}
 
     # ---- 5. 提案の記録（大引のみ。休場日は記録しない＝営業日として数えない） ----
     track = _read(THERMO_TRACK_PATH, {})
@@ -313,9 +336,8 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         for s in sectors:
             if s["class"] == "過熱":
                 picks.append({"kind": "過熱業種", "key": s["sector"], "name": s["sector"], "price": None})
-        for kind, key, n in (("押し目候補", "dip", 5), ("売られすぎ反発", "oversold", 5),
-                             ("相対力リーダー", "leaders", 5), ("深押し", "deep", 5), ("上向き転換", "turn", 5),
-                             ("高値掴み注意", "hot", 5), ("悪材料出尽くし", "bad_out", 5),
+        # 買う側は swing_track.json（注文の実績）で測る。ここは業種と「避ける」側の判定だけ
+        for kind, key, n in (("高値掴み注意", "hot", 5), ("悪材料出尽くし", "bad_out", 5),
                              ("好材料出尽くし", "good_out", 5)):
             for r in lists[key][:n]:
                 picks.append({"kind": kind, "key": r["code"], "name": r["name"], "price": r["price"]})
@@ -361,8 +383,7 @@ def is_pick(s: dict) -> bool:
 def _brief(r: dict) -> dict:
     return {"code": r["code"], "name": r["n"], "sector": r.get("s"), "price": r.get("price"),
             "d1": r.get("d1"), "r5": r.get("r5"), "r20": r.get("r20"), "r60": r.get("r60"),
-            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "ma25": r.get("ma25"), "rs": r.get("rs"),
-            "from_hi": r.get("from_hi"), "plan": r.get("plan"), "slope25": r.get("slope25"),
+            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "ma25": r.get("ma25"),
             "to_ma25": T.r1(T.pct(r.get("ma25"), r.get("price"))) if r.get("ma25") else None}
 
 
@@ -370,7 +391,55 @@ def _ev_brief(e: dict, rows: dict) -> dict:
     r = rows.get(e["code"]) or {}
     return {"code": e["code"], "name": r.get("n") or e.get("name"), "label": e["label"], "dir": e["dir"],
             "date": e["date"], "since": e["since_pct"], "title": e["title"], "price": r.get("price"),
-            "rsi": r.get("rsi"), "dev25": r.get("dev25"), "plan": r.get("plan")}
+            "rsi": r.get("rsi"), "dev25": r.get("dev25")}
+
+
+def _sw_brief(row: dict | None) -> dict | None:
+    """銘柄ごとの、短期の押し目買いでの位置（アプリの買う前チェック・保有中の売り指値が読む）。"""
+    if not row:
+        return None
+    out = {"st": row["state"], "asof": row["asof"], "sell": row.get("sell"), "atr": row.get("atr"),
+           "rsi2": row.get("rsi2"), "tv": row.get("tv"), "up": row.get("up"), "ma200": row.get("ma200")}
+    if row.get("trig") is not None:
+        out.update({"trig": row["trig"], "to": row.get("to_trig"), "ok": row.get("trig_ok")})
+    return out
+
+
+NEAR_PCT = -3.0      # 「もうすぐ注文対象」: あと3%以内の下げで入口に入り、その価格でも上昇トレンドを保つ
+
+
+def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict) -> dict:
+    """thermo.json の swing（作戦タブの中心）。注文・次点・もうすぐ注文対象・ルールの検証。
+
+    注文は最新の日付（asof）の引けまで日足がそろった銘柄からだけ出す。大引の時点で当日の日足がまだ無い銘柄は、
+    前の営業日の引けの注文（もう期限が過ぎている）を出さない。"""
+    asof = max((r["asof"] for r in rows.values()), default=None)
+    sig = []
+    for code, r in rows.items():
+        if r["state"] != "signal" or r["asof"] != asof:
+            continue
+        o = W.order_of(ind_of(code))
+        if o:
+            sig.append({"code": code, "name": names.get(code) or code, "sector": sector_of.get(code),
+                        **o, "dev25": r.get("dev25"), "r5": r.get("r5"), "rsi2": r.get("rsi2"), "tv": r.get("tv")})
+    orders, more = W.rank_orders(sig, sector_of)
+    near = [{"code": c, "name": names.get(c) or c, "sector": sector_of.get(c), "price": r["price"],
+             "trig": r["trig"], "to": r["to_trig"], "rsi2": r.get("rsi2"), "dev25": r.get("dev25")}
+            for c, r in rows.items() if r["state"] == "wait" and r.get("trig_ok") and r.get("to_trig") is not None
+            and r["to_trig"] >= NEAR_PCT and r["asof"] == asof]
+    near.sort(key=lambda x: (-x["to"], x["code"]))
+    try:
+        verify = W.verify({c: W.compact(ohlc.get("dates") or [], (ohlc.get("stocks") or {}).get(c))
+                           for c in rows})
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  短期の押し目買いの検証で例外: {e}")
+        verify = None
+    if orders:
+        print(f"    ✅ 短期の押し目買い: 注文 {len(orders)}（次点 {len(more)}）、もうすぐ {len(near)}、{asof} の引けから")
+    else:
+        print(f"    ✅ 短期の押し目買い: 注文なし、もうすぐ {len(near)}、{asof} の引けから")
+    return {"asof": asof, "rules": W.RULES, "orders": orders, "more": more[:10], "near": near[:12],
+            "verify": verify, "cal": (ohlc.get("dates") or [])[-40:]}
 
 
 def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: list[dict],
@@ -386,6 +455,7 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
             continue
         notes = []
         d1 = r.get("d1")
+        sw = r.get("sw") or {}
         downs = [e for e in own.get(code, []) if e["dir"] == "down"]
         sd1 = sector_d1.get(r.get("s"))
         if d1 is not None and d1 <= -3:
@@ -397,10 +467,10 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
                                                         "狼狽売りになりやすい場面"})
             else:
                 notes.append({"tone": "info", "text": "個別に大きく下げた。開示が無いか、ニュースを確かめる"})
+        if sw.get("st") == "signal":
+            notes.append({"tone": "chance", "text": "短期の押し目買いの注文対象（作戦タブの注文を参照）"})
         if "高値掴み注意" in r["cls"]:
-            notes.append({"tone": "warn", "text": "短期で上がりすぎ。買い増しは25日線まで待つ"})
-        if "押し目" in r["cls"]:
-            notes.append({"tone": "chance", "text": "上昇トレンドの押し目。買い増しを検討できる水準"})
+            notes.append({"tone": "warn", "text": "短期で上がりすぎ。買い増しは押すまで待つ"})
         if "売られすぎ・下げ止まり" in r["cls"]:
             notes.append({"tone": "chance", "text": "売られすぎから下げ止まり。ここでの損切りは反発を取り逃がしやすい"})
         if r.get("ev"):
@@ -417,8 +487,10 @@ def summary(th: dict) -> dict | None:
     if not mk:
         return None
     sec = th.get("sectors") or []
+    sw = th.get("swing") or {}
+    ver = sw.get("verify") or {}
+    pick = lambda st: {k: st.get(k) for k in ("n", "win", "avg", "pf")} if st else None   # noqa: E731
     return {
-        "stance": th.get("stance"),
         "temp": mk.get("temp"), "zone": mk.get("zone"), "tone": mk.get("tone"), "guide": mk.get("guide"),
         "consensus": mk.get("consensus"), "tailwind": mk.get("tailwind"), "headwind": mk.get("headwind"),
         "n": mk.get("n"), "temp_before": mk.get("temp_before"), "turning": mk.get("turning"),
@@ -429,31 +501,25 @@ def summary(th: dict) -> dict | None:
         "sector_picks": [{"sector": s["sector"], "class": s["class"], "pick": s["pick"],
                           "macro": (s.get("macro") or {}).get("label")} for s in sec if is_pick(s)][:3],
         "sector_hot": [s["sector"] for s in sec if s["class"] == "過熱"][:5],
-        "dip": [{"code": r["code"], "name": r["name"], "ma25": r.get("ma25"), "to_ma25": r.get("to_ma25")}
-                for r in (th.get("lists") or {}).get("dip", [])[:5]],
-        "oversold": [{"code": r["code"], "name": r["name"], "rsi": r.get("rsi")}
-                     for r in (th.get("lists") or {}).get("oversold", [])[:5]],
         "hot": [{"code": r["code"], "name": r["name"], "rsi": r.get("rsi"), "r5": r.get("r5")}
                 for r in (th.get("lists") or {}).get("hot", [])[:5]],
         "bad_out": [{"code": r["code"], "name": r["name"], "since": r.get("since")}
                     for r in (th.get("lists") or {}).get("bad_out", [])[:5]],
         "good_out": [{"code": r["code"], "name": r["name"], "since": r.get("since")}
                      for r in (th.get("lists") or {}).get("good_out", [])[:5]],
-        "deep": [{"code": r["code"], "name": r["name"], "r5": r.get("r5")}
-                 for r in (th.get("lists") or {}).get("deep", [])[:5]],
-        "turn": [{"code": r["code"], "name": r["name"], "slope25": r.get("slope25")}
-                 for r in (th.get("lists") or {}).get("turn", [])[:5]],
         "themes": [{"theme": t["theme"], "label": t["label"], "tone": t["tone"]}
                    for t in th.get("themes") or [] if t.get("label")][:5],
         "watch_guard": th.get("watch_guard") or [],
-        # 型ごとの直近の成績（効いている／効いていない）と、今日計画を立てられる銘柄の上位
-        "setups": [{"setup": s["setup"], "verdict": s["verdict"], "tone": s["tone"],
-                    "x5": s.get("x5"), "x20": s.get("x20"), "n": s.get(f"n{s['judged_on']}"),
-                    "avg_r": s.get("avg_r")}
-                   for s in (th.get("setups") or {}).get("setups") or []],
-        "board": [{"code": b["code"], "name": b["name"], "setup": b["setup"], "verdict": b.get("verdict"),
-                   "tone": b.get("tone"), "price": b.get("price"), "d1": b.get("d1"),
-                   "entry": b["plan"].get("entry"), "stop": b["plan"].get("stop"),
-                   "target": b["plan"].get("target"), "rr": b["plan"].get("rr"), "plan": b["plan"]}
-                  for b in (th.get("board") or [])[:5]],
+        # 短期の押し目買い: asof の引けで出た注文（次の営業日だけ有効）と、ルールの検証・注文の実績
+        "swing": {
+            "asof": sw.get("asof"),
+            "orders": [{k: o.get(k) for k in ("code", "name", "sector", "close", "limit", "to_limit", "stop",
+                                               "stop_pct", "sell", "sell_pct", "dev25", "rsi2")}
+                       for o in sw.get("orders") or []],
+            "more": len(sw.get("more") or []),
+            "near": [{k: x.get(k) for k in ("code", "name", "trig", "to")} for x in (sw.get("near") or [])[:5]],
+            "verify": {"all": pick(ver.get("all")), "recent": pick(ver.get("recent")),
+                       "base": ver.get("base"), "from": ver.get("from"), "to": ver.get("to")} if ver else None,
+            "paper": pick(sw.get("paper")) if (sw.get("paper") or {}).get("n") else None,
+        },
     }

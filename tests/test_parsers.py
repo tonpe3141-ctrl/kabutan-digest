@@ -512,8 +512,8 @@ def test_thermo():
 
     # 個別株の分類
     check("高値掴み注意（RSI 80）", "高値掴み注意" in T.stock_class({"rsi": 80, "dev25": 5, "r5": 3}), True)
-    check("押し目", T.stock_class({"rsi": 42, "dev25": -3, "r5": -4, "r60": 15, "ma25": 1100, "ma75": 1000, "d1": -0.5}),
-          ["押し目"])
+    check("買う側の分類は出さない（短期の押し目買いのルールに一本化）",
+          T.stock_class({"rsi": 42, "dev25": -3, "r5": -4, "r60": 15, "ma25": 1100, "ma75": 1000, "d1": -0.5}), [])
     check("売られすぎ・下げ止まり", T.stock_class({"rsi": 25, "dev25": -12, "d1": 1.2})[0], "売られすぎ・下げ止まり")
 
     # 見出しの論調（1見出しで強気・弱気は1回ずつ）
@@ -547,114 +547,156 @@ def test_thermo():
     check("マクロ感応度: 国内金利上昇は銀行に追い風", fit["label"], "追い風")
 
 
-def test_plan_setups():
-    from dashboard import thermo as T
+def _swing_bars(n=260, start=1000.0, drift=0.003, vol_shares=2_000_000, dips=(), start_date="2025-01-06"):
+    """上昇が続く日足（始値は前日終値、高安は ±1%）。dips は最後に足す日ごとの騰落率（%）。"""
+    ds = _bdays(n + len(dips), start_date)
+    out, c = [], start
+    for k, d in enumerate(ds):
+        prev = c
+        c = c * (1 + drift) if k < n else c * (1 + dips[k - n] / 100)
+        out.append((d, prev, max(prev, c) * 1.01, min(prev, c) * 0.99, c, vol_shares))
+    return out
 
-    print("\n[売買計画・型の成績・作戦ボード]")
-    # 押し目: 25日線まで待つ。損切りは20日安値の1%下（値幅の2.5〜3.5倍の範囲）、利確は60日高値
-    # （ただし20営業日のふだんの値幅の1.5倍まで）
-    mt = {"price": 1100, "ma25": 1050, "lo20": 1000, "hi60": 1300, "hi120": 1500, "vol": 2.0}
-    pl = T.trade_plan(mt, "dip")
-    check("押し目: 買う目安は25日線", (pl["entry"], pl["entry_by"], pl["to_entry"]), (1050, "ma25", -4.5))
-    check("押し目: 損切りは20日安値の1%下", (pl["stop"], pl["stop_by"], pl["stop_pct"]), (990, "lo20", -5.7))
-    check("押し目: 60日高値が遠すぎると20日の値幅の1.5倍に抑える", (pl["target"], pl["target_by"], pl["rr"]),
-          (1191, "cap", 2.3))
-    near_hi = T.trade_plan({**mt, "hi60": 1150}, "dip")
-    check("押し目: 利確は60日高値（直近の戻り高値）、R倍", (near_hi["target"], near_hi["target_by"], near_hi["rr"]),
-          (1150, "hi60", 1.7))
-    far = T.trade_plan({**mt, "lo20": 800}, "dip")
-    check("20日安値が遠すぎると値幅の3.5倍に収める", (far["stop"], far["stop_by"]), (976, "vol_max"))
-    near = T.trade_plan({**mt, "lo20": 1060}, "dip")
-    check("20日安値が買う目安より上なら値幅の2.5倍（ふだんの揺れで掛からない距離）", (near["stop"], near["stop_by"]),
-          (998, "vol_min"))
-    ov = T.trade_plan({"price": 900, "ma25": 1000, "lo20": 880, "hi60": 1400, "vol": 2.0}, "oversold")
-    check("売られすぎ: 現値で買い、利確は25日線", (ov["entry"], ov["stop"], ov["target"], ov["rr"]), (900, 855, 1000, 2.2))
-    hi = T.trade_plan({"price": 1300, "ma25": 1200, "lo20": 1150, "hi60": 1300, "vol": 2.0}, "leader")
-    check("高値圏のリーダーは利確の目安なし", (hi["target"], hi["rr"]), (None, None))
-    check("値幅が無いと計画を立てない", T.trade_plan({"price": 100, "vol": None}), None)
-    check("計画の型: 押し目", T.plan_kind(["押し目"]), "dip")
-    check("計画の型: 過熱は25日線まで待つ", T.plan_kind(["高値掴み注意", "相対力リーダー"]), "dip")
-    check("計画の型: 悪材料出尽くし", T.plan_kind([], {"label": "悪材料出尽くし（アク抜け）"}), "oversold")
 
-    # 計画どおりに売買した場合（終値だけで再現）
-    check("指値が約定して利確に届く", T.simulate_plan([1080, 1040, 1100, 1310], pl),
-          {"filled": True, "exit": "target", "r": 4.33})
-    check("指値が約定して損切り", T.simulate_plan([1040, 980], pl), {"filled": True, "exit": "stop", "r": -1.17})
-    check("5日以内に目安まで下がらなければ約定せず", T.simulate_plan([1100] * 6, pl), {"filled": False})
-    check("結果がまだ出ていない", T.simulate_plan([1040, 1045], pl), None)
-    check("期間いっぱい持って終わる", T.simulate_plan([900 + i for i in range(1, 25)], ov)["exit"], "time")
+def test_swing():
+    from dashboard import swing as W
 
-    # 相対力（60日騰落の順位）とリーダー
-    ranks = T.rs_ranks({f"{1000 + i}": float(i) for i in range(25)})
-    check("相対力: 最強100・最弱0", (ranks["1024"], ranks["1000"]), (100, 0))
-    check("相対力が20銘柄未満なら出さない", T.rs_ranks({"1": 1.0}), {})
-    lead = {"price": 1300, "ma25": 1200, "ma75": 1100, "from_hi": -2.0}
-    check("リーダー: 上位20%・株価>25日線>75日線・高値の近く", T.is_leader(lead, 85), True)
-    check("リーダー: 高値から遠いものは外す", T.is_leader({**lead, "from_hi": -15.0}, 85), False)
-    check("リーダー: 分類に入る", "相対力リーダー" in T.stock_class(lead, 90), True)
+    print("\n[短期の押し目買い（作戦の中心のルール）]")
+    check("呼値: 3000円以下は1円で切り下げ", W.tick_down(2792.7), 2792)
+    check("呼値: 5000円以下は5円（売りは切り上げ）", (W.tick_down(3547), W.tick_up(3547)), (3545, 3550))
+    check("呼値: 3万円以下は10円", W.tick_down(12345), 12340)
+    check("キャッシュの行を詰める（欠けた日は飛ばす、出来高は100株単位）",
+          W.compact(["2026-01-05", "2026-01-06", "2026-01-07"], [[10, 11, 9, 10.5, 3], None, [10, 12, 10, 11, 4]]),
+          [("2026-01-05", 10.0, 11.0, 9.0, 10.5, 300), ("2026-01-07", 10.0, 12.0, 10.0, 11.0, 400)])
 
-    # 型の成績: 同じ型にいる間は1件（初日だけ数える）。比べる相手は同じ日の全銘柄の中央値
-    ds = _bdays(110)
-    stocks = {f"{2000 + i}": [1000.0] * 110 for i in range(59)}
-    stocks["1111"] = [1000.0 * 1.01 ** k for k in range(110)]            # 毎日 +1%（ずっと過熱）
-    bt = T.setup_backtest(ds, stocks)
-    by = {r["setup"]: r for r in bt["setups"]}
-    check("型の成績: 7つの型", [r["setup"] for r in bt["setups"]],
-          ["押し目", "売られすぎ・下げ止まり", "相対力リーダー", "深押し", "上向き転換", "高値掴み注意", "下落トレンド"])
-    check("ずっと過熱の銘柄は1件と数える", by["高値掴み注意"]["events"], 1)
-    check("全銘柄の中央値との差（5日で +5.1%）", by["高値掴み注意"]["x5"], 5.1)
-    check("件数が少ないと判定しない", by["高値掴み注意"]["verdict"], "件数不足")
-    check("判定: 買う型が全銘柄を上回る", T.setup_verdict("up", 40, 1.2, 60)[0], "効いている")
-    check("判定: 買う型が全銘柄を下回る", T.setup_verdict("up", 40, -1.0, 40)[0], "効いていない")
-    check("判定: 警告の型がその後に劣後", T.setup_verdict("down", 40, -2.0, 38)[0], "警告どおり（その後に劣後）")
-    check("判定: どちらとも言えない", T.setup_verdict("up", 40, 0.6, 49)[0], "はっきりしない")
+    # 入口: 上昇トレンド（終値>200日線、50日線>200日線）で 2日RSI<10、売買代金10億円以上、300円以上
+    up = _swing_bars(dips=(-2.0, -2.0))
+    ind = W.indicators(up)
+    i = len(up) - 1
+    check("上昇トレンド中に2日続けて押すと入口", (W.is_signal(ind, i), ind["rsi"][i] < 10), (True, True))
+    check("押す前（上昇が続く日）は入口でない", W.is_signal(ind, i - 2), False)
+    thin = W.indicators(_swing_bars(vol_shares=300_000, dips=(-2.0, -2.0)))
+    check("売買代金が10億円に満たないと入口にしない", W.is_signal(thin, i), False)
+    cheap = W.indicators(_swing_bars(start=100.0, vol_shares=50_000_000, dips=(-2.0, -2.0)))
+    check("300円未満の低位株は入口にしない", W.is_signal(cheap, i), False)
+    down = W.indicators(_swing_bars(drift=-0.003, dips=(-2.0, -2.0)))
+    check("下落トレンドの押しは入口にしない", W.is_signal(down, i), False)
+    check("200日線が引けるまでは判定しない", W.is_signal(W.indicators(up[:150]), 149), False)
 
-    # 作戦ボード: 過熱と R倍の小さいものは外し、型の成績の良い順（効いていない型は後ろ）
-    rows = {
-        "1001": {"n": "押し目株", "cls": ["押し目"], "plan": pl, "price": 1100},
-        "1002": {"n": "売られすぎ株", "cls": ["売られすぎ・下げ止まり"], "plan": ov, "price": 900},
-        "1003": {"n": "過熱株", "cls": ["高値掴み注意", "押し目"], "plan": pl, "price": 1100},
-        "1004": {"n": "R不足", "cls": ["押し目"], "plan": {**pl, "rr": 1.2}, "price": 1100},
-        "1005": {"n": "型なし", "cls": [], "plan": pl, "price": 1100},
-        "1006": {"n": "荒い", "cls": ["押し目"], "plan": {**pl, "stop_pct": -20.0}, "price": 1100},
-    }
-    setups = {"setups": [{"setup": "押し目", "verdict": "はっきりしない", "tone": "info"},
-                         {"setup": "売られすぎ・下げ止まり", "verdict": "効いていない", "tone": "warn"}]}
-    board = T.action_board(rows, setups, {"1001": {"signals": ["上方修正・増配"]}})
-    check("作戦ボード: 過熱・R不足・型なし・損切りが遠すぎる・効いていない型のものは載せない",
-          [b["code"] for b in board], ["1001"])
-    check("作戦ボード: 台帳の理由を添える", board[0]["why"], ["台帳: 上方修正・増配"])
-    setups["setups"][1] = {"setup": "売られすぎ・下げ止まり", "verdict": "効いている", "tone": "chance", "avg_r": 0.4}
-    board = T.action_board(rows, setups, {})
-    check("作戦ボード: 効いている型が先", [b["code"] for b in board], ["1002", "1001"])
-    both = {"2001": {"n": "両方", "cls": ["押し目", "深押し"], "plan": pl, "price": 1100}}
-    setups["setups"].append({"setup": "深押し", "verdict": "効いている", "tone": "chance", "avg_r": 0.2})
-    check("作戦ボード: 複数の型なら成績の良い型で載せる", T.action_board(both, setups)[0]["setup"], "深押し")
+    # 次の終値がいくら未満なら入口か（RSI の漸化式を解いた境目）
+    base = _swing_bars()
+    bi = W.indicators(base)
+    p = W.trigger_price(bi, len(base) - 1)
+    d_next = _bdays(1, "2026-12-01")[0]
+    below = W.indicators(base + [(d_next, p, p, p * 0.999, p * 0.999, 2_000_000)])
+    above = W.indicators(base + [(d_next, p, p * 1.001, p, p * 1.001, 2_000_000)])
+    check("境目の少し下で引ければ 2日RSI<10", below["rsi"][-1] < 10 <= above["rsi"][-1], True)
+    row = W.today_row(bi)
+    check("まだ押していない銘柄は「待つ」と境目の価格", (row["state"], row["trig"] < row["price"]), ("wait", True))
+    check("入口の日は「注文対象」", W.today_row(ind)["state"], "signal")
 
-    # 今日のスタンス: 地合い・効いている型・温度帯の過去の成績を数える
-    up = [1000.0 + i * 2 for i in range(80)]
-    st_ok = {"setups": [{"setup": "押し目", "expect": "up", "verdict": "効いている"}]}
-    st_ng = {"setups": [{"setup": "押し目", "expect": "up", "verdict": "効いていない"}]}
-    bt = {"all": {"median20": 2.0}, "zones": [{"zone": "悲観", "median20": 7.6, "n20": 60},
-                                              {"zone": "過熱", "median20": -0.1, "n20": 20}]}
-    s = T.market_stance({"temp": 30, "zone": "悲観"}, st_ok, up, bt)
-    check("スタンス: 上昇基調＋効く型＋悲観の帯は過去良い → 攻め", (s["key"], s["score"], s["risk"]), ("attack", 3, 1.0))
-    s = T.market_stance({"temp": 85, "zone": "過熱"}, st_ng, list(reversed(up)), bt)
-    check("スタンス: 下落基調＋効く型なし＋過熱 → 守り", (s["key"], s["score"], s["risk"]), ("defend", -4, 0.25))
-    s = T.market_stance({"temp": 50, "zone": "中立"}, st_ok, [1100.0] * 55 + [1000.0] * 20 + [1010.0] * 5, bt)
-    check("スタンス: 線がねじれていれば地合いは0点、根拠を1行ずつ出す", [r["pt"] for r in s["reasons"]], [0, 1])
-    check("スタンス: 効く型だけで選んで小さく", s["key"], "select")
+    # 注文: 翌日だけ有効の指値（終値−0.5ATR）、損切りは指値−3ATR、売りの目安は直近3日と指値の平均
+    o = W.order_of(ind)
+    c, atr = ind["c"][i], ind["atr"][i]
+    check("指値は終値−0.5ATR（呼値で切り下げ）", o["limit"], W.tick_down(c - 0.5 * atr))
+    check("損切りは指値−3ATR", o["stop"], W.tick_down(o["limit"] - 3 * atr))
+    check("注文が出ない日は None", W.order_of(bi), None)
 
-    # 足した型: 深押し（上昇中の急落）と上向き転換（25日線が上を向いた初動）
-    check("深押し", "深押し" in T.stock_class({"r5": -8.0, "r60": 12.0, "ma25": 1100, "ma75": 1000, "rsi": 40,
-                                               "dev25": -5.0, "d1": -1.0}), True)
-    check("深押し: 下落トレンドの急落は入れない", "深押し" in T.stock_class({"r5": -8.0, "r60": -3.0, "ma25": 900,
-                                                                  "ma75": 1000, "rsi": 30, "dev25": -9.0}), False)
-    turn = {"price": 960, "ma25": 930, "ma75": 1000, "slope25": 0.8, "dev25": 3.2, "rsi": 58, "r20": 4.0}
-    check("上向き転換", "上向き転換" in T.stock_class(turn), True)
-    check("上向き転換: 25日線が下向きなら入れない", "上向き転換" in T.stock_class({**turn, "slope25": -0.3}), False)
-    check("上向き転換: 25日線から離れすぎは入れない", "上向き転換" in T.stock_class({**turn, "dev25": 12.0}), False)
-    check("25日線の向きを指標に持つ", T.stock_metrics([100.0 + i for i in range(40)])["slope25"], 4.1)
+    # 約定と手仕舞いの再現
+    limit = c - 0.5 * atr
+    nd = _bdays(14, "2026-06-01")
+
+    def after_bars(*bars):
+        return up + [(nd[k], *b, 2_000_000) for k, b in enumerate(bars)]
+
+    def after(*bars):
+        return W.indicators(after_bars(*bars))
+
+    check("翌日の安値が指値に届かなければ約定しない",
+          W.simulate(after((c, c * 1.01, limit + 1, c)), i)["filled"], False)
+    r = W.simulate(after((limit - 5, limit, limit - 8, limit - 2)), i)
+    check("寄りが指値より下なら寄りで約定し、まだ結果が出ていない", (r["entry"], r.get("open")), (round(limit - 5, 2), True))
+    sl = (sum(ind["c"][i - 2:i + 1]) + (limit - 2)) / 4          # 約定日の翌日の売り指値
+    r = W.simulate(after((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2)), i)
+    check("翌日に高値が売り指値に届けば、売り指値で売る", (r["why"], r["exit"]), ("sell", round(sl, 2)))
+    check("損益は売買コスト0.1%を引いた率", r["ret"], round((sl / limit - 1) * 100 - 0.1, 2))
+    stop = limit - 3 * atr
+    r = W.simulate(after((limit, limit + 1, limit - 1, limit - 2), (stop - 10, stop - 5, stop - 20, stop - 15)), i)
+    check("寄りで損切りを割っていれば寄りで売る（窓開け）", (r["why"], r["exit"]), ("stop", round(stop - 10, 2)))
+    r = W.simulate(after((limit, limit + 1, limit - 1, limit - 2), (limit - 2, sl + 5, stop - 1, limit)), i)
+    check("同じ日に損切りと売り指値の両方に届いたら、損切りを先に数える", r["why"], "stop")
+    drift = [(limit * (1 - 0.003 * k), limit * (1 - 0.003 * k) * 1.0005, limit * (1 - 0.003 * (k + 1)),
+              limit * (1 - 0.003 * (k + 1))) for k in range(12)]
+    r = W.simulate(after(*drift), i)
+    check("10営業日で売れなければ引けで売る", (r["why"], r["days"]), ("time", 11))
+
+    # 並べ方: 25日線からの下離れが大きい順、1日5銘柄まで、同じ業種は2銘柄まで
+    rows = [{"code": str(1000 + k), "dev25": -k} for k in range(8)]
+    sector = {"1007": "電力", "1006": "電力", "1005": "電力"}
+    picked, rest = W.rank_orders(rows, sector)
+    check("下離れの大きい順・同じ業種は2つまで", [r["code"] for r in picked], ["1007", "1006", "1004", "1003", "1002"])
+    check("上限や業種で外れたものは次点", [r["code"] for r in rest][:2], ["1005", "1001"])
+
+    # アプリが出した注文の実績: 記録して、結果が出たら凍結する
+    done = after((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2))
+    orders = [{"asof": up[i][0], "code": "1111", "name": "A", "limit": W.tick_down(limit), "stop": 1}]
+    tr = W.paper_update({}, nd[1], orders, lambda code: done)
+    check("注文の実績: 売りまで済んだ1件", (tr["stats"]["n"], tr["stats"]["win"], tr["orders"][0]["why"]), (1, 100, "sell"))
+    tr2 = W.paper_update(tr, nd[2], orders, lambda code: None)
+    check("注文の実績: 同じ注文は二重に記録せず、結果は凍結", (len(tr2["orders"]), tr2["orders"][0]["ret"]),
+          (1, tr["orders"][0]["ret"]))
+    pend = W.paper_update({}, up[i][0], orders, lambda code: ind)
+    check("注文の実績: 翌日の日足がまだ無ければ未確定", (pend["orders"][0]["done"], pend["stats"]["n"]), (False, 0))
+
+    # ルールの検証: 1回ごとの成績と、比べる相手（翌日の寄りで買って5営業日後に売る）
+    v = W.verify({"1111": after_bars((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2)),
+                  "2222": _swing_bars(drift=-0.003)})
+    check("検証: 約定して結果が出た売買を数える", (v["all"]["n"], v["all"]["win"]), (1, 100))
+    check("検証: 比べる相手がある", v["base"]["n"] > 0, True)
+
+
+def test_ohlc_cache():
+    from datetime import date as _date
+    from dashboard import bars as B
+    from dashboard.sources.cnbc import parse_ohlc
+
+    print("\n[四本値の日足キャッシュ]")
+    got = parse_ohlc({"barData": {"priceBars": [
+        {"open": "10", "high": "12", "low": "9", "close": "11", "volume": 1200, "tradeTime": "20260105000000"},
+        {"open": None, "high": None, "low": None, "close": "11.5", "volume": None, "tradeTime": "20260106000000"},
+        {"close": "0", "tradeTime": "20260107000000"}]}})
+    check("四本値: 欠けた始値・高安は終値で埋め、終値0の日は捨てる",
+          got, [("2026-01-05", 10.0, 12.0, 9.0, 11.0, 1200), ("2026-01-06", 11.5, 11.5, 11.5, 11.5, 0)])
+
+    ds = _bdays(20, "2026-03-02")
+    data = {"macro": {"nikkei": {"d": ds, "c": [1.0] * 20}}, "dates": [], "stocks": {}}
+    ohlc = {"dates": [], "stocks": {}}
+    calls = []
+
+    def fetch_ohlc(sym, start, end):
+        calls.append(start)
+        return [(d, 100.0, 101.0, 99.0, 100.0 + k, 1000) for k, d in enumerate(ds)]
+    B.update_stocks(data, ["1111"], None, _date(2026, 3, 27), ohlc=ohlc, fetch_ohlc=fetch_ohlc)
+    check("四本値から終値も作る（1回の取得で両方）", (data["stocks"]["1111"][-1], len(calls)), (119.0, 1))
+    check("四本値は [始値, 高値, 安値, 終値, 出来高(100株)]", ohlc["stocks"]["1111"][-1], [100.0, 101.0, 99.0, 119.0, 10])
+
+    def tail(sym, start, end):
+        calls.append(start)
+        return [(d, 100.0, 101.0, 99.0, 100.0 + k, 1000) for k, d in enumerate(ds)][-8:]
+
+    def split(sym, start, end):
+        calls.append(start)
+        return [(d, 50.0, 51.0, 49.0, (100.0 + k) / 2, 1000) for k, d in enumerate(ds)]
+    # 取り直し不要な長さ（600営業日）の履歴を持っている銘柄
+    ohlc["dates"] = _bdays(600, "2023-12-01")[:-20] + ds
+    ohlc["stocks"]["1111"] = [[100.0, 101.0, 99.0, 100.0, 10]] * 580 + [[100.0, 101.0, 99.0, 100.0 + k, 10] for k in range(20)]
+    calls.clear()
+    got, ok, full = B._fetch_ohlc_merged("1111", B.ohlc_map(ohlc, "1111"), tail, _date(2026, 3, 27))
+    check("四本値: 分割が無ければ末尾だけ取ってつなぐ", (full, len(calls), calls[0].isoformat(), len(got)),
+          (False, 1, ds[-8], 600))
+    calls.clear()
+    got, ok, full = B._fetch_ohlc_merged("1111", B.ohlc_map(ohlc, "1111"), split, _date(2026, 3, 27))
+    check("四本値: 過去値が半分になっていたら（分割）全期間を取り直す", (full, len(calls), got[ds[-1]][3]), (True, 2, 59.5))
 
 
 def test_ledger_stats():
@@ -858,7 +900,8 @@ if __name__ == "__main__":
     test_ranking_layouts()
     test_themes_ledger_trend()
     test_thermo()
-    test_plan_setups()
+    test_swing()
+    test_ohlc_cache()
     test_ledger_stats()
     test_press()
     print()
