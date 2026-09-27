@@ -109,6 +109,7 @@ def select_headlines(items: list[dict], slot: str, since_hours: int = 30,
 _CODE_LINES = re.compile(r"\n<\n([0-9]{3}[0-9A-Z])\n>\n")
 _TIME_RE = re.compile(r"^\d{1,2}:\d{2}$")
 _DATE_LINE = re.compile(r"^\[\d{4}年\d{1,2}月\d{1,2}日\]$")
+_PAYWALL = ("続きをお読みいただくには", "この記事は有料会員", "VIP倶楽部の登録が必要")
 
 # 本文を読む価値の高い記事の型（上ほど優先）。ランキング羅列系は後回し
 ARTICLE_PRIORITY = [r"日経平均 大引け", r"マ[－ー]ケット日報", r"東京株式（大引け）", r"東京株式（前引け）",
@@ -116,10 +117,12 @@ ARTICLE_PRIORITY = [r"日経平均 大引け", r"マ[－ー]ケット日報", r"
                     r"投資部門別", r"上方修正|増額修正", r"決算速報", r"増資・売り出し", r"信用規制", r"PTS"]
 
 
-def _list_yahoo(category: str, page: int) -> list[dict]:
-    html = get_text(YAHOO_LIST.format(category=category, page=page), timeout=20)
-    if not html:
-        return []
+def parse_yahoo_list(html: str, providers=(PROVIDER,)) -> list[dict]:
+    """ニュース一覧から、指定した配信元の記事だけを {url, title, time, provider} で返す。
+
+    リンクのテキストは「見出し 時刻(9:15 または 9/26) 配信元」の順に並ぶ。
+    配信元は末尾で照合する（見出しの中に媒体名が出てきても取り違えない）。
+    """
     soup = BeautifulSoup(html, "html.parser")
     out = []
     for a in soup.find_all("a", href=True):
@@ -127,25 +130,35 @@ def _list_yahoo(category: str, page: int) -> list[dict]:
         if "/news/detail/" not in href:
             continue
         block = a.get_text(" ", strip=True)
-        if PROVIDER not in block:
+        provider = next((p for p in providers if block.endswith(p)), None)
+        if not provider:
             continue
-        title = block.split(PROVIDER)[0]
-        m = re.search(r"\s(\d{1,2}:\d{2})\s*$", title)
+        title = block[: -len(provider)].strip()
+        m = re.search(r"\s(\d{1,2}[:/]\d{1,2})\s*$", title)
         time_txt = m.group(1) if m else None
-        title = re.sub(r"\s\d{1,2}:\d{2}\s*$", "", title).strip()
+        title = re.sub(r"\s\d{1,2}[:/]\d{1,2}\s*$", "", title).strip()
         if href.startswith("/"):
             href = YAHOO_BASE + href
-        out.append({"url": href, "title": title, "time": time_txt})
+        out.append({"url": href, "title": title, "time": time_txt, "provider": provider})
     return out
 
 
-def parse_yahoo_article(html: str, url: str) -> dict | None:
+def _list_yahoo(category: str, page: int, providers=(PROVIDER,)) -> list[dict]:
+    html = get_text(YAHOO_LIST.format(category=category, page=page), timeout=20)
+    if not html:
+        return []
+    return parse_yahoo_list(html, providers)
+
+
+def parse_yahoo_article(html: str, url: str, provider: str = PROVIDER,
+                        source: str | None = None) -> dict | None:
     """Yahoo!ファイナンスの記事ページから見出し・時刻・本文を取り出す。
 
     <article> のテキストは
       見出し / 時刻 / 配信 / 現在値 / (銘柄名・株価・前日比 の繰り返し) / 本文… /
       関連ニュース… / 最終更新: … / 配信元
     の順に並ぶ。株価の引用ブロックと末尾の定型部分を落として本文だけ残す。
+    有料会員向けの記事（時事通信など）は「続きをお読みいただくには」で切り、partial=True を付ける。
     """
     soup = BeautifulSoup(html, "html.parser")
     art = soup.find("article")
@@ -166,18 +179,27 @@ def parse_yahoo_article(html: str, url: str) -> dict | None:
             start = i
             break
     body_lines = []
+    partial = False
     for l in lines[start:]:
         if l.startswith(("関連ニュース", "最終更新", "【一緒によく見られる銘柄】")):
             break
+        if l.startswith(_PAYWALL):
+            partial = True
+            break
         body_lines.append(l)
-    # 末尾の定型（"[2026年9月17日]" / "株探ニュース（minkabu PRESS）" / "株探ニュース"）を落とす
-    while body_lines and (body_lines[-1].startswith(PROVIDER) or _DATE_LINE.match(body_lines[-1])):
+    # 末尾の定型（"[2026年9月17日]" / "株探ニュース（minkabu PRESS）" / "提供：〇〇社" / 配信元名）を落とす
+    while body_lines and (body_lines[-1].startswith((provider, "提供：", "提供:"))
+                          or _DATE_LINE.match(body_lines[-1])):
         body_lines.pop()
     body = "\n".join(body_lines).strip()
     if not body:
         return None
-    return {"headline": headline, "timestamp": time_txt, "body": body, "url": url,
-            "source": f"{PROVIDER}（Yahoo!ファイナンス配信）", "category": "株探"}
+    out = {"headline": headline, "timestamp": time_txt, "body": body, "url": url,
+           "source": f"{source or provider}（Yahoo!ファイナンス配信）",
+           "category": "株探" if provider == PROVIDER else provider}
+    if partial:
+        out["partial"] = True
+    return out
 
 
 def fetch_articles(categories=("market", "stocks"), max_pages: int = 3,

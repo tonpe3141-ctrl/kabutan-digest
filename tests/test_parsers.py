@@ -654,6 +654,129 @@ def test_ledger_stats():
     check("成績: 全体", st["overall"]["count"], 3)
 
 
+# ==================== 報道・公的機関（株探以外の情報源） ====================
+from dashboard.sources import press as press_mod  # noqa: E402
+from dashboard.sources.kabutan_news import parse_yahoo_list  # noqa: E402
+
+# Google ニュース RSS の実物の形（<source url> が配信元ドメイン。媒体名の表記は取得ごとに揺れる）
+GN_RSS = """<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>
+<item><title>東京株式市場・大引け＝5日続伸、半導体関連株けん引 - ロイター</title><link>https://news.google.com/rss/articles/A</link>
+<pubDate>Fri, 25 Sep 2026 07:14:00 GMT</pubDate><description>&lt;a href="x"&gt;y&lt;/a&gt;</description>
+<source url="https://jp.reuters.com">ロイター</source></item>
+<item><title>ＮＹ外為市場＝円急伸 - jp.reuters.com</title><link>https://news.google.com/rss/articles/B</link>
+<pubDate>Fri, 25 Sep 2026 19:21:00 GMT</pubDate><source url="https://jp.reuters.com">jp.reuters.com</source></item>
+<item><title>634A.T - | Stock Price &amp; Latest News | Reuters - ロイター</title><link>https://news.google.com/rss/articles/C</link>
+<pubDate>Fri, 25 Sep 2026 07:13:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
+<item><title>ゴルフ＝世界選抜が米国に5戦全勝 - ロイター</title><link>https://news.google.com/rss/articles/D</link>
+<pubDate>Fri, 25 Sep 2026 09:31:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
+<item><title>ロイターによると円急伸 - 転載サイト</title><link>https://news.google.com/rss/articles/E</link>
+<pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate><source url="https://example.com">転載サイト</source></item>
+<item><title>東京株式市場・前場＝古い記事 - ロイター</title><link>https://news.google.com/rss/articles/F</link>
+<pubDate>Tue, 22 Sep 2026 03:00:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
+</channel></rss>"""
+
+JIJI_RSS = """<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>
+<item><title>◎〔米株式〕ダウ４日ぶり反発、４７８ドル高☆差替 - sp.m.jiji.com</title><link>https://news.google.com/a</link>
+<pubDate>Fri, 25 Sep 2026 20:59:00 GMT</pubDate><source url="https://sp.m.jiji.com">sp.m.jiji.com</source></item>
+<item><title>株式会社AITechと伏見工業株式会社、AI認識システムを共同開発 - 時事ドットコム</title><link>https://news.google.com/b</link>
+<pubDate>Fri, 25 Sep 2026 21:16:00 GMT</pubDate><source url="https://www.jiji.com">時事ドットコム</source></item>
+<item><title>米金利が高止まり＝早期利上げ観測 - 時事エクイティ</title><link>https://news.google.com/c</link>
+<pubDate>Fri, 25 Sep 2026 15:17:00 GMT</pubDate><source url="https://equity.jiji.com">時事エクイティ</source></item>
+</channel></rss>"""
+
+# FRB の RSS は先頭に BOM があり、値が CDATA
+FED_RSS = ("\ufeff<?xml version=\"1.0\" encoding=\"utf-8\" ?><rss version=\"2.0\"><channel>"
+           "<item><title>Federal Reserve issues FOMC statement</title>"
+           "<link><![CDATA[https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm]]></link>"
+           "<pubDate><![CDATA[Wed, 16 Sep 2026 18:00:00 GMT]]></pubDate></item></channel></rss>").encode("utf-8")
+
+BOJ_RSS = """<?xml version="1.0" encoding="UTF-8" ?><rss version="2.0"><channel>
+<item><title>共通担保資金供給オペレーションの運用について</title><pubDate>Fri, 25 Sep 2026 17:00:00 +0900</pubDate>
+<link>http://www.boj.or.jp/a.pdf</link></item>
+<item><title>【記者会見】植田総裁（9月18日分）</title><pubDate>Thu, 24 Sep 2026 15:20:00 +0900</pubDate>
+<link>http://www.boj.or.jp/b.htm</link></item>
+<item><title>【対談】現代美術家 vs 審議委員（広報誌「にちぎん」）</title><pubDate>Fri, 25 Sep 2026 14:00:00 +0900</pubDate>
+<link>http://www.boj.or.jp/c.htm</link></item>
+</channel></rss>"""
+
+YAHOO_LIST_HTML = """<ul>
+<li><a href="/news/detail/aaa">〔NY外為〕円急伸、一時156円台＝再度の日米協調介入警戒（25日） 9/26 時事通信</a></li>
+<li><a href="/news/detail/bbb">「検証！ハイライト銘柄」山一電機：２４日に急伸 8:56 ウエルスアドバイザー</a></li>
+<li><a href="/news/detail/ccc">二面性持つ今年のスイスフラン【フィスコ・コラム】 9:00 フィスコ</a></li>
+<li><a href="/news/detail/ddd">時事通信の報道を受けて 9:10 サーチナ</a></li>
+</ul>"""
+
+JIJI_PAYWALL_HTML = """<html><body><article>
+<h1>〔米国金融証券週報・展望〕住宅ローン金利7％超え＝不動産市場のさらなる逆風に</h1>
+<p>【ニューヨーク時事＝岩崎万季】ニューヨーク金融市場は波乱に満ちた1週間となった。...</p>
+<p>続きをお読みいただくには、VIP倶楽部の登録が必要です。</p>
+<p>初月無料＋1,500円相当プレゼント</p>
+</article></body></html>"""
+
+WA_HTML = """<html><body><article>
+<h1>「検証！ハイライト銘柄」山一電機：２４日に急伸し１カ月ぶり高値</h1>
+<time>8:56</time>
+<p>半導体検査用ソケットの山一電機<6941>が２４日に大幅続伸し、１カ月ぶりの水準を回復した。</p>
+<p>提供：ウエルスアドバイザー社</p>
+<p>ウエルスアドバイザー</p>
+<div>関連ニュース</div>
+</article></body></html>"""
+
+
+def test_press():
+    print("\n報道・公的機関（株探以外）")
+    jst = timezone(timedelta(hours=9))
+    now = datetime(2026, 9, 26, 7, 10, tzinfo=jst)    # 土曜の朝
+    feed = {"key": "reuters", "label": "ロイター", "kind": "press", "max": 15, "hosts": ["jp.reuters.com"]}
+    items = press_mod.parse_rss(GN_RSS)
+    check("Google ニュース RSS を読める", len(items), 6)
+    check("配信元ドメインを取れる", items[0]["source_host"], "jp.reuters.com")
+    check("description の HTML は要約にしない", items[0]["summary"], "")
+    rows = press_mod.select_feed_items(items, feed, now)
+    check("媒体名の表記ゆれ（ロイター / jp.reuters.com）の両方を採り、株価ページ・スポーツ・転載・古い記事を落とす",
+          [r["title"] for r in rows], ["ＮＹ外為市場＝円急伸", "東京株式市場・大引け＝5日続伸、半導体関連株けん引"])
+    check("時刻は JST", rows[0]["published"], "2026-09-26T04:21+09:00")
+
+    jiji = {"key": "jiji", "label": "時事通信", "kind": "press", "max": 12, "hosts": ["equity.jiji.com", "sp.m.jiji.com"]}
+    rows = press_mod.select_feed_items(press_mod.parse_rss(JIJI_RSS), jiji, now)
+    check("時事: www.jiji.com のプレスリリース転載を落とし、速報記号・差替を外す",
+          [r["title"] for r in rows], ["〔米株式〕ダウ４日ぶり反発、４７８ドル高", "米金利が高止まり＝早期利上げ観測"])
+
+    fed = {"key": "fed", "label": "FRB", "kind": "official", "max": 6}
+    fitems = press_mod.parse_rss(FED_RSS)
+    check("BOM 付き・CDATA の RSS を読める", (len(fitems), fitems[0]["url"].endswith("/monetary20260916a.htm")), (1, True))
+    check("公的機関の窓は 72 時間（10日前の発表は落とす）", press_mod.select_feed_items(fitems, fed, now), [])
+    check("月曜は週末をまたぐので窓を 48 時間延ばす",
+          press_mod.window_hours("press", datetime(2026, 9, 28, 7, 10, tzinfo=jst)), 78)
+
+    boj = {"key": "boj", "label": "日本銀行", "kind": "official", "max": 8,
+           "include": r"総裁|審議委員|決定会合", "exclude": r"にちぎん|【対談】"}
+    rows = press_mod.select_feed_items(press_mod.parse_rss(BOJ_RSS), boj, now)
+    check("日銀: 定例の事務連絡と広報誌を落とし、総裁会見を残す", [r["title"] for r in rows], ["【記者会見】植田総裁（9月18日分）"])
+
+    providers = ("時事通信", "トレーダーズ・ウェブ", "ウエルスアドバイザー")
+    lst = parse_yahoo_list(YAHOO_LIST_HTML, providers)
+    check("Yahoo 一覧: 許可リストの配信元だけ（末尾で照合。見出し中の媒体名では拾わない）",
+          [(r["provider"], r["time"]) for r in lst], [("時事通信", "9/26"), ("ウエルスアドバイザー", "8:56")])
+    check("Yahoo 一覧: 見出しから日付を外す", lst[0]["title"], "〔NY外為〕円急伸、一時156円台＝再度の日米協調介入警戒（25日）")
+
+    art = parse_yahoo_article(JIJI_PAYWALL_HTML, "u", provider="時事通信")
+    check("有料記事は続きの案内の手前で切って partial", (art["body"].startswith("【ニューヨーク時事"), art.get("partial"),
+                                                   "VIP" in art["body"]), (True, True, False))
+    art = parse_yahoo_article(WA_HTML, "u", provider="ウエルスアドバイザー", source="ウエルスアドバイザー（旧モーニングスター）")
+    check("末尾の「提供：〇〇社」と配信元名を落とす", art["body"].endswith("回復した。"), True)
+    check("配信元の表示名", art["source"], "ウエルスアドバイザー（旧モーニングスター）（Yahoo!ファイナンス配信）")
+
+    many = [{"title": f"〔東京株式〕記事{i}", "provider": "時事通信", "url": str(i)} for i in range(8)]
+    many += [{"title": "香港大引け", "provider": "トレーダーズ・ウェブ", "url": "h"}]
+    picked = press_mod.pick_articles(many, 4)
+    check("1つの配信元に偏らない（上限は limit の半分）", sum(r["provider"] == "時事通信" for r in picked), 2)
+
+    pr = {"headlines": [{"title": "日経平均が続伸", "source_key": "nikkei"}, {"title": "円相場が上昇", "source_key": "nhk"}],
+          "official": [{"title": "総裁記者会見"}], "articles": [{"headline": "〔NY株式〕反発"}]}
+    check("論調に数えるのは日本語の報道だけ（NHK・公的機関は数えない）", press_mod.tone_titles(pr), ["日経平均が続伸", "〔NY株式〕反発"])
+
+
 if __name__ == "__main__":
     test_ranking()
     test_cnbc()
@@ -666,6 +789,7 @@ if __name__ == "__main__":
     test_thermo()
     test_plan_setups()
     test_ledger_stats()
+    test_press()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

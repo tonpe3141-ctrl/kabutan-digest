@@ -20,7 +20,7 @@ from .config import (
     US_INDICES, US_SECTOR_ETFS,
 )
 
-from .sources import cnbc, kabutan_news, news, nikkei225, tdnet, yahoojp
+from .sources import cnbc, kabutan_news, news, nikkei225, press, tdnet, yahoojp
 
 
 def _safe(label: str, fn, default=None):
@@ -95,6 +95,14 @@ def _fetch_watchlist(tables: dict, disclosures: list[dict],
     return enriched
 
 
+_PRESS_EMPTY = {"official": [], "headlines": [], "overseas": [], "articles": [], "status": [], "ok": False}
+
+
+def _fetch_press() -> dict:
+    print("  [報道・公的機関] ロイター／ブルームバーグ／日経／時事／NHK／日銀／財務省／JPX／FRB／CNBC を取得中...")
+    return _safe("報道・公的機関", press.fetch_all, None) or dict(_PRESS_EMPTY)
+
+
 def _compact_rows(rows: list[dict], limit: int = 30) -> list[dict]:
     return [{"code": r.get("code"), "name": r.get("name"),
              "change_pct": r.get("change_pct")} for r in rows[:limit]]
@@ -107,6 +115,7 @@ def build_preopen(target_date: date) -> dict:
     print("  [株探] 見出しと配信記事を取得中...")
     kabutan = _safe("株探ニュース", lambda: kabutan_news.fetch_for_slot("preopen"),
                     {"headlines": [], "articles": [], "ok": False}) or {"headlines": [], "articles": [], "ok": False}
+    press_news = _fetch_press()
 
     print("  [CNBC] 米国指数を取得中...")
     us = _safe("米国指数", lambda: cnbc.fetch_spec(US_INDICES), {}) or {}
@@ -155,6 +164,7 @@ def build_preopen(target_date: date) -> dict:
     }
     payload["news"] = market_news
     payload["kabutan"] = kabutan
+    payload["press"] = press_news
     payload["index_trend"] = trend.index_trend(sessions, None)
     payload["commentary"] = commentary.preopen_commentary(payload)
     # バックアップ実行（07:35 等）で上書きされても、Routine が既に書いた
@@ -197,6 +207,7 @@ def build_session(target_date: date, slot: str) -> dict:
     print("  [株探] 見出しと配信記事を取得中...")
     kabutan = _safe("株探ニュース", lambda: kabutan_news.fetch_for_slot(slot),
                     {"headlines": [], "articles": [], "ok": False}) or {"headlines": [], "articles": [], "ok": False}
+    press_news = _fetch_press()
     # 東証33業種の騰落は株探の「【業種】騰落ランキング」記事の本文から読む（公式値の代替として最良）
     session_word = "大引け" if slot == "taibike" else "前引け"
     sectors33 = (kabutan_news.sectors33_from_articles(kabutan.get("articles"), session_word)
@@ -279,6 +290,7 @@ def build_session(target_date: date, slot: str) -> dict:
         "breadth": analyze.constituent_breadth(constituents),
         "news": market_news,
         "kabutan": kabutan,
+        "press": press_news,
         "theme_flow": flow,
         "sector_trend": trend.sector_trend(sectors_jp, sessions),
         "index_trend": trend.index_trend(sessions, (indices.get("nikkei") or {}).get("close"), indices),

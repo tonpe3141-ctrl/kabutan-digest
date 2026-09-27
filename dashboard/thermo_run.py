@@ -17,7 +17,7 @@ from . import bars as bars_mod, store, thermo as T
 from .config import THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
-from .sources import cnbc, nikkei225, nikkei_per
+from .sources import cnbc, nikkei225, nikkei_per, press
 from .themes import load_themes
 
 HIST_DAYS = 40
@@ -71,6 +71,7 @@ def headlines(payload: dict) -> list[str]:
     titles = [h.get("title") for h in kb.get("headlines") or []]
     titles += [a.get("headline") for a in kb.get("articles") or []]
     titles += [n.get("headline") for n in payload.get("news") or []]
+    titles += press.tone_titles(payload.get("press"))   # 報道各社（日本語）の見出しも数える
     seen, out = set(), []
     for t in titles:
         t = (t or "").strip()

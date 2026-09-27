@@ -212,3 +212,76 @@ SECTOR_MACRO_SENS = {
     "繊維":       {"yen": -0.2, "oil": -0.3},
     "パルプ・紙": {"oil": -0.5, "yen": -0.4},
 }
+
+# ==================== ニュースの情報源（株探以外） ====================
+# 採用基準は「信頼性」。一次情報（中央銀行・官庁・取引所）、通信社・全国紙・公共放送、
+# 市況の事実報道を業とする金融情報ベンダーだけを許可リストに載せる。
+# コラム・論説が中心の媒体、まとめ・転載サイト、SNS は載せない。
+# 配信元は取得時に必ず照合する（Yahoo は一覧の配信元表記、Google ニュースは見出し末尾の媒体名）。
+# 実装は dashboard/sources/press.py。Actions から届くかは tools/probe_press.py で実測する。
+
+# Yahoo!ファイナンスのニュース一覧に本文付きで配信されている他社（株探は kabutan_news.py が扱う）
+# 時事通信の配信は有料会員向けで冒頭しか読めないことが多い。その場合は partial=True で渡す。
+PRESS_YAHOO_PROVIDERS = {
+    "時事通信":             "時事通信",
+    "トレーダーズ・ウェブ": "トレーダーズ・ウェブ（DZH フィナンシャルリサーチ）",
+    "ウエルスアドバイザー": "ウエルスアドバイザー（旧モーニングスター）",
+}
+PRESS_YAHOO_CATEGORIES = ("market", "stocks", "world", "fx")
+# 本文を読む価値の高い記事の型（上ほど優先）。数表の羅列は後回し
+PRESS_ARTICLE_PRIORITY = [
+    r"〔東京株式|〔NY株式|〔ＮＹ株式|〔東京外為|〔NY外為|〔ＮＹ外為|〔債券|〔米国金融証券|〔金利",
+    r"東証|日経平均|日本株|NY株|ＮＹ株|NYダウ|米国株|米株",
+    r"ハイライト銘柄|注目銘柄|決算|上方修正|下方修正",
+    r"為替|ドル|円相場|金利|原油",
+]
+PRESS_ARTICLE_LIMIT = 10          # 本文を取る本数
+PRESS_BODY_MAX = 2500             # 1本あたりの本文の上限（文字）
+
+_GN = "https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP:ja&q="
+_MKT = ("(株価 OR 株式 OR 日経平均 OR 円相場 OR 円安 OR 円高 OR 日銀 OR 長期金利 OR 決算 OR "
+        "米国株 OR 関税 OR 為替 OR 原油)")
+
+# kind: press（報道・日本語）/ official（公的機関の一次情報）/ overseas（海外報道・英語）
+# hosts: Google ニュースの各記事の配信元ドメイン（<source url>）がこれに一致したものだけを採る。
+#        媒体名の表記は取得ごとに揺れる（「ロイター」「jp.reuters.com」）のでドメインで照合する。
+#        時事は www.jiji.com にプレスリリースの転載が混ざるため、編集記事だけの
+#        時事エクイティ（equity）とモバイル版（sp.m）に限る。
+# include / exclude: 定例の事務連絡が多い公的機関は、相場に関係する表題だけに絞る
+# tone: 温度計の「見出しの論調」に数えるか（日本語の報道だけ。公的機関と英語は数えない）
+PRESS_FEEDS = [
+    {"key": "reuters",   "label": "ロイター",       "kind": "press", "tone": True, "max": 15,
+     "url": _GN + "site:jp.reuters.com " + _MKT + " when:2d", "hosts": ["jp.reuters.com"]},
+    {"key": "bloomberg", "label": "ブルームバーグ", "kind": "press", "tone": True, "max": 15,
+     "url": _GN + "site:bloomberg.com/jp when:2d", "hosts": ["www.bloomberg.com", "bloomberg.com"]},
+    {"key": "nikkei",    "label": "日本経済新聞",   "kind": "press", "tone": True, "max": 15,
+     "url": _GN + "site:nikkei.com " + _MKT + " when:2d", "hosts": ["www.nikkei.com"]},
+    {"key": "jiji",      "label": "時事通信",       "kind": "press", "tone": True, "max": 12,
+     "url": _GN + "site:jiji.com " + _MKT + " when:2d", "hosts": ["equity.jiji.com", "sp.m.jiji.com"]},
+    {"key": "nhk",       "label": "NHK",            "kind": "press", "tone": False, "max": 12,
+     "url": "https://www.nhk.or.jp/rss/news/cat5.xml"},
+    {"key": "boj",       "label": "日本銀行",       "kind": "official", "max": 8,
+     "url": "https://www.boj.or.jp/rss/whatsnew.xml",
+     "include": r"金融政策|決定会合|主な意見|議事要旨|総裁|副総裁|審議委員|講演|記者会見|短観|展望レポート|"
+                r"経済・物価|地域経済報告|さくらレポート|国債買入|声明|公表文",
+     "exclude": r"にちぎん|【対談】|広報誌"},
+    {"key": "mof",       "label": "財務省",         "kind": "official", "max": 8,
+     "url": "https://www.mof.go.jp/news.rss",
+     "include": r"大臣|会見|会談|外国為替平衡操作|国際収支|貿易統計|法人企業統計|利付国債.*入札結果|G7|G20"},
+    {"key": "jpx",       "label": "日本取引所グループ", "kind": "official", "max": 6,
+     "url": "https://www.jpx.co.jp/rss/jpx-news.xml"},
+    {"key": "fed",       "label": "FRB（米連邦準備制度理事会）", "kind": "official", "max": 6,
+     "url": "https://www.federalreserve.gov/feeds/press_monetary.xml"},
+    {"key": "cnbc_mkt",  "label": "CNBC Markets",   "kind": "overseas", "max": 10,
+     "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20409666"},
+    {"key": "cnbc_econ", "label": "CNBC Economy",   "kind": "overseas", "max": 8,
+     "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"},
+    {"key": "cnbc_earn", "label": "CNBC Earnings",  "kind": "overseas", "max": 8,
+     "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135"},
+]
+# 報道の見出しから常に外すもの（Google ニュースの検索語は本文にも当たるため、スポーツ等が紛れる）
+PRESS_EXCLUDE = (r"^(ゴルフ|テニス|サッカー|野球|大リーグ|ＭＬＢ|MLB|ＮＢＡ|NBA|ＮＦＬ|NFL|ＮＨＬ|Ｆ１|F1|ラグビー|"
+                 r"陸上|競泳|水泳|五輪|相撲|ボクシング|フィギュア|スキー|バスケット|アイスホッケー|自転車|"
+                 r"格闘技|競馬|モーター|卓球|バレー|柔道|体操)[＝=]|^画像・写真[：:]|^写真特集")
+# 見出しの鮮度（時間）。月曜は週末をまたぐので +48 時間。公的機関は発表が疎なので長め
+PRESS_WINDOW_HOURS = {"press": 30, "overseas": 30, "official": 72}
