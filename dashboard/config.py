@@ -259,7 +259,9 @@ PRESS_FEEDS = [
     {"key": "jiji",      "label": "時事通信",       "kind": "press", "tone": True, "max": 12,
      "url": _GN + "site:jiji.com " + _MKT + " when:2d", "hosts": ["equity.jiji.com", "sp.m.jiji.com"]},
     {"key": "nhk",       "label": "NHK",            "kind": "press", "tone": False, "max": 12,
-     "url": "https://www.nhk.or.jp/rss/news/cat5.xml"},
+     "url": "https://www.nhk.or.jp/rss/news/cat5.xml",
+     "include": r"株|円相場|円安|円高|日銀|金利|物価|景気|為替|決算|関税|財務|GDP|原油|賃金|輸出|輸入|貿易|"
+                r"銀行|市場|利上げ|利下げ|介入|値上げ|業績|投資|半導体|経済対策|予算"},
     {"key": "boj",       "label": "日本銀行",       "kind": "official", "max": 8,
      "url": "https://www.boj.or.jp/rss/whatsnew.xml",
      "include": r"金融政策|決定会合|主な意見|議事要旨|総裁|副総裁|審議委員|講演|記者会見|短観|展望レポート|"
@@ -282,6 +284,7 @@ PRESS_FEEDS = [
 # 報道の見出しから常に外すもの（Google ニュースの検索語は本文にも当たるため、スポーツ等が紛れる）
 PRESS_EXCLUDE = (r"^(ゴルフ|テニス|サッカー|野球|大リーグ|ＭＬＢ|MLB|ＮＢＡ|NBA|ＮＦＬ|NFL|ＮＨＬ|Ｆ１|F1|ラグビー|"
                  r"陸上|競泳|水泳|五輪|相撲|ボクシング|フィギュア|スキー|バスケット|アイスホッケー|自転車|"
-                 r"格闘技|競馬|モーター|卓球|バレー|柔道|体操)[＝=]|^画像・写真[：:]|^写真特集")
+                 r"格闘技|競馬|モーター|卓球|バレー|柔道|体操)[＝=]|^画像・写真[：:]|^写真特集|"
+                 r"^【コラム】|^コラム[：:]|^アクセスランキング$|^ランキング$")   # 論説と、記事ではないページ
 # 見出しの鮮度（時間）。月曜は週末をまたぐので +48 時間。公的機関は発表が疎なので長め
 PRESS_WINDOW_HOURS = {"press": 30, "overseas": 30, "official": 72}

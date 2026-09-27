@@ -671,6 +671,10 @@ GN_RSS = """<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>
 <pubDate>Fri, 25 Sep 2026 09:31:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
 <item><title>ロイターによると円急伸 - 転載サイト</title><link>https://news.google.com/rss/articles/E</link>
 <pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate><source url="https://example.com">転載サイト</source></item>
+<item><title>【コラム】英国におにぎり旋風、本場の味にはまだ遠く - ロイター</title><link>https://news.google.com/rss/articles/G</link>
+<pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
+<item><title>BNP PARIBAS EASY II WORLD AC - ロイター</title><link>https://news.google.com/rss/articles/H</link>
+<pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
 <item><title>東京株式市場・前場＝古い記事 - ロイター</title><link>https://news.google.com/rss/articles/F</link>
 <pubDate>Tue, 22 Sep 2026 03:00:00 GMT</pubDate><source url="https://jp.reuters.com">ロイター</source></item>
 </channel></rss>"""
@@ -729,11 +733,11 @@ def test_press():
     now = datetime(2026, 9, 26, 7, 10, tzinfo=jst)    # 土曜の朝
     feed = {"key": "reuters", "label": "ロイター", "kind": "press", "max": 15, "hosts": ["jp.reuters.com"]}
     items = press_mod.parse_rss(GN_RSS)
-    check("Google ニュース RSS を読める", len(items), 6)
+    check("Google ニュース RSS を読める", len(items), 8)
     check("配信元ドメインを取れる", items[0]["source_host"], "jp.reuters.com")
     check("description の HTML は要約にしない", items[0]["summary"], "")
     rows = press_mod.select_feed_items(items, feed, now)
-    check("媒体名の表記ゆれ（ロイター / jp.reuters.com）の両方を採り、株価ページ・スポーツ・転載・古い記事を落とす",
+    check("媒体名の表記ゆれ（ロイター / jp.reuters.com）の両方を採り、株価ページ・スポーツ・論説・転載・古い記事を落とす",
           [r["title"] for r in rows], ["ＮＹ外為市場＝円急伸", "東京株式市場・大引け＝5日続伸、半導体関連株けん引"])
     check("時刻は JST", rows[0]["published"], "2026-09-26T04:21+09:00")
 

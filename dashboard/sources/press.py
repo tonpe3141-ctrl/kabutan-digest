@@ -33,6 +33,7 @@ from .kabutan_news import _list_yahoo, parse_yahoo_article
 JST = timezone(timedelta(hours=9))
 _STOCK_PAGE = re.compile(r"Stock Price|Quote\b|株価・チャート")
 _EXCLUDE = re.compile(PRESS_EXCLUDE)
+_JA = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")   # 日本語の報道なのに日本語が無い表題は銘柄・ファンドのページ
 _HALF_KANA_ONLY = re.compile(r"^[\uff61-\uff9f\s・]+$")   # ﾌﾞﾙｰﾑﾊﾞｰｸﾞの銘柄ページの表題
 
 
@@ -146,6 +147,8 @@ def select_feed_items(items: list[dict], feed: dict, now: datetime) -> list[dict
         if not title or _STOCK_PAGE.search(title) or _HALF_KANA_ONLY.match(title):
             continue
         title = _clean_title(title)
+        if feed["kind"] == "press" and not _JA.search(title):
+            continue
         if len(title) < 8 or _EXCLUDE.search(title) or (inc and not inc.search(title)) \
                 or (exc and exc.search(title)):
             continue
@@ -226,6 +229,9 @@ def fetch_articles(limit: int = PRESS_ARTICLE_LIMIT) -> tuple[list[dict], dict]:
         if not art.get("timestamp") and r.get("time"):
             art["timestamp"] = r["time"]
         art["provider"] = r["provider"]
+        art["headline"] = _clean_title(art["headline"])
+        if any(_norm(x["headline"]) == _norm(art["headline"]) for x in articles):
+            continue   # 差替で同じ記事が2本載ることがある
         articles.append(art)
     counts: dict[str, int] = {}
     for r in found:
