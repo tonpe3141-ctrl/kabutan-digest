@@ -595,11 +595,13 @@ def test_swing():
     check("まだ押していない銘柄は「待つ」と境目の価格", (row["state"], row["trig"] < row["price"]), ("wait", True))
     check("入口の日は「注文対象」", W.today_row(ind)["state"], "signal")
 
-    # 注文: 翌日だけ有効の指値（終値−0.5ATR）、損切りは指値−3ATR、売りの目安は直近3日と指値の平均
+    # 注文: 翌日だけ有効の指値（終値−0.5ATR）、損切りは指値−3ATR、売りの目安は直近3日と指値の平均（下限は指値+0.2%）
     o = W.order_of(ind)
     c, atr = ind["c"][i], ind["atr"][i]
     check("指値は終値−0.5ATR（呼値で切り下げ）", o["limit"], W.tick_down(c - 0.5 * atr))
     check("損切りは指値−3ATR", o["stop"], W.tick_down(o["limit"] - 3 * atr))
+    check("売りの下限は指値+0.2%（呼値で切り上げ）、売りの目安はその下限より下にしない",
+          (o["floor"], o["sell"] >= o["floor"]), (W.tick_up(o["limit"] * 1.002), True))
     check("注文が出ない日は None", W.order_of(bi), None)
 
     # 約定と手仕舞いの再現
@@ -629,6 +631,21 @@ def test_swing():
               limit * (1 - 0.003 * (k + 1))) for k in range(12)]
     r = W.simulate(after(*drift), i)
     check("10営業日で売れなければ引けで売る", (r["why"], r["days"]), ("time", 11))
+    # 売り指値の下限: 直近4日の平均が約定値より下にあるうちは、平均に届いても売らない（小さな損を確定させない）
+    L = limit
+    dip = [(L, L + 1, L - 1, L - 2), (L * 0.98, L * 0.985, L * 0.97, L * 0.97), (L * 0.97, L * 0.975, L * 0.965, L * 0.97),
+           (L * 0.97, L * 0.975, L * 0.965, L * 0.97), (L * 0.975, L * 0.99, L * 0.97, L * 0.985),
+           (L * 0.99, L * 1.01, L * 0.985, L * 1.0)]
+    di = after(*dip)
+    check("4日の平均（約定値より下）に高値が届いた日は売らない",
+          (W.sell_level(di, i + 5) < L, di["h"][i + 5] >= W.sell_level(di, i + 5), W.sell_level(di, i + 5, L) > di["h"][i + 5]),
+          (True, True, True))
+    r = W.simulate(di, i)
+    check("約定値+0.2% に届いた日に、その値で売る（コストを引いて +0.1%）",
+          (r["why"], r["exit"], r["ret"], r["days"]), ("sell", round(L * 1.002, 2), 0.1, 6))
+    st = W.summarize([{"ret": 0.1, "days": 6, "why": "sell"}, {"ret": 2.0, "days": 3, "why": "sell"},
+                      {"ret": -7.0, "days": 4, "why": "stop"}])
+    check("成績: 小さな勝ち（+0.5%以下）と大きな負け（−5%以下）の割合", (st["win"], st["small"], st["big_loss"]), (67, 33, 33))
 
     # 並べ方: 25日線からの下離れが大きい順、1日5銘柄まで、同じ業種は2銘柄まで
     rows = [{"code": str(1000 + k), "dev25": -k} for k in range(8)]
@@ -923,7 +940,30 @@ def test_press():
     check("論調に数えるのは日本語の報道だけ（NHK・公的機関は数えない）", press_mod.tone_titles(pr), ["日経平均が続伸", "〔NY株式〕反発"])
 
 
+def test_names():
+    import tempfile
+    from dashboard import names as N
+    from dashboard.sources.yahoojp import stock_name_from_title
+
+    print("\n[社名（日本語）]")
+    check("銘柄ページの題名から社名だけ（(株) を外す）",
+          stock_name_from_title("(株)アシックス【7936】：株価・株式情報（夜間PTS含む） - Yahoo!ファイナンス"), "アシックス")
+    check("（株）が後ろ・全角英数は半角に", stock_name_from_title("ＳＷＣＣ（株）【5805】：株価"), "SWCC")
+    check("英語の社名は日本語ではない", (N.has_japanese("ASICS Corporation"), N.has_japanese("スクウェア・エニックス")), (False, True))
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "names.json")
+        calls = []
+        got = N.resolve(["999A", "998A"], fetch=lambda c: calls.append(c) or ("テスト社" if c == "999A" else None), path=path)
+        check("手元に無い社名だけ取りに行き、取れたものを返す", (got, calls), ({"999A": "テスト社"}, ["999A", "998A"]))
+        calls.clear()
+        again = N.resolve(["999A"], fetch=lambda c: calls.append(c), path=path)
+        check("取れた社名はキャッシュから（二度取りに行かない）", (again, calls), ({"999A": "テスト社"}, []))
+        boom = N.resolve(["997A"], fetch=lambda c: 1 / 0, path=path)
+        check("取得で例外が出ても止めない", boom, {})
+
+
 if __name__ == "__main__":
+    test_names()
     test_ranking()
     test_cnbc()
     test_tdnet()

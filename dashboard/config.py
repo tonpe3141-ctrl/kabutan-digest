@@ -143,6 +143,7 @@ DOCS_DIR = "docs"
 DATA_DIR = "docs/data"
 HISTORY_DIR = "docs/data/history"
 WATCHLIST_PATH = "docs/data/watchlist.json"
+NAMES_PATH = "docs/data/cache/names.json"    # 銘柄コード → 日本語の社名（CNBC の社名は英語なので。names.py）
 HISTORY_KEEP_DAYS = 120
 
 # スパークラインは外部から履歴が取れないため、自分の履歴から積み上げる

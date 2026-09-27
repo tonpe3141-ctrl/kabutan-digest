@@ -523,7 +523,7 @@ def summary(th: dict) -> dict | None:
     sec = th.get("sectors") or []
     sw = th.get("swing") or {}
     ver = sw.get("verify") or {}
-    pick = lambda st: {k: st.get(k) for k in ("n", "win", "avg", "pf")} if st else None   # noqa: E731
+    pick = lambda st: {k: st.get(k) for k in ("n", "win", "avg", "pf", "small", "big_loss")} if st else None   # noqa: E731
     return {
         "temp": mk.get("temp"), "zone": mk.get("zone"), "tone": mk.get("tone"), "guide": mk.get("guide"),
         "consensus": mk.get("consensus"), "tailwind": mk.get("tailwind"), "headwind": mk.get("headwind"),
@@ -548,7 +548,7 @@ def summary(th: dict) -> dict | None:
         "swing": {
             "asof": sw.get("asof"),
             "orders": [{**{k: o.get(k) for k in ("code", "name", "sector", "close", "limit", "to_limit", "stop",
-                                                  "stop_pct", "sell", "sell_pct", "dev25", "rsi2")},
+                                                  "stop_pct", "sell", "sell_pct", "floor", "dev25", "rsi2")},
                         "peer": _peer_brief(o.get("peer"))}
                        for o in sw.get("orders") or []],
             "more": len(sw.get("more") or []),

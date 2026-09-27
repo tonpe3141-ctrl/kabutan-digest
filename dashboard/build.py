@@ -14,7 +14,7 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, commentary, ledger as ledger_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, commentary, ledger as ledger_mod, names, store, themes as themes_mod, thermo_run, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
@@ -75,13 +75,15 @@ def _fetch_watchlist(tables: dict, disclosures: list[dict],
         print(f"  [CNBC] ウォッチリスト {len(missing)} 銘柄を取得中...")
         have.update(_safe("ウォッチリスト", lambda: cnbc.fetch_jp_stocks(missing), {}) or {})
 
+    # CNBC の社名は英語なので、画面に出す社名は日本語の情報源から（names.py）
+    ja = _safe("社名", lambda: names.resolve(codes, fetch=yahoojp.fetch_name), {}) or {}
     quotes = []
     for code in codes:
         q = have.get(code)
-        quotes.append({"code": code, "name": q.get("name"), "price": q.get("last"),
+        quotes.append({"code": code, "name": ja.get(code) or q.get("name"), "price": q.get("last"),
                        "change": q.get("change"), "change_pct": q.get("change_pct"),
                        "sector": q.get("sector")}
-                      if q else {"code": code, "name": None, "error": True})
+                      if q else {"code": code, "name": ja.get(code), "error": True})
 
     enriched = analyze.enrich_watchlist(quotes, tables, [])
     # 適時開示に出ていればそれも貼る（決算・修正はウォッチリストで最重要）
