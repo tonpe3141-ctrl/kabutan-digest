@@ -159,6 +159,13 @@ MACRO_BARS_CALENDAR_DAYS = 1100    # マクロ系列は約3年（バックテス
 STOCK_BARS_KEEP = 130              # 個別株は130営業日（60日騰落・75日線・120日高値に足りる）
 STOCK_BARS_CALENDAR_DAYS = 200     # 初回・取り直しのときに取る暦日数
 
+# 短期の押し目買い（dashboard/swing.py、DESIGN.md 13章）。200日線と、それ以後の検証期間のために
+# 個別株の四本値と出来高を約2年ぶん持つ。アプリは読まない（thermo.json に要約だけを載せる）。
+OHLC_PATH = "docs/data/cache/ohlc.json"
+STOCK_OHLC_KEEP = 500              # 営業日
+STOCK_OHLC_CALENDAR_DAYS = 760     # 初回・取り直しのときに取る暦日数
+SWING_TRACK_PATH = "docs/data/swing_track.json"   # アプリが出した注文と、その後の結果
+
 # 温度計に使うマクロ系列。foreign=True は東証の引け後に確定する系列（バックテストでは前日までを使う）
 MACRO_BAR_SYMBOLS = [
     {"key": "nikkei", "symbol": ".N225",  "label": "日経平均",   "foreign": False},

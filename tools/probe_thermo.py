@@ -1,4 +1,4 @@
-"""相場温度計の試運転（GitHub Actions 上で実データを取り、結果を表示するだけ。コミットはしない）。
+"""相場温度計と短期の押し目買いの試運転（GitHub Actions 上で実データを取り、結果を表示するだけ。コミットはしない）。
 
   python tools/probe_thermo.py
 """
@@ -20,7 +20,8 @@ t0 = time.time()
 res = thermo_run.run("taibike", today, payload, store.previous_sessions(today, thermo_run.HIST_DAYS))
 print(f"\n所要 {time.time() - t0:.0f} 秒（元データ: latest.json の {slot_src}）")
 th = json.load(open("docs/data/thermo.json", encoding="utf-8"))
-for p in ("docs/data/thermo.json", "docs/data/cache/bars.json", "docs/data/cache/nikkei_per.json"):
+for p in ("docs/data/thermo.json", "docs/data/cache/bars.json", "docs/data/cache/ohlc.json",
+          "docs/data/cache/nikkei_per.json"):
     print(f"  {p}: {os.path.getsize(p) / 1024:.0f} KB")
 mk = th.get("market") or {}
 print(f"\n=== 相場温度 {mk.get('temp')}（{mk.get('zone')}）追い風 {mk.get('tailwind')} 向かい風 {mk.get('headwind')} "
@@ -40,6 +41,14 @@ for k, v in (th.get("lists") or {}).items():
     print(f"\n=== {k} {len(v)}件")
     for r in v[:6]:
         print("  ", {x: r.get(x) for x in ("code", "name", "price", "rsi", "dev25", "r5", "r60", "ma25", "to_ma25", "label", "since")})
+sw = th.get("swing") or {}
+print(f"\n=== 短期の押し目買い（{sw.get('asof')} の引け）注文 {len(sw.get('orders') or [])}・次点 {len(sw.get('more') or [])}"
+      f"・もうすぐ {len(sw.get('near') or [])}")
+for o in sw.get("orders") or []:
+    print("  ", {x: o.get(x) for x in ("code", "name", "sector", "close", "limit", "stop", "sell", "dev25", "rsi2")})
+ver = sw.get("verify") or {}
+for k in ("all", "early", "late", "recent", "base"):
+    print(f"  検証 {k}: {ver.get(k)}")
 print("\n=== テーマ", [(t["theme"], t["label"]) for t in th.get("themes") or [] if t.get("label")])
 print("=== 対象", th.get("coverage"))
 print("=== 要約", json.dumps(res["summary"], ensure_ascii=False)[:1500])

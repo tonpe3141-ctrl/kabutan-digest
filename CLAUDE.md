@@ -26,9 +26,11 @@ dashboard/analyze.py      想定オープン・リスク環境・セクター連
 dashboard/themes.py       銘柄→テーマ辞書でランキングを束ねる（辞書は docs/data/themes.json）
 dashboard/ledger.py       発掘台帳: 入口は機械、理由は LLM、成績は週報（docs/data/ledger.json）
 dashboard/trend.py        業種・指数の 5日／20日の時間軸
-dashboard/bars.py         日足キャッシュ（docs/data/cache/bars.json。CNBC 日足API、分割は全期間取り直し）
-dashboard/thermo.py       相場温度計（逆張りガード）: 8軸・温度・バックテスト・業種/銘柄の分類・出尽くし・成績
-dashboard/thermo_run.py   温度計の実行。docs/data/thermo.json / thermo_track.json を書く
+dashboard/bars.py         日足キャッシュ（docs/data/cache/bars.json は終値、ohlc.json は四本値と出来高の約2年。
+                          CNBC 日足API、分割は全期間取り直し）
+dashboard/swing.py        短期の押し目買い（作戦の中心の1つのルール）: 入口・注文・約定と手仕舞いの再現・検証・注文の実績
+dashboard/thermo.py       相場温度計（逆張りガード）: 8軸・温度・バックテスト・業種の分類・銘柄の注意書き・出尽くし・成績
+dashboard/thermo_run.py   温度計と押し目買いの実行。docs/data/thermo.json / thermo_track.json / swing_track.json を書く
 dashboard/commentary.py   ルールベースの見立て（LLM 分析が無い時の土台）
 dashboard/store.py        latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py        スロット単位の実行エントリ
@@ -77,12 +79,16 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
 - **温度計は「予測」ではなく逆張りの物差し。** 帯の境目・判定条件は thermo.py の定数で公開し、
   過去の成績（backtest）と必ず並べて出す。都合の良い読みだけを出さない。バックテストは先読みしない
   （海外系列は判定日の前日まで）。温度計の数字は LLM が付け直さない。
-- **型の成績は全銘柄比で、先読みせずに測る。** `setup_backtest` はその日までの終値だけで分類し直し、
-  型に入った日だけを1件と数える。売買計画（`trade_plan`）の「計画上のR倍」は必ず過去の実績（平均R）と並べて出す。
+- **買う候補を出すのは1つのルールだけ。** 作戦タブの注文は `swing.py` の短期の押し目買いだけが出す。発掘（台帳）や
+  ウォッチリストは「あと何％で注文対象か」の監視に並べ、別の計画を出さない（同じ銘柄に画面ごとに違う計画を出さない）。
+- **ルールは四本値で、先読みせずに測る。** 検証（`swing.verify`）と注文の実績（`swing.paper_update`）は同じ `simulate()` で、
+  翌日だけ有効の指値・場中の安値での損切り（寄りで割れていれば寄り）・毎朝の売り指値・期限・売買コストを再現する。
+  同じ日に損切りと売り指値の両方に届いたら損切りを先に数える。ルールの定数を変えるときは、前半で決めて後半で確かめ、
+  その経緯を DESIGN.md に残す（成績を見ながら閾値を選ばない）。
 - **取り直しで情報を減らさない。** 保険の cron は `--insurance`（その日の区分があれば何もしない）。同じ区分の取り直しで
   取れなかった区画は `build.carry_over` が前回を引き継ぐ。
-- **負けている型で入らない。** 作戦ボードは直近の検証で「効いていない」型だけの銘柄を載せない。今日のスタンス
-  （`thermo.market_stance`）と株数の倍率は定数で公開し、根拠（＋1／±0／−1）を必ず並べて出す。
+- **勝率は必ず比べる相手と並べる。** 検証の勝率は「同じ銘柄を毎日買って5日後に売った場合」と並べ、生存者の偏り
+  （今の採用銘柄だけで測っている）と急落に弱いことを画面に書く。温度計は注文の条件に使わない。
 - **成績は東証の営業日で数える。** 休場日の実行（日経が `stale`）では台帳も判定の記録も進めない。
   台帳の d1/d5/d20 は大引で日足から測り直す（`ledger.retrack`）。
 

@@ -8,6 +8,15 @@
    "dates":  ["2026-03-20", ...],            # 個別株の日付軸（東証の営業日、古い順）
    "stocks": {"7203": [2925, 2937, null, ...]}}  # dates と同じ長さ。取れない日は null
 
+個別株の四本値と出来高は別のファイル（docs/data/cache/ohlc.json、約2年）に持つ。短期の押し目買い（swing.py）の
+200日線・ATR・売買代金と、場中の安値での損切りの再現に使う。アプリは読まない:
+
+  {"updated_at": "...",
+   "dates":  ["2024-09-..", ...],             # 東証の営業日（古い順、STOCK_OHLC_KEEP 本）
+   "stocks": {"7203": [[始値, 高値, 安値, 終値, 出来高(100株)], null, ...]}}
+
+四本値を取れるときは、同じ1回の取得から終値（bars.json）も作る（銘柄ごとに2回取りに行かない）。
+
 更新の方針:
   - 毎回は末尾だけ（直近10本ほど）を取り直してつなぐ。
   - つなぎ目の重なりで過去値が 1% 超ずれたら、株式分割などで調整値が変わったとみなして全期間を取り直す。
@@ -17,8 +26,8 @@ import json
 import os
 from datetime import date, timedelta
 
-from .config import (BARS_PATH, MACRO_BAR_SYMBOLS, MACRO_BARS_CALENDAR_DAYS,
-                     STOCK_BARS_CALENDAR_DAYS, STOCK_BARS_KEEP)
+from .config import (BARS_PATH, MACRO_BAR_SYMBOLS, MACRO_BARS_CALENDAR_DAYS, OHLC_PATH,
+                     STOCK_BARS_CALENDAR_DAYS, STOCK_BARS_KEEP, STOCK_OHLC_CALENDAR_DAYS, STOCK_OHLC_KEEP)
 
 OVERLAP = 8          # つなぎ目で照合する本数
 SPLIT_TOL = 0.01     # 過去値のずれがこれを超えたら取り直す
@@ -112,17 +121,82 @@ def update_macro(data: dict, fetch, today: date) -> dict:
     return data
 
 
+def load_ohlc(path: str = OHLC_PATH) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    data.setdefault("dates", [])
+    data.setdefault("stocks", {})
+    return data
+
+
+def save_ohlc(data: dict, path: str = OHLC_PATH) -> None:
+    """1銘柄1行で書く。"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    lines = ["{", f'"updated_at":{json.dumps(data.get("updated_at"))},',
+             f'"dates":{json.dumps(data.get("dates") or [])},', '"stocks":{']
+    stocks = data.get("stocks") or {}
+    for i, (k, rows) in enumerate(sorted(stocks.items())):
+        body = json.dumps([[_num(x) for x in r] if r else None for r in rows], separators=(",", ":"))
+        lines.append(f"{json.dumps(k)}:{body}" + ("," if i < len(stocks) - 1 else ""))
+    lines.append("}}")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(tmp, path)
+
+
+def ohlc_map(ohlc: dict, code: str) -> dict[str, list]:
+    rows = (ohlc.get("stocks") or {}).get(code) or []
+    return {d: r for d, r in zip(ohlc.get("dates") or [], rows) if r}
+
+
+def _ohlc_rows(new: list[tuple]) -> dict[str, list]:
+    """fetch_ohlc の出力を {日付: [始値, 高値, 安値, 終値, 出来高(100株)]} にする。"""
+    return {d: [o, h, lo, c, round((v or 0) / 100)] for d, o, h, lo, c, v in new}
+
+
+def _fetch_ohlc_merged(code: str, old: dict[str, list], fetch_ohlc, today: date) -> tuple[dict, bool, bool]:
+    """1銘柄の四本値を更新する。戻り値は (日付→行, 取れたか, 全期間を取ったか)。"""
+    end = today + timedelta(days=1)
+    full_start = today - timedelta(days=STOCK_OHLC_CALENDAR_DAYS)
+    old_items = sorted(old.items())
+    need_full = len(old_items) < STOCK_OHLC_KEEP * 0.6
+    start = full_start if need_full else date.fromisoformat(old_items[-min(OVERLAP, len(old_items))][0])
+    new = fetch_ohlc(f"{code}.T", start, end)
+    if not new:
+        return dict(old), False, False
+    _, refetch = merge_series([(d, r[3]) for d, r in old_items], [(d, c) for d, _o, _h, _l, c, _v in new])
+    if refetch and not need_full:
+        new = fetch_ohlc(f"{code}.T", full_start, end) or new
+    rows = _ohlc_rows(new)
+    if need_full or refetch:
+        return rows, True, True
+    first = min(rows)
+    merged = {d: r for d, r in old.items() if d < first}
+    merged.update(rows)
+    return merged, True, False
+
+
 def stock_map(data: dict, code: str) -> dict[str, float]:
     arr = (data.get("stocks") or {}).get(code) or []
     return {d: c for d, c in zip(data.get("dates") or [], arr) if c is not None}
 
 
-def update_stocks(data: dict, codes: list[str], fetch, today: date) -> dict:
-    """個別株を更新する。日付軸は日経平均の日足（東証の営業日）の直近 STOCK_BARS_KEEP 本。"""
-    axis = [d for d, _ in series(data, "nikkei")][-STOCK_BARS_KEEP:]
+def update_stocks(data: dict, codes: list[str], fetch, today: date, ohlc: dict | None = None,
+                  fetch_ohlc=None) -> dict:
+    """個別株を更新する。日付軸は日経平均の日足（東証の営業日）の直近 STOCK_BARS_KEEP 本。
+
+    ohlc と fetch_ohlc を渡すと、四本値（直近 STOCK_OHLC_KEEP 本）も同じ取得で更新し、終値はそこから作る。"""
+    nk_days = [d for d, _ in series(data, "nikkei")]
+    axis = nk_days[-STOCK_BARS_KEEP:]
     if not axis:
         print("    ⚠️  日経平均の日足が無いため個別株の日足は更新しません")
         return data
+    if ohlc is not None and fetch_ohlc is not None:
+        return _update_with_ohlc(data, codes, today, ohlc, fetch_ohlc, axis, nk_days[-STOCK_OHLC_KEEP:])
     end = today + timedelta(days=1)
     stocks = {}
     ok = full = 0
@@ -149,11 +223,45 @@ def update_stocks(data: dict, codes: list[str], fetch, today: date) -> dict:
     return data
 
 
-def add_missing_stocks(data: dict, codes: list[str], fetch, today: date, limit: int = 40) -> dict:
+def _update_with_ohlc(data: dict, codes: list[str], today: date, ohlc: dict, fetch_ohlc,
+                      axis: list[str], oaxis: list[str]) -> dict:
+    stocks, rows_out = {}, {}
+    ok = full = 0
+    for code in codes:
+        rows, got, was_full = _fetch_ohlc_merged(code, ohlc_map(ohlc, code), fetch_ohlc, today)
+        ok += got
+        full += was_full
+        closes = stock_map(data, code)                 # 四本値が取れない銘柄は前回の終値を残す
+        closes.update({d: r[3] for d, r in rows.items()})
+        if closes:
+            stocks[code] = [closes.get(d) for d in axis]
+        if rows:
+            rows_out[code] = [rows.get(d) for d in oaxis]
+    data["dates"], data["stocks"] = axis, stocks
+    ohlc["dates"], ohlc["stocks"] = oaxis, rows_out
+    print(f"    ✅ 個別株日足（四本値）: {ok}/{len(codes)} 銘柄更新（うち全期間 {full}）、"
+          f"軸 {len(axis)}／{len(oaxis)} 営業日")
+    return data
+
+
+def add_missing_stocks(data: dict, codes: list[str], fetch, today: date, limit: int = 40,
+                       ohlc: dict | None = None, fetch_ohlc=None) -> dict:
     """寄り前・前場で、キャッシュに無い銘柄（新しくウォッチリストに入れた等）だけを足す。
     日付軸は変えない（大引で揃え直す）。"""
     axis = data.get("dates") or []
     if not axis:
+        return data
+    if ohlc is not None and fetch_ohlc is not None:
+        added = 0
+        for code in codes[:limit]:
+            rows, got, _ = _fetch_ohlc_merged(code, {}, fetch_ohlc, today)
+            if not got:
+                continue
+            data.setdefault("stocks", {})[code] = [(rows.get(d) or [None] * 4)[3] for d in axis]
+            if ohlc.get("dates"):
+                ohlc.setdefault("stocks", {})[code] = [rows.get(d) for d in ohlc["dates"]]
+            added += 1
+        print(f"    ✅ 個別株日足: 不足 {len(codes)} 銘柄のうち {added} 銘柄を追加（四本値）")
         return data
     end = today + timedelta(days=1)
     added = 0

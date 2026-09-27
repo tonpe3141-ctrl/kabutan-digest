@@ -1,0 +1,52 @@
+{
+"updated_at": "2026-09-25",
+"orders": [
+{
+"asof": "2026-09-25",
+"code": "2702",
+"name": "日本マクドナルドホールディングス",
+"limit": 7500,
+"stop": 7070,
+"done": false
+},
+{
+"asof": "2026-09-25",
+"code": "9861",
+"name": "吉野家ホールディングス",
+"limit": 3545,
+"stop": 3325,
+"done": false
+},
+{
+"asof": "2026-09-25",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 504,
+"stop": 457,
+"done": false
+},
+{
+"asof": "2026-09-25",
+"code": "9502",
+"name": "中部電",
+"limit": 2792,
+"stop": 2515,
+"done": false
+},
+{
+"asof": "2026-09-25",
+"code": "9503",
+"name": "関西電",
+"limit": 2713,
+"stop": 2435,
+"done": false
+}
+],
+"stats": {
+"n": 0,
+"fill": null,
+"open": 0,
+"issued": 5,
+"since": "2026-09-25"
+}
+}

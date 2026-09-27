@@ -141,6 +141,42 @@ def parse_bars(data: dict) -> list[tuple[str, float]]:
     return sorted(dedup.items())
 
 
+def parse_ohlc(data: dict) -> list[tuple]:
+    """bars API の応答を [(YYYY-MM-DD, 始値, 高値, 安値, 終値, 出来高)] の古い順にする。
+
+    実測（2026-09-27, 手元回線）: 東証個別株は始値・高値・安値・出来高も返る。終値 0 以下の日は捨て、
+    始値・高値・安値が欠けた日は終値で埋める（その日の値幅は 0 として扱う）。"""
+    out: dict[str, tuple] = {}
+    for b in ((data or {}).get("barData") or {}).get("priceBars") or []:
+        t = str(b.get("tradeTime") or "")
+        close = _num(b.get("close"))
+        if len(t) < 8 or close is None or close <= 0:
+            continue
+        o, h, lo = (_num(b.get(k)) for k in ("open", "high", "low"))
+        o = o if o and o > 0 else close
+        h = max(x for x in (h, o, close) if x)
+        lo = min(x for x in (lo, o, close) if x and x > 0)
+        try:
+            v = int(float(b.get("volume") or 0))
+        except (TypeError, ValueError):
+            v = 0
+        out[f"{t[:4]}-{t[4:6]}-{t[6:8]}"] = (o, h, lo, close, v)     # 同じ日付は後ろ（新しい値）を採る
+    return [(d, *x) for d, x in sorted(out.items())]
+
+
+def fetch_ohlc(symbol: str, start, end) -> list[tuple] | None:
+    """日足の四本値と出来高（分割調整済み）。取れなければ None（例外は投げない）。"""
+    url = BARS_ENDPOINT.format(sym=symbol, start=start.strftime("%Y%m%d"),
+                               end=end.strftime("%Y%m%d"))
+    res = get(url, timeout=20, retries=1)
+    if res is None:
+        return None
+    try:
+        return parse_ohlc(res.json())
+    except ValueError:
+        return None
+
+
 def fetch_bars(symbol: str, start, end) -> list[tuple[str, float]] | None:
     """日足（分割調整済み）を取る。取れなければ None（例外は投げない）。
 
