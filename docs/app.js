@@ -963,7 +963,7 @@ function histSessions() {
   return HIST.dates.slice().reverse().map((d) => HIST.byDate.get(d)).filter(Boolean);
 }
 
-const LS_RISK = { capital: 'md.risk.capital', pct: 'md.risk.pct', maxPos: 'md.risk.maxpos' };
+const LS_RISK = { capital: 'md.risk.capital', slot: 'md.risk.slot' };
 const LS_POS = 'md.swing.pos';        // 保有中（この端末だけ）
 const LS_DONE = 'md.swing.done';      // 手仕舞った記録（この端末だけ）
 const LS_GUARD = 'md.guard.log';
@@ -973,7 +973,7 @@ const CLASS_TONE = {
   '下落トレンド': 'down', '過熱': 'warn',
 };
 const RULE_DEFAULT = { rsi_n: 2, rsi_max: 10, ma_long: 200, ma_mid: 50, liq_min: 10, min_price: 300, entry_atr: 0.5,
-  stop_atr: 3, exit_n: 4, floor: 0.2, max_hold: 10, max_orders: 5, sector_cap: 2, cost: 0.1,
+  stop_atr: 3, exit_n: 4, floor: 0.2, max_hold: 10, max_orders: 5, sector_cap: 2, slot_pct: 10, cost: 0.1,
   peer_n: 20, peer_dip: -5, peer_up: 3, peer_lag: -5 };
 
 /* 業種の中での位置（押しの形）。swing.py の PEER_CLASSES と同じキー。
@@ -1027,37 +1027,55 @@ function nextWeekday(iso) {
   return d.toISOString().slice(0, 10);
 }
 
-/* 注文が有効な日。asof の引けで出た注文は「次の営業日」だけ有効（祝日は分からないので平日で数える） */
+/* 注文が有効な日。asof の引けで出た注文は「次の営業日」だけ有効（祝日は分からないので平日で数える）。
+   有効な日の大引（15:30）を過ぎたら期限切れ。次の注文は、その日の日足がそろった大引の更新（夕方〜夜）か、
+   翌朝の寄り前の更新（7時台）で出る（大引の時点で CNBC の日足に当日の分が無い日がある） */
 function orderDay(asof) {
   if (!asof) return null;
   const valid = nextWeekday(asof), today = isoToday();
   const label = `${md(valid)}（${wd(valid)}）`;
-  if (today > valid) return { valid, label, state: 'expired', text: `${label}で期限切れ。次の大引の更新を待ってください` };
+  const n = jstNow();
+  const closed = today === valid && n.getHours() * 60 + n.getMinutes() >= 15 * 60 + 30;
+  if (today > valid || closed) {
+    return { valid, label, state: 'expired', text: `${label}の注文は期限切れ。次の注文は、その日の日足がそろった大引の更新（夕方〜夜）か、翌朝の寄り前の更新（7時台）で出ます` };
+  }
   if (today === valid) return { valid, label, state: 'today', text: `今日 ${label} だけ有効` };
   return { valid, label, state: 'next', text: `次の営業日 ${label} だけ有効（祝日なら翌営業日）` };
 }
 
-/* ---- 株数: 1回の損（買い − 損切り）× 株数 が「資金 × 上限%」に収まる株数（100株単位）。1銘柄の比率にも上限 ---- */
+/* ---- 株数: 1件の注文の金額 = 資金 × slot%（100株単位で切り下げ）。金額をそろえる（DESIGN.md 16章）。
+   損切り幅から株数を決める（1回の損 = 資金の1%）と値動きの小さい銘柄に資金が偏り、4年の検証では同じ張り具合で
+   口座の伸びが遅かった。損切りまで行ったときの損は、金額と資金の%で並べて出す ---- */
 function riskSettings() {
-  return { capital: lsNum(LS_RISK.capital, null), pct: lsNum(LS_RISK.pct, 1), maxPos: lsNum(LS_RISK.maxPos, 20) };
+  return { capital: lsNum(LS_RISK.capital, null), slot: lsNum(LS_RISK.slot, rules().slot_pct) };
 }
 function sharesFor(entry, stop) {
   const st = riskSettings();
-  if (!st.capital || !isNum(entry) || !isNum(stop) || !(entry > stop)) return null;
-  const per = entry - stop;
-  const budget = st.capital * st.pct / 100;
-  let shares = Math.floor(budget / per / 100) * 100;
-  const cap = Math.floor(st.capital * st.maxPos / 100 / entry / 100) * 100;
-  const capped = shares > cap;
-  if (capped) shares = cap;
-  return { shares, cost: shares * entry, loss: shares * per, budget, capped, per, st };
+  if (!st.capital || !isNum(entry) || !(entry > 0)) return null;
+  const budget = st.capital * st.slot / 100;
+  const shares = Math.floor(budget / entry / 100) * 100;
+  const per = isNum(stop) && entry > stop ? entry - stop : null;
+  return { shares, cost: shares * entry, loss: per ? shares * per : null, budget, per, st, lot: entry * 100 };
 }
 function sizeText(entry, stop) {
   const z = sharesFor(entry, stop);
   if (!z) return null;
-  if (z.shares <= 0) return { none: true, text: `1回の損の上限 ${fmtYen(z.budget)} では100株も持てない（100株で損切りまで ${fmtYen(z.per * 100)}）` };
+  if (z.shares <= 0) {
+    return { none: true, text: `1件の金額 ${fmtYen(z.budget)}（資金の${z.st.slot}%）では100株も買えない` +
+      `（100株で ${fmtYen(z.lot)}・資金の${Math.round(z.lot / z.st.capital * 100)}%）` };
+  }
+  const lossPct = z.loss ? z.loss / z.st.capital * 100 : null;
   return { text: `${z.shares.toLocaleString('ja-JP')}株（約${fmtYen(z.cost)}・資金の${Math.round(z.cost / z.st.capital * 100)}%）` +
-    `　損切りで −${fmtYen(z.loss)}` + (z.capped ? `（1銘柄 ${z.st.maxPos}% の上限）` : ''), shares: z.shares };
+    (z.loss ? `　損切りで −${fmtYen(z.loss)}（資金の${lossPct.toFixed(1)}%）` : ''), shares: z.shares, loss: z.loss, lossPct };
+}
+/* 保有中（この端末の記録）に使っている金額と、新しい注文に使える空き資金 */
+function freeCash() {
+  const st = riskSettings();
+  if (!st.capital) return null;
+  const used = readPos().reduce((a, p) => a + (isNum(p.entry) && p.shares ? p.entry * p.shares : 0), 0);
+  const free = Math.max(0, st.capital - used);
+  const budget = st.capital * st.slot / 100;
+  return { used, free, budget, fit: Math.floor(free / budget + 1e-9), st };
 }
 
 function riskSettingsBox(onChange) {
@@ -1073,16 +1091,18 @@ function riskSettingsBox(onChange) {
     });
     return h('label', { class: 'risk__field' }, [h('span', { text: label }), input, h('small', { text: unit })]);
   };
+  const r = rules();
   return h('details', { class: 'risk' + (st.capital ? '' : ' risk--empty'), open: st.capital ? null : 'open' }, [
-    h('summary', { text: st.capital ? `株数の計算: 資金 ${fmtYen(st.capital)}・1回の損 ${st.pct}%・1銘柄 ${st.maxPos}%まで`
+    h('summary', { text: st.capital ? `株数の計算: 資金 ${fmtYen(st.capital)}・1件 資金の${st.slot}%（${fmtYen(st.capital * st.slot / 100)}）・1日${r.max_orders}件まで`
       : '株数を出すには資金を入れてください' }),
     h('div', { class: 'risk__grid' }, [
       field('運用資金', LS_RISK.capital, st.capital, '例: 3000000', '円'),
-      field('1回の損の上限', LS_RISK.pct, st.pct, '1', '% of 資金'),
-      field('1銘柄の上限', LS_RISK.maxPos, st.maxPos, '20', '% of 資金'),
+      field('1件の金額', LS_RISK.slot, st.slot, String(r.slot_pct), '% of 資金'),
     ]),
-    h('p', { class: 'hint', text: '1回の損を資金の1%前後に抑えると、10回続けて損切りしても資金の約1割で済みます。' +
-      '注文は1日5銘柄までなので、1銘柄の上限は20%が目安です。数字はこの端末にだけ保存されます。' }),
+    h('p', { class: 'hint', text: `1件の注文は資金の${r.slot_pct}%ずつ（金額をそろえる）。1日${r.max_orders}件までなので、1日に新しく入るのは資金の半分まで。` +
+      '保有中に使っていない資金の範囲で、上から順に置きます。4年の検証では、損切り幅から株数を決める（1回の損＝資金の1%）より、' +
+      '同じ張り具合で口座が速く増えました（値動きの大きい銘柄ほど1件あたりの期待値が高いのに、損切り幅で決めると値動きの小さい銘柄に資金が偏るため。DESIGN.md 16章）。' +
+      '1件を大きくすると速く増えるぶん、目減りも深くなります（このルールについて）。数字はこの端末にだけ保存されます。' }),
   ]);
 }
 
@@ -1182,7 +1202,8 @@ function orderCard(o, rank, day, extra) {
       cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・この日だけ`),
       cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・逆指値`, 'down'),
       cell('売りの目安', fmtTick(o.sell), `${fmtPct(o.sell_pct, 1)}・毎朝更新`, 'up'),
-      cell('株数', z && z.shares ? `${z.shares.toLocaleString('ja-JP')}株` : '—', z ? (z.none ? '上限では持てない' : `損切りで −${fmtYen(sharesFor(o.limit, o.stop).loss)}`) : '資金を入れると出ます'),
+      cell('株数', z && z.shares ? `${z.shares.toLocaleString('ja-JP')}株` : '—', z ? (z.none ? '1件の金額では買えない'
+        : isNum(z.loss) ? `損切りで −${fmtYen(z.loss)}（資金の${z.lossPct.toFixed(1)}%）` : '') : '資金を入れると出ます'),
     ]),
     z && z.none ? h('div', { class: 'plan__size plan__size--none', text: z.text }) : null,
     extra ? h('div', { class: 'hint', style: 'margin:4px 0 0', text: extra }) : acts,
@@ -1208,6 +1229,13 @@ function ordersCard() {
     body.push(h('div', { class: 'callout callout--accent', text:
       '今日は注文なし。上昇トレンドの銘柄で、短く押したもの（2日RSI 10未満）がありません。待つのも作戦です。下の「監視」に、もうすぐ注文対象になる銘柄を出しています。' }));
   } else {
+    const fc = day && day.state === 'expired' ? null : freeCash();
+    if (fc) {
+      const k = Math.min(fc.fit, orders.length);
+      body.push(h('div', { class: 'callout callout--' + (k ? 'accent' : 'warn'), text:
+        `空き資金 ${fmtYen(fc.free)}（保有中に ${fmtYen(fc.used)}）。1件 ${fmtYen(fc.budget)} で、上から ${k}件まで置けます。` +
+        (k < orders.length ? '置けない分は見送り、空いた資金は次の注文に回します（検証の口座も同じ置き方です）。' : '') }));
+    }
     body.push(h('div', { class: 'orders' }, orders.map((o, i) => orderCard(o, i + 1, day))));
   }
   const more = sw.more || [];
@@ -1232,10 +1260,13 @@ function ordersCard() {
     ]));
   }
   const v = (sw.verify || {}).all || {};
+  const acc = (sw.verify || {}).account || {};
   return card('注文', orders.length ? `${orders.length}銘柄` : null, body,
     `並べ方は、25日線からの下離れ＋業種より遅れている分が大きい順（業種ぐるみの押し・出遅れの押しが先に来る）。` +
-    `買いは指値（終値 − ${r.entry_atr}ATR、この日だけ）。約定したら、損切りの逆指値（約定値 − ${r.stop_atr}ATR）を置き、翌日から毎朝「売りの指値」（直近${r.exit_n}日の終値の平均。ただし約定値 +${r.floor}% より下には置かない）を置き直す。` +
-    `${r.max_hold}営業日で売れなければ引けで売る。` + (v.n ? `このルールを直近${(sw.verify || {}).days || ''}営業日に当てると ${v.n}回・勝率 ${v.win}%・平均 ${fmtPct(v.avg, 2)}（下の成績）。` : '') +
+    `買いは指値（終値 − ${r.entry_atr}ATR、この日だけ）を IFD（約定したら損切りの逆指値が自動で入る注文）で置くと、検証と同じく約定した日から損切り（約定値 − ${r.stop_atr}ATR）が効きます。` +
+    `翌日からは毎朝、「売りの指値」（直近${r.exit_n}日の終値の平均。ただし約定値 +${r.floor}% より下には置かない）と損切りを OCO（片方が約定したらもう片方は取り消し）で置き直す。` +
+    `${r.max_hold}営業日で売れなければ引けで売る。` + (v.n ? `このルールを直近${(sw.verify || {}).days || ''}営業日に当てると ${v.n}回・勝率 ${v.win}%・平均 ${fmtPct(v.avg, 2)}` +
+      (isNum(acc.cagr) ? `、資金の${acc.slot}%ずつ本番どおりに置いた口座は年率 ${fmtPct(acc.cagr, 1)}` : '') + '（下の成績）。' : '') +
     '予測ではなく、決めた規則どおりに注文を置くための目安です。', true, 'sw-orders');
 }
 
@@ -1309,7 +1340,7 @@ function positionsCard() {
       '注文が約定したら「買えた」を押すと、ここに毎朝の売り指値・損切り・期限が出ます（この端末にだけ保存）。' }), null, false, 'sw-pos');
   }
   return card('保有中', `${pos.length}銘柄`, h('div', { class: 'orders' }, pos.map(positionRow)),
-    `売り指値は前の営業日の引けまでの日足で決まる値（直近${rules().exit_n}日の終値の平均）で、毎朝ここを見て置き直します。` +
+    `売り指値は前の営業日の引けまでの日足で決まる値（直近${rules().exit_n}日の終値の平均）で、毎朝ここを見て、損切りの逆指値と一緒に OCO で置き直します。` +
     `ただし買値 +${rules().floor}% より下には置きません。含み損のうちに平均まで戻ったところで売ると小さな損が確定しますが、` +
     '4年の検証ではその多くが10営業日のうちに買値の上まで戻っていました（勝率 70% → 86%）。損切りは約定した日から置いたまま動かしません。' +
     '計画にない理由で売らない（下げても、損切りの価格までは持つ）ことが、このルールの勝率の前提です。', true, 'sw-pos');
@@ -1498,6 +1529,40 @@ function avoidCard() {
 }
 
 /* ---- 5. 成績 ---- */
+/* 口座の資産の推移（初日=1）。1 の高さに点線。自前の SVG なので html: を使う */
+function equityChart(curve) {
+  if (!Array.isArray(curve) || curve.length < 5) return null;
+  const W = 320, H = 90, n = curve.length;
+  const vs = curve.map((p) => p[1]);
+  let lo = Math.min(1, ...vs), hi = Math.max(1, ...vs);
+  const pad = (hi - lo) * 0.08 || 0.01;
+  lo -= pad; hi += pad;
+  const x = (i) => (i / (n - 1)) * W;
+  const y = (v) => H - ((v - lo) / (hi - lo)) * H;
+  const pts = vs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return h('div', { class: 'tc' }, [
+    h('div', { html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="tc__svg" role="img" aria-label="資産の推移">` +
+      `<line x1="0" x2="${W}" y1="${y(1).toFixed(1)}" y2="${y(1).toFixed(1)}" class="tc__grid"/>` +
+      `<polyline points="${pts}" class="tc__line" vector-effect="non-scaling-stroke"/></svg>` }),
+    h('div', { class: 'tc__axis' }, [h('span', { text: ym(curve[0][0]) }), h('span', { text: '資産の推移（初日＝1、点線）' }),
+      h('span', { text: ym(curve[n - 1][0]) })]),
+  ]);
+}
+
+/* 口座の再現（swing.account）: 資産の倍率・年率・最大の目減り・月でプラスの割合と、資産の推移 */
+function accountBlock(acc, title, note) {
+  return h('div', { class: 'decision__block' }, [
+    h('div', { class: 'decision__bh', text: title }),
+    h('div', { class: 'summary__stats' }, [
+      stat('資産', `×${acc.final.toFixed(2)}`, isNum(acc.cagr) ? `年率 ${fmtPct(acc.cagr, 1)}` : `${acc.days}営業日`, cls(acc.final - 1)),
+      stat('最大の目減り', fmtPct(acc.dd, 1), isNum(acc.under) ? `戻るまで最長${acc.under}日` : null, acc.dd < 0 ? 'down' : ''),
+      stat('月でプラス', isNum(acc.m_up) ? `${acc.m_up}%` : '—', isNum(acc.q_up) ? `3か月 ${acc.q_up}%` : `${acc.months || 0}か月`),
+    ]),
+    equityChart(acc.curve),
+    h('p', { class: 'hint', text: note }),
+  ]);
+}
+
 function statRow(label, s, from, total) {
   const pc = (v) => h('td', { class: 'num ' + cls(v), text: isNum(v) ? fmtPct(v, 1) : '—' });
   return h('tr', { class: total ? 'bt__all' : '' }, [
@@ -1532,8 +1597,19 @@ function statsCard() {
     ])));
     body.push(h('p', { class: 'hint', text: `比べる相手: 同じ銘柄を毎日、翌日の寄りで買って5営業日後の引けで売った場合（${(base.n || 0).toLocaleString('ja-JP')}回）の勝率 ${base.win ?? '—'}%・平均 ${fmtPct(base.avg, 2)}。` +
       `損切りで終わったのは ${a.stops}%、売り指値で終わったのは ${a.sells}%、期限で終わったのは ${a.times}%。` +
+      (isNum(a.d2) ? `買ってから平均 ${a.days}営業日で手仕舞い（約定した日の翌日までに ${a.d2}%）、1回の平均を保有日数で割ると 1日あたり ${fmtPct(a.per_day, 2)}。` : '') +
       (isNum(a.small) ? `勝ちのうち +0.5% 以下の小さな勝ち（多くは売り指値の下限＝買値+${rules().floor}%で終わった売り）が全体の ${a.small}%、` +
-        `−5% 以下の大きな負けが ${a.big_loss}%。勝率が高い分、負けは1回が大きいので、株数は「損切りで失う額」から決めてください。` : '') }));
+        `−5% 以下の大きな負けが ${a.big_loss}%。勝率が高い分、負けは1回が大きい（注文ごとに、損切りで失う額と資金の%を出しています）。` : '') }));
+    const acc = v.account;
+    if (acc && acc.days) {
+      const r = rules();
+      body.push(accountBlock(acc, `本番どおりに置いた口座（資金の${acc.slot}%ずつ・1日${r.max_orders}件まで）`,
+        `${ym(acc.from)}〜${ym(acc.to)} に、毎日の引けでこのルールの注文を上から${r.max_orders}件まで、空いている資金の${acc.slot}%ずつ置いた場合` +
+        `（翌日だけ有効・約定しなければ資金はその日遊ぶ・保有中の銘柄には重ねない・同じ業種は${r.sector_cap}銘柄まで）。` +
+        `稼働率 ${acc.util}%（資金のうち株に入っていた割合の平均）・売買 ${acc.n}回・勝率 ${acc.win ?? '—'}%。` +
+        '上の1回ごとの成績は資金の制約を置かない数え方で、約定しなかった注文の資金が遊ぶ分が入っていません。どれくらいの期間で増えるかは、こちらの口座で見てください。' +
+        '4年（2023-08〜2026-09）では年率 +31%・最大の目減り −14%・月でプラス 79%・3か月でプラス 89%（DESIGN.md 16章）。'));
+    }
     const pv = v.peer || null;
     if (pv) {
       const rowsP = ['dip_lag', 'dip', 'lag', 'plain', 'none'].filter((k) => (pv[k] || {}).n)
@@ -1570,6 +1646,12 @@ function statsCard() {
             : e.filled ? `保有中 ${isNum(e.last) && isNum(e.entry) ? fmtPct((e.last / e.entry - 1) * 100, 1) : ''}` : '待ち' }),
       ]))),
     ]));
+    const pa = p.account;
+    if (pa && pa.days >= 2) {
+      body.push(accountBlock(pa, `アプリの注文どおりに置いた口座（${md(pa.from)}〜・資金の${pa.slot}%ずつ）`,
+        `出した注文を、出した日から上の口座と同じ置き方（空いている資金の${pa.slot}%ずつ・約定しなければ資金はその日遊ぶ）で並べた実績。` +
+        `約定・手仕舞いは検証と同じ規則で四本値から測ります。${pa.days}営業日ぶんなので、数字はまだ振れます。`));
+    }
   }
   const done = readDone();
   if (done.length) {
@@ -1583,20 +1665,25 @@ function statsCard() {
   }
   return card('成績', v ? `${ym(v.from)}〜${ym(v.to)}・${v.universe}銘柄` : null, body,
     (v ? v.note + ' ' : '') + '銘柄は今の日経225採用・テーマ辞書・台帳・ウォッチリストで、途中で上場廃止になった銘柄は入っていない（その分だけ良く見える）。' +
-    '押し目買いは急落に弱い（2024年8月の急落のような日は、損切りが寄りの窓で滑る）。1回の損を資金の1%前後に抑えて使ってください。', true, 'sw-stats');
+    '押し目買いは急落に弱い（2024年8月の急落のような日は、損切りが寄りの窓で滑る）。1件を資金の10%前後に抑え、1日5件までで使ってください。', true, 'sw-stats');
 }
 
 function ruleCard() {
   const r = rules();
   const lines = [
     ['入口', `上昇トレンド（終値 > ${r.ma_long}日線、${r.ma_mid}日線 > ${r.ma_long}日線）の銘柄が、2日RSI ${r.rsi_max}未満まで短く押した日。売買代金（20日平均）${r.liq_min}億円以上・株価${r.min_price}円以上`],
-    ['買い', `翌営業日だけ有効の指値 = 終値 − ${r.entry_atr}×ATR(14)。押した日の、さらに下で拾う`],
-    ['売り', `翌日から毎朝、指値 = 直近${r.exit_n}日の終値の平均（「終値が5日線を上回ったら売る」を前もって置ける形にしたもの）。ただし買値 +${r.floor}% より下には置かない（含み損のうちは戻りを待つ）`],
+    ['買い', `翌営業日だけ有効の指値 = 終値 − ${r.entry_atr}×ATR(14)。押した日の、さらに下で拾う。IFD で置けば約定と同時に損切りが入る`],
+    ['売り', `翌日から毎朝、指値 = 直近${r.exit_n}日の終値の平均（「終値が5日線を上回ったら売る」を前もって置ける形にしたもの）。ただし買値 +${r.floor}% より下には置かない（含み損のうちは戻りを待つ）。損切りと OCO で置き直す`],
     ['損切り', `約定値 − ${r.stop_atr}×ATR(14) に逆指値。ふだんの揺れでは掛からない距離`],
     ['期限', `${r.max_hold}営業日で売れなければ引けで売る`],
     ['業種', `同じ業種（テーマ辞書の主テーマ、無ければ日経の業種）の${r.peer_n}日騰落の中央値（自分を除く）と比べる。業種が +${r.peer_up}% 以上上げていて、自分も業種並み（差が ${r.peer_lag}pt より上）の押しは見送り`],
     ['並べ方', `25日線からの下離れ＋業種より遅れている分が大きい順（業種ぐるみの押し・出遅れの押しが先）。1日${r.max_orders}銘柄まで・同じ業種は${r.sector_cap}銘柄まで`],
+    ['株数', `1件 = 資金の${r.slot_pct}%（金額をそろえる）。保有中に使っていない資金の範囲で、上から順に置く`],
   ];
+  const tbl = (head, rows) => h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+    h('thead', {}, h('tr', {}, head.map((t) => h('th', { text: t })))),
+    h('tbody', {}, rows.map((row) => h('tr', {}, [h('th', { text: row[0] })].concat(row.slice(1).map((c) => h('td', { class: 'num', text: c })))))),
+  ]));
   const led = (LEDGER || {}).stats || {};
   const ledRows = led.by_signal || [];
   return card('このルールについて', null, [
@@ -1604,7 +1691,28 @@ function ruleCard() {
     h('p', { class: 'hint', text:
       '2022年10月〜2026年9月の四本値（約380銘柄）で、場中の安値での損切り・窓開け・売買コストまで再現して選んだルールです。' +
       '以前の作戦ボード（押し目・深押し・上向き転換・売られすぎ・相対力リーダー）は同じ条件で勝率 39〜54%、発掘の入口（上がった・商いが膨らんだ銘柄を見つけた日に買う）は日経平均に負けていました。' +
-      'このルールは前半（2023〜24年）で決め、後半（2025〜26年）でも勝率69%を保ち、売り指値に下限を付けて 86〜87% になりました。詳しくは DESIGN.md 13〜15章。' }),
+      'このルールは前半（2023〜24年）で決め、後半（2025〜26年）でも勝率69%を保ち、売り指値に下限を付けて 86〜87% になりました。' +
+      '株数は、同じ張り具合で口座が速く増える「金額をそろえる」決め方にしています。詳しくは DESIGN.md 13〜16章。' }),
+    h('div', { class: 'decision__block' }, [
+      h('div', { class: 'decision__bh', text: '株数の決め方と口座の伸び（DESIGN.md 16章）' }),
+      tbl(['2023-08〜', '損1%で', `${r.slot_pct}%ずつ`], [
+        ['年率 前半／後半', '+12.6／+28.3%', '+19.4／+43.2%'],
+        ['最大の目減り', '−11.9／−11.4%', '−14.3／−12.5%'],
+        ['シャープ', '0.98／2.15', '1.25／2.19'],
+        ['月でプラス', '68%', '79%'],
+        ['3か月でプラス', '89%', '89%'],
+        ['3年の資産', '1.78倍', '2.35倍'],
+      ]),
+      h('p', { class: 'hint', text: `「損1%で」は今までの決め方（損切りまでの幅から、1回の損が資金の1%になる株数。1銘柄20%まで）、「${r.slot_pct}%ずつ」はいまの決め方（金額をそろえる）。` +
+        'どちらも本番どおりの置き方（引けで注文を上から1日5件まで置き、約定しなければ資金はその日遊ぶ・同じ業種2銘柄まで）。前半 2023-24・後半 2025-26。' +
+        '置いた注文が約定するのは38%で、資金の半分以上は遊んでいます。それでも同じ張り具合なら、金額をそろえるほうが速く増えました' +
+        '（並び順をでたらめにした30通りで、資金の10〜15%と1回の損1〜1.5%を比べると、年率は23〜30通り・シャープは21〜26通りで金額均等が上）。' +
+        '値動きの大きい銘柄ほど1件あたりの期待値が高いのに、損切り幅で株数を決めると値動きの小さい銘柄に資金が偏るためです。目減りは1〜2pt深くなります。' +
+        '1件を資金の20%にすると年率 +36%・最大の目減り −23% で、シャープは下がります（候補が重なる日に置けない）。' }),
+      h('p', { class: 'hint', text: '試したが採らなかったもの（前半と後半で向きがそろわない、または偶然の範囲）: 期限を7日・5日に、約定した日にも売りの指値を置く' +
+        '（後半では30通り中3通りしか上回らない）、並べ方を「売りの目安までの距離」に（前半は良く後半は悪い）、指値を浅く（約定は増えるが1回の質が落ち、口座は悪化）、' +
+        '枠を増やす（1件が小さくなるだけで稼働率が下がる）、1回の損の歯止め（年率が下がり、目減りは同じ）。1回ごとの保有は平均4営業日で、これより速くする出口は見つかりませんでした。' }),
+    ]),
     h('div', { class: 'decision__block' }, [
       h('div', { class: 'decision__bh', text: '売り指値の下限（DESIGN.md 15章）' }),
       h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
@@ -1616,11 +1724,13 @@ function ruleCard() {
           ['−2〜0%の負け', '14／14%', '0／0%'],
           ['0〜0.5%の勝ち', '8／6%', '22／20%'],
           ['−5%以下の負け', '9／9%', '11／10%'],
-          ['口座の年率', '+31／+75%', '+40／+83%'],
-          ['口座の最大DD', '−21／−18%', '−22／−19%'],
+          ['口座の年率＊', '+31／+75%', '+40／+83%'],
+          ['口座の最大DD＊', '−21／−18%', '−22／−19%'],
         ].map((row) => h('tr', {}, [h('th', { text: row[0] }), h('td', { class: 'num', text: row[1] }), h('td', { class: 'num', text: row[2] })]))),
       ])),
-      h('p', { class: 'hint', text: '前半 2023-24・後半 2025-26。口座は資金5等分・同じ業種2銘柄まで。以前は、直近4日の平均が買値より下にあるうちに平均まで戻ると、そこで小さな損を確定させていました。' +
+      h('p', { class: 'hint', text: '前半 2023-24・後半 2025-26。＊口座は資金5等分・同じ業種2銘柄まで。この口座の数字は「その日に約定した注文の中から上位を選ぶ」楽観的な数え方で、' +
+        '置いた注文が約定しない分（約定は38%）を見ていませんでした。本番どおりに数え直すと、同じ資金5等分で前半 +9%・後半 +65%（上の「株数の決め方と口座の伸び」）。' +
+        '以前は、直近4日の平均が買値より下にあるうちに平均まで戻ると、そこで小さな損を確定させていました。' +
         'その売りの多くは10営業日のうちに買値の上まで戻っていたので、売り指値は買値 +0.2%（往復のコスト0.1%を引いてもプラス）より下に置かないことにしました。' +
         '勝率の上がり分の多くは「小さな負けが小さな勝ちに変わった」もので、戻らずに損切り・期限まで行く負けは少し増えます。それでも4年のどの年も平均と PF は良くなりました。' +
         '下限 0.2〜0.5%・平均の日数 3〜5日・期限 7〜15日の18通りすべてで勝率 81〜90% で、たまたま良い一点ではありません。' }),
@@ -1639,7 +1749,7 @@ function ruleCard() {
           ['見送りを除いた全体', '86%', '87%'],
         ].map((row) => h('tr', {}, [h('th', { text: row[0] }), h('td', { class: 'num', text: row[1] }), h('td', { class: 'num', text: row[2] })]))),
       ])),
-      h('p', { class: 'hint', text: '勝率・1回の平均（売買コスト込み・売り指値の下限つきで数え直した数字）。見送りを入れて並べ方を変えると、資金5等分の口座で年率 +43.6% → +48.7%、最大ドローダウン −23.8% → −22.5%（2023-08〜2026-09）。' +
+      h('p', { class: 'hint', text: '勝率・1回の平均（売買コスト込み・売り指値の下限つきで数え直した数字）。見送りを入れて並べ方を変えると、資金5等分の口座で年率 +43.6% → +48.7%、最大ドローダウン −23.8% → −22.5%（2023-08〜2026-09。15章までの楽観的な口座の数え方）。' +
         '業種をでたらめに入れ替えた場合（8通り）の年率は +37〜50% で、効き目の向きは確かでも大きさには幅があります。' +
         '「業種が上げているのに遅れている銘柄を、押していない日に買う」と「上昇トレンドが崩れた銘柄を業種の急落で買う」は、検証で効かなかった（後半で負け）ので注文は出しません。' }),
     ]),
@@ -1989,9 +2099,9 @@ function impulseCheck(code, intent) {
     if (ev && ev.label.startsWith('悪材料出尽くし')) good.push(`下方修正のあとも ${fmtPct(ev.since, 1)}。悪材料で下げない＝アク抜け`);
     if (sw.st === 'signal' && order) {
       level = bad.length >= 2 ? 'wait' : 'ok';
-      title = level === 'ok' ? '注文どおりに（指値で・株数は計画の範囲で）' : '注文対象。ただし気になる点あり（株数は小さく）';
+      title = level === 'ok' ? `注文どおりに（指値で・1件は資金の${r.slot_pct}%）` : '注文対象。ただし気になる点あり（1件を小さく）';
       plan.push(`${orderDay((SW() || {}).asof)?.text || '次の営業日だけ有効'}。指値 ${fmtPrice(order.limit)}円で、成行では買わない`);
-      plan.push(`約定したら損切りの逆指値 ${fmtPrice(order.stop)}円 を置く。翌日からは毎朝、売りの指値を置き直す（作戦タブの「保有中」）`);
+      plan.push(`IFD で置くと、約定と同時に損切りの逆指値 ${fmtPrice(order.stop)}円 が入る。翌日からは毎朝、売りの指値と損切りを OCO で置き直す（作戦タブの「保有中」）`);
     } else {
       level = 'stop';
       title = sw.st === 'wait' ? '今日は買わない（注文が出るまで待つ）'
@@ -2176,12 +2286,14 @@ function todayPlanCard(t, id) {
   if (!sw && !(t && isNum(t.temp))) return null;
   const orders = (sw && sw.orders) || [];
   const day = sw ? orderDay(sw.asof) : null;
+  const expired = !!(day && day.state === 'expired');
   const pos = readPos();
   const kids = [
     h('div', { class: 'decision__head' }, [
       h('div', {}, [
         h('div', { class: 'decision__k', text: day ? `買い注文（${day.label}）` : '買い注文' }),
-        h('div', { class: 'decision__label decision__label--' + (orders.length ? 'ok' : 'accent'), text: orders.length ? `${orders.length}銘柄` : '注文なし' }),
+        h('div', { class: 'decision__label decision__label--' + (orders.length && !expired ? 'ok' : 'accent'),
+          text: expired ? (orders.length ? `期限切れ（${orders.length}銘柄）` : '期限切れ') : orders.length ? `${orders.length}銘柄` : '注文なし' }),
       ]),
       h('div', { class: 'decision__aside' }, [
         t && isNum(t.temp) ? h('span', { class: 'badge badge--' + (ZONE_TONE[t.tone] || 'accent'), text: `温度 ${t.temp}・${t.zone}` }) : null,
@@ -2196,6 +2308,7 @@ function todayPlanCard(t, id) {
         h('span', { class: 'decision__code', text: o.code }),
       ]),
       h('div', { class: 'plan__inline num', text: `指値 ${fmtTick(o.limit)}（${fmtPct(o.to_limit, 1)}）　損切り ${fmtTick(o.stop)}　売りの目安 ${fmtTick(o.sell)}` }),
+      (() => { const z = sizeText(o.limit, o.stop); return z && z.shares ? h('div', { class: 'plan__inline num', text: z.text }) : null; })(),
       o.peer && o.peer.label && !/^(ふつうの押し|比べる業種なし)$/.test(o.peer.label)
         ? h('div', { class: 'plan__inline', text: `${o.peer.label}（${o.peer.group} ${fmtPct(o.peer.g20, 1)}・業種より ${fmtPt(o.peer.rel20)}）` }) : null,
     ]))));
@@ -2204,7 +2317,7 @@ function todayPlanCard(t, id) {
   }
   if (day && day.state === 'expired') kids.push(h('div', { class: 'callout callout--warn', text: day.text }));
   kids.push(h('button', { class: 'more', type: 'button', text: pos.length ? '作戦を開く（保有中の売り指値・監視・成績）' : '作戦を開く（注文・監視・成績・買う前チェック）', onclick: () => selectView('thermo') }));
-  return h('section', { class: 'card decision decision--' + (orders.length ? 'ok' : 'accent'), id: id || null }, kids.concat([
+  return h('section', { class: 'card decision decision--' + (orders.length && !expired ? 'ok' : 'accent'), id: id || null }, kids.concat([
     h('div', { class: 'card__note', text: '上昇トレンド中の短い押しを、翌日の指値で拾うルールの注文です（検証の勝率は作戦タブの「成績」）。予測でも売買の推奨でもありません。' }),
   ]));
 }

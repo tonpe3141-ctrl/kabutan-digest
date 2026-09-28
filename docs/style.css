@@ -584,7 +584,7 @@ details.risk { margin: 8px 14px 4px; border: 1px solid var(--border); border-rad
 details.risk > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--accent); padding: 9px 0; list-style: none; }
 details.risk > summary::-webkit-details-marker { display: none; }
 .risk--empty > summary { color: var(--warn); }
-.risk__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.risk__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .risk__field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-dim); font-weight: 650; min-width: 0; }
 .risk__field input { font: inherit; font-size: 16px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-width: 0; width: 100%; box-sizing: border-box; }
 .risk__field small { font-size: 10px; color: var(--text-faint); font-weight: 500; }
@@ -680,7 +680,8 @@ details.risk .hint { margin: 6px 0 10px; }
 .stats__line { font-size: 13px; line-height: 1.6; margin: 4px 0 6px; }
 .card--flush > .summary__stats, .card--flush > .tablewrap, .card--flush > .hint, .card--flush > .decision__block { margin-left: 14px; margin-right: 14px; }
 .card--flush > .summary__stats { margin-bottom: 10px; }
-.card--flush > .summary__stats .stat__sub { white-space: normal; line-height: 1.35; margin-top: 2px; }
+.card--flush > .summary__stats .stat__sub,
+.decision__block > .summary__stats .stat__sub { white-space: normal; line-height: 1.35; margin-top: 2px; }
 .paper__row { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 8px; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--border); }
 .paper__row:first-child { border-top: 0; }
 .paper__d { color: var(--text-faint); }

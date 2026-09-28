@@ -361,7 +361,7 @@ def session_commentary(data: dict, slot: str) -> dict | None:
 
 
 # ==================== 相場温度計（逆張りの視点） ====================
-def thermo_section(th: dict | None) -> dict | None:
+def thermo_section(th: dict | None, slot: str | None = None, today: str | None = None) -> dict | None:
     """温度計の要約を1節にする。数字は thermo_run.summary の値だけを使う。"""
     if not th or th.get("temp") is None:
         return None
@@ -387,8 +387,17 @@ def thermo_section(th: dict | None) -> dict | None:
     sw = th.get("swing") or {}
     orders = sw.get("orders") or []
     ver = ((sw.get("verify") or {}).get("all")) or {}
-    rec = f"（このルールの検証: {ver['n']}回・勝率 {ver['win']}%）" if ver.get("n") else ""
-    if orders:
+    acc = ((sw.get("verify") or {}).get("account")) or {}
+    rec = f"（このルールの検証: {ver['n']}回・勝率 {ver['win']}%" if ver.get("n") else ""
+    if rec and acc.get("cagr") is not None:
+        rec += (f"。資金の{acc['slot']:g}%ずつ本番どおりに置いた口座は年率 {acc['cagr']:+.1f}%・"
+                f"最大の目減り {acc['dd']:.1f}%")
+    rec += "）" if rec else ""
+    if slot == "taibike" and today and sw.get("asof") and sw["asof"] < today:
+        # 大引の時点で CNBC の日足に当日の分がまだ無い日。出ている注文は前の営業日の引けの分（今日で期限切れ）
+        out.append(f"今日の引けの日足がまだ届いていないため、次の営業日の押し目買いの注文は、日足がそろい次第"
+                   f"（夜の更新か、明朝の寄り前）出す（表示中は {sw['asof']} の引けの分）" + rec)
+    elif orders:
         out.append("短期の押し目買いの注文は " + _names(orders, 5) + rec)
     elif sw:
         out.append("短期の押し目買いの注文は無し（上昇トレンドの銘柄で、短く押したものが無い）" + rec)

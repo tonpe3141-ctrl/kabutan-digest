@@ -18,10 +18,9 @@
   **Routine が「合図」を push し、その push イベントで Actions を即時に起動する。**
 - このセッションのネットワークは GitHub と api.anthropic.com 以外に出られない。
   数値やニュースの収集は Actions（`python -m dashboard.build`）がやる。**ここでは取得しない。**
-- Routine の push は main に直接入らず、このセッション固有の `claude/routine-*` ブランチに置き換えられる。
-  `docs/data/latest.json` など決められたファイルだけを変えたコミットは
-  `.github/workflows/merge-ai-branch.yml` が自動で main にマージし、ブランチを消す
-  （次の push でまた作られる。それで正しい）。
+- Routine の push は、このセッション固有の `claude/routine-*` ブランチに置き換えられることも、main に直接届くこともある。
+  ブランチに置き換えられたときは、`docs/data/latest.json` など決められたファイルだけを変えたコミットを
+  `.github/workflows/merge-ai-branch.yml` が自動で main にマージする。どちらの経路でも合図で収集が走る。
 
 ## 共通ルール
 
@@ -69,8 +68,8 @@ git push origin HEAD:main
 echo "SIGNAL_AT=$SIGNAL_AT"
 ```
 
-push 先は main と書いても `claude/*` ブランチに置き換えられる（仕様）。
-それで正しい。`docs/data/trigger/*.txt` の push で **マーケットダッシュボード更新** の
+push 先は `claude/*` ブランチに置き換えられることも、main に直接届くこともある（2026-09-28 は main に直接届いた）。
+どちらでも正しい。`docs/data/trigger/*.txt` の push で **マーケットダッシュボード更新** の
 ワークフローが数秒以内に起動し、main にデータを書き込む。
 
 ## STEP 2: main にデータが届くのを待つ
@@ -147,8 +146,11 @@ git pull --rebase origin main
   `{label（押しの形）, group, g20（業種の20日騰落）, rel20（業種との差）}`）, `more`（上限で外れた次点の数）,
   `skip[]`（押したが「業種の上げに沿った押し」で見送った銘柄）,
   `near[]`（あと少しの下げで注文対象になる銘柄と、その終値 `trig`）, `verify`（このルールを日足キャッシュの期間に当てた
-  `all`/`recent` の回数 `n`・勝率 `win`・平均 `avg`・PF `pf` と、比べる相手 `base`。勝率を書くときは、+0.5% 以下の小さな勝ちの割合
-  `small` と −5% 以下の大きな負けの割合 `big_loss` も読んで、「勝率は高いが負けは1回が大きい」ことを落とさない）, `paper`（アプリが出した注文の実績。結果が出てから）。
+  `all`/`recent` の回数 `n`・勝率 `win`・平均 `avg`・PF `pf`・平均の保有日数 `days` と、比べる相手 `base`。勝率を書くときは、+0.5% 以下の小さな勝ちの割合
+  `small` と −5% 以下の大きな負けの割合 `big_loss` も読んで、「勝率は高いが負けは1回が大きい」ことを落とさない。
+  `verify.account` は同じ期間に **本番どおりに置いた口座**（引けで上から1日5件まで・資金の `slot`%ずつ・約定しなければ資金はその日遊ぶ）の
+  年率 `cagr`・最大の目減り `dd`・稼働率 `util`・月でプラスだった割合 `m_up`・資産の倍率 `final`。「どれくらいの期間で増えるか」はこちらで書く）,
+  `paper`（アプリが出した注文の実績。結果が出てから。`paper.account` は出した注文どおりに資金の10%ずつ置いた口座）, `slot_pct`（1件の金額＝資金の%）。
   詳細は `docs/data/thermo.json`（業種の全表・バックテスト `backtest.zones[]`・警告の成績 `track[]`・`swing` の全体）、
   注文の記録は `docs/data/swing_track.json`
 - 参考: `commentary`（ルールベースの見立て。なぞるだけでは意味がない）
@@ -186,9 +188,12 @@ git pull --rebase origin main
   「押しを待つ」「追いかけは控えめに」の言い方にとどめる
 - `backtest` で温度帯の過去の成績が逆張りの読みと食い違っているときは、そのことも書く（都合の良い読みだけを書かない）
 - `swing.orders` があれば、銘柄名と指値をそのまま伝える（価格や勝率を自分で計算し直さない。`verify` の数字を使う）。
+  成績に触れるときは、1回ごとの勝率（`verify.all.win`）だけでなく口座の伸び（`verify.account.cagr` と `dd`）も並べる
+  （置いた注文の約定は4割弱で、資金の半分以上は遊ぶ。1回ごとの勝率から想像するより口座の伸びは遅い）。
   記事で背景（押した理由）が分かるものは一言添えてよいが、「買い」と断定せず「注文の条件に入った」の言い方にとどめる。
   `peer.label` が「業種ぐるみの押し」「出遅れの押し」なら、その形と業種（`group` と `g20`）をそのまま添えてよい（数字は付け直さない）。
   `skip` の銘柄を「買い場」と書かない（業種の上げに沿った押しは検証で弱かったので見送っている）。
+  大引で `swing.asof` が今日より前なら、その注文は今日で期限切れ（次の営業日の注文ではない）なので、注文として書かない。
   注文が無い日は「押し目の注文なし。待つのも作戦」と書いてよい。温度で注文を増やす・減らすとは書かない
   （このルールは温度で絞らない。検証では弱い地合いの押しのほうが成績が良かった）
 
@@ -258,8 +263,9 @@ for i in 1 2 3 4; do
   sleep $((2 ** i))
 done
 # 4回とも拒否されたとき（前回の push が自動マージされず、このセッションのブランチが main と食い違っている）は
-# ブランチを今の HEAD で上書きしてよい。main には触れない
-git push --force origin HEAD:main || echo "force push も拒否。報告して終わる"
+# このセッションのブランチ（claude/routine-{SLOT}）だけを今の HEAD で上書きしてよい。
+# push が main に直接届くこともあるので、宛先は必ずブランチ名で書く。main には絶対に force push しない
+git push --force origin "HEAD:refs/heads/claude/routine-{SLOT}" || echo "force push も拒否。報告して終わる"
 ```
 
 衝突したら: `docs/data/latest.json` の衝突で相手側が同じスロットの `ai_commentary` 以外を
@@ -274,7 +280,11 @@ git push --force origin HEAD:main || echo "force push も拒否。報告して�
 - 本文: 4a の `headline`。大引で台帳に今日の新規候補があれば銘柄名を 3 つまで添える。
   `thermo.zone` が「過熱」「総悲観」のとき、`thermo.consensus` があるとき、または前回の通知から帯が変わったときは、
   本文の先頭に `温度{temp}・{zone}` を付ける（例: 「温度84・過熱｜…」）。大引と寄り前は、`thermo.swing.orders` があれば本文の末尾に
-  「注文: {銘柄名 3つまで}」、無ければ「注文なし」を1行添える（通知だけ見て次の営業日の注文が分かるように）。`watch_guard` があれば「ウォッチ: {銘柄名}に注意書き」を1行添える。
+  「注文: {銘柄名 指値}」を3つまで（例: 「注文: 中部電 2,792・関西電 2,713・吉野家HD 3,545」。指値は `limit` をそのまま）、
+  無ければ「注文なし」を1行添える（通知だけ見て、寄りの前に次の営業日の注文を置けるように）。
+  ただし大引で `thermo.swing.asof` が今日より前なら（CNBC の日足に今日の分がまだ無く、注文が前の営業日の引けのまま）、
+  注文は載せず「注文は日足がそろい次第（夜の更新か明朝の寄り前）」と1行添える。寄り前はそのまま載せてよい
+  （寄り前の収集は、日足が遅れていれば取り直してから注文を出す）。`watch_guard` があれば「ウォッチ: {銘柄名}に注意書き」を1行添える。
   寄り前は STEP 7 の点検結果に欠けがあれば 1 行添える。
 - URL: `https://tonpe3141-ctrl.github.io/kabutan-digest/`
 
@@ -303,7 +313,7 @@ STEP 6 の通知に「昨日の {欠けた区分} が未取得」と添える。
     {"title": "指数と物色", "body": "5営業日の日経・TOPIX の動きと、強かった業種・テーマ、弱かったもの"},
     {"title": "候補の成績", "body": "台帳: 今週フラグした候補の d5 中央値、シグナル別の当たり外れ（stats から）"},
     {"title": "想定と実際", "body": "寄り前想定（implied_open）と実際の寄りの当たり具合"},
-    {"title": "注文の成績と温度", "body": "swing_track.json の今週結果が出た注文（勝率・平均・損切りで終わった数）を thermo.json の swing.verify（検証の勝率）と比べる。今週の温度の推移（history の thermo.temp）と、track[]（高値掴み注意・出尽くしの5日後）"},
+    {"title": "注文の成績と温度", "body": "swing_track.json の今週結果が出た注文（勝率・平均・損切りで終わった数）を thermo.json の swing.verify（検証の勝率）と比べる。口座としての実績（swing.paper.account の資産の倍率・最大の目減り）を検証の口座（swing.verify.account）と並べる。今週の温度の推移（history の thermo.temp）と、track[]（高値掴み注意・出尽くしの5日後）"},
     {"title": "来週の注目", "body": "決算・イベント・持ち越し材料"}
   ],
   "method": "Claude による週次総括",

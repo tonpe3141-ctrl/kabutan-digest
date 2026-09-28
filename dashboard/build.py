@@ -391,9 +391,24 @@ def carry_over(payload: dict, before: dict | None) -> list[str]:
 
 
 def already_done(slot: str, target_date: date) -> bool:
-    """保険の cron 用。その日のその区分が既に作られていれば True（取り直さない）。"""
+    """保険の cron 用。その日のその区分が既に作られていれば True（取り直さない）。
+
+    ただし大引は、その日の実行の時点で CNBC の日足に当日の分がまだ無く、注文が前の営業日の引けのまま
+    （翌営業日の注文が出ていない）なら False にする。遅れて発火する保険（実測で夜）が取り直すと、当日の引けの注文が出る。
+    休場日（日経が前営業日の値）は取り直しても変わらないので True。"""
     latest = store.load_latest()
-    return latest.get("date") == target_date.isoformat() and slot in (latest.get("slots") or {})
+    today = target_date.isoformat()
+    if latest.get("date") != today or slot not in (latest.get("slots") or {}):
+        return False
+    if slot == "taibike":
+        data = (latest["slots"]["taibike"] or {}).get("data") or {}
+        if ((data.get("indices") or {}).get("nikkei") or {}).get("stale"):
+            return True
+        asof = ((data.get("thermo") or {}).get("swing") or {}).get("asof")
+        if asof and asof < today:
+            print(f"  大引の注文が {asof} の引けのまま（当日の日足が未着だった）なので、保険の実行で取り直します")
+            return False
+    return True
 
 
 # ==================== エントリポイント ====================
@@ -470,7 +485,7 @@ def run(slot: str, target_date: date | None = None) -> dict:
     th = _safe("相場温度計", lambda: thermo_run.run(
         slot, target_date, payload, store.previous_sessions(target_date, count=thermo_run.HIST_DAYS)))
     payload["thermo"] = (th or {}).get("summary")
-    sec = commentary.thermo_section(payload["thermo"])
+    sec = commentary.thermo_section(payload["thermo"], slot, target_date.isoformat())
     if sec and payload.get("commentary"):
         payload["commentary"].setdefault("sections", []).append(sec)
     if th and th.get("history"):

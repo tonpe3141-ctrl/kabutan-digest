@@ -244,6 +244,45 @@ def _update_with_ohlc(data: dict, codes: list[str], today: date, ohlc: dict, fet
     return data
 
 
+CLOSE_TIME = "15:30"     # 東証の大引（2024-11 から）。これ以降の約定のクォートを当日の日足とみなす
+
+
+def append_today(data: dict, ohlc: dict, today: str, nk_close: float | None, quotes: dict[str, dict]) -> int:
+    """大引の時点で CNBC の日足にまだ当日の分が無いとき、引け後のクォートから当日の日足を足す。足した銘柄数を返す。
+
+    大引（16:45）の実行では、日足 API に当日の分が入るのが夜（17:16 では未着・23:12 には入っていた。2026-09 の実測）で、
+    そのままでは翌営業日の注文が出ない。引け後のクォートの始値・高値・安値・終値・出来高は、あとで入る日足と一致した
+    （2026-09-28 の実測）。最後の約定が当日の 15:30 以降の銘柄だけを使い、日付の軸（日経平均の日足）には当日の終値を足す。
+    次に日足を取り直したとき（末尾をつなぐ）に正式な値で上書きされる。日経平均の当日の終値が無ければ何もしない。"""
+    nk = (data.get("macro") or {}).get("nikkei")
+    if not nk or not nk.get("d") or nk["d"][-1] >= today or not nk_close:
+        return 0
+    rows = {}
+    for code, q in (quotes or {}).items():
+        t = q.get("last_time") or ""
+        c = q.get("last")
+        if t[:10] != today or t[11:16] < CLOSE_TIME or not c or c <= 0:
+            continue
+        o = q.get("open") if q.get("open") and q["open"] > 0 else c
+        h = max(x for x in (q.get("high"), o, c) if x)
+        lo = min(x for x in (q.get("low"), o, c) if x and x > 0)
+        rows[code] = [o, h, lo, c, round((q.get("volume") or 0) / 100)]
+    if not rows:
+        return 0
+    nk["d"].append(today)
+    nk["c"].append(nk_close)
+    if data.get("dates") and data["dates"][-1] < today:
+        data["dates"].append(today)
+        for code, arr in (data.get("stocks") or {}).items():
+            arr.append(rows[code][3] if code in rows else None)
+    if ohlc.get("dates") and ohlc["dates"][-1] < today:
+        ohlc["dates"].append(today)
+        for code, arr in (ohlc.get("stocks") or {}).items():
+            arr.append(rows.get(code))
+    print(f"    ✅ 日足に当日の分がまだ無いため、引け後のクォートから当日の日足を足しました（{len(rows)} 銘柄）")
+    return len(rows)
+
+
 def add_missing_stocks(data: dict, codes: list[str], fetch, today: date, limit: int = 40,
                        ohlc: dict | None = None, fetch_ohlc=None) -> dict:
     """寄り前・前場で、キャッシュに無い銘柄（新しくウォッチリストに入れた等）だけを足す。
