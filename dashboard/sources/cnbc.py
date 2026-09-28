@@ -56,7 +56,9 @@ def _quote(raw: dict) -> dict:
         "open": _num(raw.get("open")),
         "high": _num(raw.get("high")),
         "low": _num(raw.get("low")),
+        "volume": _num(raw.get("volume")),
         "asof": (raw.get("last_time") or "")[:10] or None,
+        "last_time": raw.get("last_time") or None,       # 最後の約定の時刻（東証の個別株は引けで "…T15:30:00.000+0900"）
         "market_status": raw.get("curmktstatus"),
     }
 

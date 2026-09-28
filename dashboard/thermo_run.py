@@ -13,7 +13,7 @@
 """
 import json
 import os
-from datetime import date
+from datetime import date, timedelta
 
 from . import bars as bars_mod, store, swing as W, thermo as T
 from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
@@ -40,6 +40,14 @@ def _write(path, data, indent=None):
         json.dump(data, f, ensure_ascii=False, indent=indent,
                   separators=None if indent is not None else (",", ":"))
     os.replace(tmp, path)
+
+
+def next_weekday(iso: str) -> str:
+    """注文が有効な日（引けの日の次の平日。祝日は分からないので平日で数える。アプリの nextWeekday と同じ）。"""
+    d = date.fromisoformat(iso) + timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d.isoformat()
 
 
 def _trading(hs: dict) -> bool:
@@ -103,12 +111,14 @@ def _live_prices(payload: dict, stale: bool) -> dict[str, float]:
     return out
 
 
-def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch=None, fetch_ohlc=None) -> dict:
+def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch=None, fetch_ohlc=None,
+        fetch_quotes=None) -> dict:
     """温度計を計算して thermo.json を書き、latest.json に載せる要約と履歴に残す断片を返す。
 
-    fetch だけを渡した場合（tests）は四本値を取りに行かない。"""
+    fetch だけを渡した場合（tests）は四本値・引け後のクォートを取りに行かない。"""
     if fetch is None:
         fetch, fetch_ohlc = cnbc.fetch_bars, fetch_ohlc or cnbc.fetch_ohlc
+        fetch_quotes = fetch_quotes or cnbc.fetch_jp_stocks
     today = target_date.isoformat()
     nk_live = ((payload.get("indices") or {}).get("nikkei") or {})
     stale = bool(nk_live.get("stale")) if nk_live else True      # 休場日（前営業日の値）
@@ -155,8 +165,15 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         list(members) + watch + led_codes + list((themes.get("stocks") or {}).keys())
         + [e["code"] for e in recent_events]))
     universe = [c for c in universe if c and len(c) == 4][:520]
+    # 大引（16:45）の時点では、CNBC の日足にまだ当日の分が無いことがある（2026-09-28 の実測: 16:57 でも前営業日まで）。
+    # そのままだと翌営業日の注文が出ないので、寄り前に個別株の日足が日経平均の日足より遅れていれば取り直す
+    nk_last = (bars_mod.series(data, "nikkei") or [("", None)])[-1][0]
+    lagging = bool(ohlc.get("dates")) and ohlc["dates"][-1] < nk_last
     try:
-        if slot == "taibike" or not data.get("stocks"):
+        if slot == "taibike" or not data.get("stocks") or (slot == "preopen" and lagging):
+            if slot == "preopen":
+                print(f"    ↻ 個別株の日足が {ohlc['dates'][-1]} まで（日経平均は {nk_last} まで）。取り直して、"
+                      "前の営業日の引けの注文を寄りの前に出します")
             bars_mod.update_stocks(data, universe, fetch, target_date, ohlc=ohlc, fetch_ohlc=fetch_ohlc)
         else:
             missing = [c for c in universe if c not in (data.get("stocks") or {})
@@ -165,6 +182,14 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
                 bars_mod.add_missing_stocks(data, missing, fetch, target_date, ohlc=ohlc, fetch_ohlc=fetch_ohlc)
     except Exception as e:                      # noqa: BLE001
         print(f"    ⚠️  個別株日足の更新で例外: {e}")
+    # 大引で日足に当日の分がまだ無ければ、引け後のクォートから足す（その日の引けで翌営業日の注文を出すため）
+    if slot == "taibike" and not stale and fetch_quotes and nk_live.get("close"):
+        try:
+            nk_now = (bars_mod.series(data, "nikkei") or [("", None)])[-1][0]
+            if nk_now < today:
+                bars_mod.append_today(data, ohlc, today, nk_live["close"], fetch_quotes(universe))
+        except Exception as e:                  # noqa: BLE001  収集は止めない
+            print(f"    ⚠️  引け後のクォートから当日の日足を足す処理で例外: {e}")
     data["updated_at"] = store.now_jst().isoformat(timespec="seconds")
     bars_mod.save(data)
     if fetch_ohlc:
@@ -324,8 +349,24 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     elif slot == "taibike" and not stale and sw_track.get("orders"):
         sw_track = W.paper_update(sw_track, today, [], ind_of)
         _write(SWING_TRACK_PATH, sw_track, indent=0)
+    elif slot == "preopen" and swing.get("orders") and next_weekday(swing["asof"]) >= today:
+        # 大引の時点で当日の日足が無かった日は、寄り前に初めて注文が出る。その注文（今日有効）も実績に記録する
+        sw_track = W.paper_update(sw_track, today, swing["orders"], ind_of)
+        _write(SWING_TRACK_PATH, sw_track, indent=0)
+    close_maps: dict[str, dict] = {}
+
+    def close_of(code, d):
+        if code not in close_maps:
+            ind = ind_of(code)
+            close_maps[code] = dict(zip(ind["d"], ind["c"])) if ind else {}
+        return close_maps[code].get(d)
+    try:
+        paper_acct = W.paper_account(sw_track, ohlc.get("dates") or [], close_of, sector_of)
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  注文の実績（口座）で例外: {e}")
+        paper_acct = None
     swing["paper"] = {**(sw_track.get("stats") or {}),
-                      "recent": [o for o in (sw_track.get("orders") or [])][-40:]}
+                      "recent": [o for o in (sw_track.get("orders") or [])][-40:], "account": paper_acct}
 
     # ---- 5. 提案の記録（大引のみ。休場日は記録しない＝営業日として数えない） ----
     track = _read(THERMO_TRACK_PATH, {})
@@ -452,7 +493,7 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, th
                       "ok": r.get("trig_ok"), "pc": (r.get("peer") or {}).get("cls"), "price": r.get("price")})
     try:
         verify = W.verify({c: W.compact(ohlc.get("dates") or [], (ohlc.get("stocks") or {}).get(c))
-                           for c in rows}, groups=groups)
+                           for c in rows}, groups=groups, sector_of=sector_of)
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  短期の押し目買いの検証で例外: {e}")
         verify = None
@@ -523,7 +564,11 @@ def summary(th: dict) -> dict | None:
     sec = th.get("sectors") or []
     sw = th.get("swing") or {}
     ver = sw.get("verify") or {}
-    pick = lambda st: {k: st.get(k) for k in ("n", "win", "avg", "pf", "small", "big_loss")} if st else None   # noqa: E731
+    pick = lambda st: {k: st.get(k) for k in ("n", "win", "avg", "pf", "small", "big_loss", "days", "d2")} if st else None   # noqa: E731
+    # 口座の再現（本番どおりの置き方）。曲線は thermo.json にだけ置く
+    acct = lambda a: {k: a.get(k) for k in ("from", "to", "days", "slot", "cagr", "dd", "util", "m_up", "q_up",   # noqa: E731
+                                              "under", "final")} if a else None
+    paper = sw.get("paper") or {}
     return {
         "temp": mk.get("temp"), "zone": mk.get("zone"), "tone": mk.get("tone"), "guide": mk.get("guide"),
         "consensus": mk.get("consensus"), "tailwind": mk.get("tailwind"), "headwind": mk.get("headwind"),
@@ -558,8 +603,10 @@ def summary(th: dict) -> dict | None:
             "verify": {"all": pick(ver.get("all")), "recent": pick(ver.get("recent")),
                        "base": ver.get("base"), "from": ver.get("from"), "to": ver.get("to"),
                        "peer": {W.PEER_CLASSES[k]: pick(v) for k, v in (ver.get("peer") or {}).items() if v.get("n")},
-                       "skipped": pick(ver.get("skipped")) if (ver.get("skipped") or {}).get("n") else None}
+                       "skipped": pick(ver.get("skipped")) if (ver.get("skipped") or {}).get("n") else None,
+                       "account": acct(ver.get("account"))}
             if ver else None,
-            "paper": pick(sw.get("paper")) if (sw.get("paper") or {}).get("n") else None,
+            "paper": {**pick(paper), "account": acct(paper.get("account"))} if paper.get("n") else None,
+            "slot_pct": W.SLOT_PCT,
         },
     }

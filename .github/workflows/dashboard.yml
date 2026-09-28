@@ -1,7 +1,8 @@
 name: マーケットダッシュボード更新
 
 # 時計は Claude Routine が担う。Routine は時刻どおり（±1分）に発火し、
-# docs/data/trigger/{slot}.txt を書いた1コミットを自分のブランチ（claude/**）に push する。
+# docs/data/trigger/{slot}.txt を書いた1コミットを push する。push 先は自分のブランチ（claude/**）に
+# 置き換えられることも、main に直接届くこともある（2026-09-28 は3区分とも main に直接届いた）。
 # push イベントは cron と違って即時に発火するので、その push でこのワークフローを起動する。
 #
 # GitHub の schedule はベストエフォートで、実測では毎日2〜7時間遅れていた
@@ -12,7 +13,7 @@ on:
   push:
     branches: ["claude/**", "main"]
     paths:
-      - "docs/data/trigger/*.txt"     # Routine の合図（claude/**）
+      - "docs/data/trigger/*.txt"     # Routine の合図（claude/** か main）
       - "docs/data/watchlist.json"    # アプリからウォッチリストを保存したとき（main）
 
   schedule:
@@ -59,7 +60,16 @@ jobs:
           INPUT_SLOT: ${{ inputs.slot }}
         run: |
           slot=""
-          if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+          # この push で合図（trigger/*.txt）が変わったか。main への push は、合図ならその区分を、
+          # ウォッチリストの保存だけならウォッチリストの差し替えを走らせる。以前は main への push を
+          # すべてウォッチリストの保存とみなしていたため、合図が main に直接届いた日（2026-09-28）に
+          # 収集が走らず、寄り前は保険の cron（10:08）まで遅れ、前場は取れなかった
+          trig=0
+          if [ "$EVENT" = "push" ]; then
+            trig=$(jq '[.commits[]? | (.added[]?, .modified[]?)] | map(select(startswith("docs/data/trigger/"))) | length' "$GITHUB_EVENT_PATH")
+            echo "この push で変わった合図のファイル: ${trig} 件"
+          fi
+          if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ] && [ "${trig:-0}" = "0" ]; then
             # アプリからのウォッチリスト保存。区分は作り直さず、表示中の各区分の
             # ウォッチリストだけ差し替える（休場日に走っても前営業日の区分を消さない）
             slot=watchlist

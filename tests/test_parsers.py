@@ -86,6 +86,10 @@ def test_cnbc():
                      "change_pct": "UNCH", "previous_day_closing": "64,800.00"})
     check("UNCH を前日終値から補完", (round(closed["change"], 2), round(closed["change_pct"], 3)),
           (220.94, 0.341))
+    after = _quote({"symbol": "9502.T", "last": "2,835.50", "open": "2,839.00", "high": "2,868.00", "low": "2,813.50",
+                    "volume": "4,479,100", "previous_day_closing": "2,839.00", "last_time": "2026-09-28T15:30:00.000+0900"})
+    check("引け後のクォート: 出来高と最後の約定の時刻（当日の日足の代わりに使う）",
+          (after["volume"], after["last_time"], after["asof"]), (4479100.0, "2026-09-28T15:30:00.000+0900", "2026-09-28"))
 
     # CNBC の change_pct は基準がずれることがあるので必ず再計算する
     odd = _quote({"symbol": "US2Y", "last": "4.374%", "change": "+0.04",
@@ -185,6 +189,35 @@ def test_rerun_carry_over():
     check("報道・公的機関も取れなかった分を前回から引き継ぐ（重複させない）",
           ([h["title"] for h in now["press"]["headlines"]], len(now["press"]["official"]), len(now["press"]["articles"])),
           (["新しい", "窓から落ちた"], 1, 1))
+
+    # 大引の保険: その日の大引が既にあっても、注文が前の営業日の引けのまま（当日の日足が未着だった）なら取り直す
+    from dashboard import build as build_mod, commentary, store
+    from dashboard.thermo_run import next_weekday
+    tb = {"indices": {"nikkei": {"stale": False}}, "thermo": {"swing": {"asof": "2026-09-25"}}}
+    orig = store.load_latest
+    try:
+        store.load_latest = lambda: {"date": "2026-09-28", "slots": {"taibike": {"data": tb}, "zenba": {"data": {}}}}
+        check("大引の注文が前の営業日の引けのままなら、保険の実行で取り直す", build_mod.already_done("taibike", date(2026, 9, 28)), False)
+        tb["thermo"]["swing"]["asof"] = "2026-09-28"
+        check("当日の引けの注文が出ていれば、保険の実行は見送る", build_mod.already_done("taibike", date(2026, 9, 28)), True)
+        tb["thermo"]["swing"]["asof"] = "2026-09-18"
+        tb["indices"]["nikkei"]["stale"] = True
+        check("休場日は取り直しても変わらないので見送る", build_mod.already_done("taibike", date(2026, 9, 28)), True)
+        check("前場・寄り前は、その日の区分があれば見送る（従来どおり）",
+              (build_mod.already_done("zenba", date(2026, 9, 28)), build_mod.already_done("preopen", date(2026, 9, 28))),
+              (True, False))
+    finally:
+        store.load_latest = orig
+    check("注文が有効な日は次の平日（金曜の引け → 月曜）", (next_weekday("2026-09-25"), next_weekday("2026-09-28")),
+          ("2026-09-28", "2026-09-29"))
+    th = {"temp": 50, "zone": "中立", "n": 8, "tailwind": 3, "headwind": 2, "guide": "中立の帯",
+          "swing": {"asof": "2026-09-25", "orders": [{"code": "9502", "name": "中部電"}],
+                    "verify": {"all": {"n": 10, "win": 80}, "account": {"cagr": 30.0, "dd": -10.0, "slot": 10.0}}}}
+    stale_body = commentary.thermo_section(th, "taibike", "2026-09-28")["body"]
+    fresh_body = commentary.thermo_section(th, "preopen", "2026-09-28")["body"]
+    check("大引で注文が前の営業日の引けのままなら、注文として書かず「日足がそろい次第」と書く",
+          ("日足がそろい次第" in stale_body, "中部電" in stale_body, "中部電" in fresh_body), (True, False, True))
+    check("見立てに口座の伸び（資金の10%ずつ）も添える", "資金の10%ずつ本番どおりに置いた口座は年率 +30.0%" in fresh_body, True)
 
 
 def test_news():
@@ -646,6 +679,32 @@ def test_swing():
     st = W.summarize([{"ret": 0.1, "days": 6, "why": "sell"}, {"ret": 2.0, "days": 3, "why": "sell"},
                       {"ret": -7.0, "days": 4, "why": "stop"}])
     check("成績: 小さな勝ち（+0.5%以下）と大きな負け（−5%以下）の割合", (st["win"], st["small"], st["big_loss"]), (67, 33, 33))
+    check("成績: 翌日までに終わった割合と、1回の平均を保有日数で割った値", (st["d2"], st["per_day"]),
+          (0, round((-4.9 / 3) / (13 / 3), 2)))
+
+    # 口座の再現（本番どおりの置き方）: 引けで資金の10%ずつ注文を置き、約定しなければ資金は翌日に戻る
+    ad = _bdays(6, "2026-07-01")
+    win10 = {"filled": True, "entry": 100.0, "out": ad[3], "ret": 10.0}
+    miss = {"filled": False}
+    px = {("A", ad[1]): 105.0, ("A", ad[2]): 108.0, ("A", ad[3]): 110.1}
+    acc = W.account(ad, {ad[0]: [{"code": "A", "res": win10}, {"code": "B", "res": miss}]}, lambda c, d: px.get((c, d)))
+    check("口座: 約定した注文だけを持ち、約定しなかった注文の資金は翌日に現金へ戻る（10%で +10% → 資産 +1%）",
+          (acc["final"], acc["n"], acc["win"], acc["slot"]), (1.01, 1, 100, 10.0))
+    flat = {"filled": True, "entry": 100.0, "out": ad[2], "ret": 0.0}
+    a2 = W.account(ad, {ad[0]: [{"code": str(k), "res": flat} for k in range(8)]}, lambda c, d: 100.0)
+    check("口座: 1日5件まで", a2["n"], 5)
+    a3 = W.account(ad, {ad[0]: [{"code": c, "res": flat} for c in ("1", "2", "3")]}, lambda c, d: 100.0,
+                   {"1": "電力", "2": "電力", "3": "電力"})
+    check("口座: 同じ業種は2銘柄まで", a3["n"], 2)
+    hold = {"filled": True, "entry": 100.0, "out": ad[4], "ret": 5.0}
+    a4 = W.account(ad, {ad[0]: [{"code": "1", "res": hold}], ad[1]: [{"code": "1", "res": flat}]}, lambda c, d: 100.0)
+    check("口座: 保有中の銘柄には重ねて置かない", a4["n"], 1)
+    trk = {"orders": [{"asof": ad[0], "code": "A", "done": True, "filled": True, "entry": 100.0, "out": ad[3], "ret": 10.0},
+                      {"asof": ad[0], "code": "B", "done": True, "filled": False},
+                      {"asof": ad[4], "code": "C", "done": False}]}
+    pa = W.paper_account(trk, ad, lambda c, d: px.get((c, d)))
+    check("注文の実績を口座に: 約定しなかった注文と結果が未確定の注文は資金を縛らない", (pa["final"], pa["n"], pa["from"]),
+          (1.01, 1, ad[0]))
 
     # 並べ方: 25日線からの下離れが大きい順、1日5銘柄まで、同じ業種は2銘柄まで
     rows = [{"code": str(1000 + k), "dev25": -k} for k in range(8)]
@@ -698,6 +757,8 @@ def test_swing():
                   "2222": _swing_bars(drift=-0.003)})
     check("検証: 約定して結果が出た売買を数える", (v["all"]["n"], v["all"]["win"]), (1, 100))
     check("検証: 比べる相手がある", v["base"]["n"] > 0, True)
+    check("検証: 同じ期間に本番どおりに置いた口座の再現も出す（資金の10%ずつ）",
+          (v["account"]["n"], v["account"]["slot"], v["account"]["final"] > 1), (1, 10.0, True))
     # 業種と比べる検証: 同じ業種の3銘柄が20日で +4% ほど上げ、自分（+1% ほど）も業種並みの押しは見送りに数える
     sig_bars = after_bars((limit, limit + 1, limit - 1, limit - 2), (limit - 1, sl + 5, limit - 3, sl + 2))
     peers = {c: _swing_bars(n=len(sig_bars), drift=0.002) for c in ("3001", "3002", "3003")}
@@ -748,6 +809,27 @@ def test_ohlc_cache():
     calls.clear()
     got, ok, full = B._fetch_ohlc_merged("1111", B.ohlc_map(ohlc, "1111"), split, _date(2026, 3, 27))
     check("四本値: 過去値が半分になっていたら（分割）全期間を取り直す", (full, len(calls), got[ds[-1]][3]), (True, 2, 59.5))
+
+    # 大引の時点で日足に当日の分が無いとき、引け後のクォートから当日の日足を足す（その日の引けで翌営業日の注文を出す）
+    dd = {"macro": {"nikkei": {"d": ["2026-09-24", "2026-09-25"], "c": [66000.0, 66364.2]}},
+          "dates": ["2026-09-24", "2026-09-25"], "stocks": {"9502": [2869, 2839], "7203": [3000, 2989.5]}}
+    oo = {"dates": ["2026-09-24", "2026-09-25"],
+          "stocks": {"9502": [[2894.5, 2904, 2842, 2869, 35706], [2896.5, 2899, 2826.5, 2839, 36141]],
+                     "7203": [[3010, 3020, 2990, 3000, 1000], [3000, 3005, 2980, 2989.5, 1000]]}}
+    qs = {"9502": {"last": 2835.5, "open": 2839.0, "high": 2868.0, "low": 2813.5, "volume": 4479100.0,
+                   "last_time": "2026-09-28T15:30:00.000+0900"},
+          "7203": {"last": 2986.5, "open": 3003.0, "high": 3024.0, "low": 2986.5, "volume": 100.0,
+                   "last_time": "2026-09-28T14:10:00.000+0900"}}
+    n = B.append_today(dd, oo, "2026-09-28", 65877.62, qs)
+    check("引け後のクォート（15:30 の約定）から当日の日足を足す（出来高は100株単位）",
+          (n, oo["dates"][-1], oo["stocks"]["9502"][-1], dd["dates"][-1], dd["stocks"]["9502"][-1]),
+          (1, "2026-09-28", [2839.0, 2868.0, 2813.5, 2835.5, 44791], "2026-09-28", 2835.5))
+    check("引けより前で止まったクォートの銘柄は空け、日付の軸（日経平均）に当日の終値を足す",
+          (oo["stocks"]["7203"][-1], dd["stocks"]["7203"][-1], dd["macro"]["nikkei"]["d"][-1], dd["macro"]["nikkei"]["c"][-1]),
+          (None, None, "2026-09-28", 65877.62))
+    check("日足に当日の分があれば何もしない", B.append_today(dd, oo, "2026-09-28", 65877.62, qs), 0)
+    check("日経平均の当日の終値が無ければ何もしない",
+          B.append_today({"macro": {"nikkei": {"d": ["2026-09-25"], "c": [1.0]}}}, {}, "2026-09-28", None, qs), 0)
 
 
 def test_ledger_stats():

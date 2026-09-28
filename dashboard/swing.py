@@ -16,9 +16,12 @@
            業種が +3% 以上上げているのに、自分も業種並み（差が −5pt より上）の押しは注文を出さない（見送り）。
            業種ぐるみの押し（業種 −5% 以下）と出遅れの押し（業種は上げ、自分は −5pt 以上遅れ）が成績の良い形（DESIGN.md 14章）
   並べ方 : 25日線からの下離れ ＋ 業種より遅れている分（マイナスだけ）が大きい順。1日5銘柄まで・同じ業種は2銘柄まで
+  株数   : 1件の注文の金額 = 資金の10%（金額をそろえる）。保有中に使っていない資金の範囲で、並べ方の順に置く。
+           損切りまでの幅から株数を決める（1回の損 = 資金の1%）より、同じ張り具合で口座が速く増えた（DESIGN.md 16章）
 
 すべて純関数。同じ日足からは同じ注文が出る（tests で固定）。検証（verify）と、アプリが出した注文の実績（paper_update）は
-同じ simulate() で測る。「予測」ではなく、過去に同じ形で同じ注文を置いたらこうだった、という規則。
+同じ simulate() で測る。口座の再現（account）も同じ simulate() の結果を、本番どおりの置き方（引けで決めて翌日だけ有効、
+約定しなければ資金はその日遊ぶ）で並べたもの。「予測」ではなく、過去に同じ形で同じ注文を置いたらこうだった、という規則。
 """
 import math
 from collections import Counter
@@ -38,6 +41,7 @@ FLOOR = 0.2             # 売りの指値の下限 = 約定値 ×（1 + 0.2%）�
 MAX_HOLD = 10           # 営業日
 MAX_ORDERS = 5          # 1日に出す注文の数
 SECTOR_CAP = 2          # 同じ業種は2銘柄まで
+SLOT_PCT = 10.0         # 1件の注文の金額（資金の %）。1日5件までなので、1日に新しく入るのは資金の半分まで
 COST = 0.1              # 往復の売買コスト（%）
 WARMUP = MA_LONG        # 200日線が引けるまでは判定しない
 # 業種の中での位置（DESIGN.md 14章。2023-24 の成績だけで決め、2025-26 で確かめた）
@@ -59,7 +63,7 @@ PEER_SKIP = ("hot",)    # 注文を出さない形
 RULES = {"rsi_n": RSI_N, "rsi_max": RSI_MAX, "ma_long": MA_LONG, "ma_mid": MA_MID, "liq_min": LIQ_MIN,
          "min_price": MIN_PRICE,
          "entry_atr": ENTRY_ATR, "stop_atr": STOP_ATR, "exit_n": EXIT_N, "floor": FLOOR, "max_hold": MAX_HOLD,
-         "max_orders": MAX_ORDERS, "sector_cap": SECTOR_CAP, "cost": COST,
+         "max_orders": MAX_ORDERS, "sector_cap": SECTOR_CAP, "slot_pct": SLOT_PCT, "cost": COST,
          "peer_n": PEER_N, "peer_dip": PEER_DIP, "peer_up": PEER_UP, "peer_lag": PEER_LAG}
 
 
@@ -344,10 +348,14 @@ def summarize(trades: list[dict]) -> dict:
     win = [x for x in rs if x > 0]
     loss = [x for x in rs if x <= 0]
     why = [t.get("why") for t in trades if t.get("ret") is not None]
+    days = [t["days"] for t in trades if t.get("ret") is not None]
     return {"n": len(rs), "win": round(len(win) / len(rs) * 100), "avg": r2(mean(rs)), "med": r2(median(rs)),
             "pf": r2(sum(win) / -sum(loss)) if loss and sum(loss) < 0 else None,
             "avg_win": r2(mean(win)) if win else None, "avg_loss": r2(mean(loss)) if loss else None,
-            "worst": r2(min(rs)), "days": r1(mean(t["days"] for t in trades if t.get("ret") is not None)),
+            "worst": r2(min(rs)), "days": r1(mean(days)),
+            # どれくらいの期間で終わるか: 約定した日の翌日までに手仕舞った割合と、1回の平均を保有日数で割った値
+            "d2": round(sum(1 for x in days if x <= 2) / len(days) * 100),
+            "per_day": r2(mean(rs) / mean(days)),
             "stops": round(why.count("stop") / len(rs) * 100), "sells": round(why.count("sell") / len(rs) * 100),
             "times": round(why.count("time") / len(rs) * 100),
             # 勝ちの中身を正直に: +0.5% 以下の小さな勝ち（売り指値の下限で終わった売りが多い）と、−5% 以下の大きな負け
@@ -355,13 +363,113 @@ def summarize(trades: list[dict]) -> dict:
             "big_loss": round(sum(1 for x in rs if x <= -5) / len(rs) * 100)}
 
 
-def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, str] | None = None) -> dict | None:
+def account(days: list[str], orders_on: dict[str, list[dict]], close_of, sector_of: dict | None = None,
+            slot: float = SLOT_PCT, max_orders: int = MAX_ORDERS, cap: int = SECTOR_CAP) -> dict | None:
+    """本番どおりに注文を置いた口座の再現（DESIGN.md 16章）。
+
+    days: 営業日（古い順）。orders_on: {引けの日: [{"code", "res"}, ...]}（並べ方の順。res は simulate() の結果）。
+    close_of(code, 日付) -> その日の終値（無ければ None）。
+    各営業日の引けで: その日に手仕舞った代金を現金に戻し、持っている銘柄を終値で値洗いし、並べ方の順に、保有中でない銘柄・
+    同じ業種が cap 未満のものへ、資産の slot% ずつ、取り置いていない現金の範囲で max_orders 件まで注文を置く（翌日だけ有効）。
+    翌日: 約定した注文は保有に、約定しなかった注文の資金は現金に戻す（その日は遊ぶ）。
+    1回ごとの成績（verify の all）は資金の制約を置かない数え方。口座では、約定しなかった注文の資金が遊ぶ分と、
+    保有中で新しい注文を置けない分だけ、1回ごとの平均から想像するより伸びが遅い。どれくらいの期間でプラスになるかは
+    月末の資産で見る（m_up: 前の月末より増えた月の割合、q_up: 3か月前より増えていた割合、under: 高値を更新できなかった
+    最長の営業日数）。
+    """
+    sector_of = sector_of or {}
+    if len(days) < 2:
+        return None
+    cash, pos, pending = 1.0, [], []
+    eq, util, taken = [], [], []
+    for d in days:
+        for o, amt in pending:
+            r = o["res"]
+            if r.get("filled"):
+                pos.append({"code": o["code"], "amt": amt, "entry": r["entry"], "out": r.get("out"),
+                            "ret": r.get("ret"), "px": r["entry"]})
+            else:
+                cash += amt
+        pending = []
+        keep = []
+        for p in pos:
+            c = close_of(p["code"], d)
+            if c:
+                p["px"] = c
+            if p["out"] is not None and p["out"] <= d:
+                cash += p["amt"] * (1 + p["ret"] / 100)
+                taken.append(p["ret"])
+            else:
+                keep.append(p)
+        pos = keep
+        inv = sum(p["amt"] * p["px"] / p["entry"] for p in pos)
+        val = cash + inv
+        eq.append((d, val))
+        util.append(inv / val if val > 0 else 0.0)
+        held = {p["code"] for p in pos}
+        per = Counter(sector_of.get(p["code"]) for p in pos if sector_of.get(p["code"]))
+        placed = 0
+        for o in orders_on.get(d) or []:
+            if placed >= max_orders:
+                break
+            if o["code"] in held or not o.get("res"):
+                continue
+            s = sector_of.get(o["code"])
+            if s and per[s] >= cap:
+                continue
+            want = val * slot / 100
+            amt = min(cash, want)
+            if amt < want * 0.3:                   # 現金が1件の3割に満たなければ、その日はもう置かない
+                break
+            cash -= amt
+            pending.append((o, amt))
+            held.add(o["code"])
+            placed += 1
+            if s:
+                per[s] += 1
+    vals = [x for _, x in eq]
+    peak = dd = 0.0
+    run = under = 0
+    for x in vals:
+        if x >= peak:
+            peak, run = x, 0
+        else:
+            run += 1
+            under = max(under, run)
+        dd = min(dd, x / peak - 1)
+    n = len(vals)
+    dr = [vals[k] / vals[k - 1] - 1 for k in range(1, n)]
+    mu = mean(dr)
+    sd = (sum((x - mu) ** 2 for x in dr) / len(dr)) ** 0.5
+    month_end = {}
+    for d, x in eq:
+        month_end[d[:7]] = x
+    mv = [vals[0]] + [month_end[m] for m in sorted(month_end)]
+    ups = [mv[k] > mv[k - 1] for k in range(1, len(mv))]
+    q = [mv[k] > mv[k - 3] for k in range(3, len(mv))]
+    step = max(1, n // 80)
+    curve = [[d, round(x, 4)] for d, x in eq[::step]]
+    if curve[-1][0] != eq[-1][0]:
+        curve.append([eq[-1][0], round(eq[-1][1], 4)])
+    return {"from": days[0], "to": days[-1], "days": n, "slot": slot, "max_orders": max_orders,
+            "cagr": r1(((vals[-1] / vals[0]) ** (245 / n) - 1) * 100) if n >= 60 else None,
+            "dd": r1(dd * 100), "sharpe": r2(mu / sd * 245 ** 0.5) if sd > 0 and n >= 60 else None,
+            "util": round(mean(util) * 100), "final": round(vals[-1], 4),
+            "n": len(taken), "win": round(sum(1 for x in taken if x > 0) / len(taken) * 100) if taken else None,
+            "avg": r2(mean(taken)) if taken else None,
+            "months": len(ups), "m_up": round(sum(ups) / len(ups) * 100) if ups else None,
+            "q_up": round(sum(q) / len(q) * 100) if q else None, "under": under, "curve": curve}
+
+
+def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, str] | None = None,
+           sector_of: dict | None = None) -> dict | None:
     """ユニバース全体で、毎日このルールで注文を置いていたらどうだったかを再現する（銘柄ごと・重ならないように）。
 
     stocks: {code: compact() の出力}。比べる相手は「同じ銘柄を毎日、翌日の寄りで買って5営業日後の引けで売る」。
     groups（peer_groups の出力）を渡すと、その日の業種の中での位置で押しの形を決め、見送る形（PEER_SKIP）は
     注文に数えず、別に skipped として成績を出す。期間は日足キャッシュの長さ（200日線が引けるようになってから）。
-    直近 recent 営業日の分も別に出す。
+    直近 recent 営業日の分も別に出す。account は、同じ期間に本番どおりの置き方（並べ方の順に1日5件まで・資金の10%ずつ・
+    約定しなければ資金はその日遊ぶ）をした口座の再現（sector_of は同じ業種の上限に使う）。
     """
     inds = {code: indicators(bars) for code, bars in stocks.items() if len(bars) > PEER_N}
     rets_on: dict[str, dict[str, float | None]] = {}
@@ -381,22 +489,32 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, 
 
     trades, skipped, base = [], [], []
     cal: set[str] = set()
+    orders_on: dict[str, list[dict]] = {}          # 口座の再現: 引けの日 → 注文対象（見送りを除く）
+    closes: dict[str, dict[str, float]] = {}
     for code, ind in inds.items():
         n = len(ind["c"])
         if n < WARMUP + 5:
             continue
         cal.update(ind["d"][WARMUP - 1:])
+        closes[code] = dict(zip(ind["d"], ind["c"]))
         busy = skip_busy = -1
+        halted = False                               # 結果の出ていない売買がある銘柄は、1回ごとの成績に数えるのをやめる
         for i in range(WARMUP - 1, n - 1):
             if i + 6 < n:
                 base.append((ind["d"][i], (ind["c"][i + 6] / ind["o"][i + 1] - 1) * 100 - COST))
-            if i <= busy or not is_signal(ind, i):
+            if not is_signal(ind, i):
                 continue
             pc = peer_at(ind["d"][i], code)
             k = pc["cls"] if pc else "none"
-            if k in PEER_SKIP and i <= skip_busy:
-                continue
             res = simulate(ind, i)
+            if k not in PEER_SKIP and res is not None:
+                m25 = _ma(ind, i, 25)
+                orders_on.setdefault(ind["d"][i], []).append(
+                    {"code": code, "res": res,
+                     "key": rank_key({"dev25": r1((ind["c"][i] / m25 - 1) * 100) if m25 else None, "peer": pc})})
+            # 1回ごとの成績: 同じ銘柄は手仕舞うまで次の注文を数えない
+            if halted or i <= busy or (k in PEER_SKIP and i <= skip_busy):
+                continue
             if res is None or not res["filled"]:
                 continue
             if k in PEER_SKIP:
@@ -405,12 +523,15 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, 
                     skip_busy = ind["d"].index(res["out"])
                 continue
             if res.get("open"):
-                break
+                halted = True
+                continue
             trades.append({"code": code, "sig": ind["d"][i], "peer": k, **res})
             busy = ind["d"].index(res["out"])
     if not cal:
         return None
     days = sorted(cal)
+    for rows in orders_on.values():
+        rows.sort(key=lambda o: (o["key"], o["code"]))
     cut = days[-recent] if len(days) > recent else days[0]
     half = days[len(days) // 2]
     b_all = [r for _, r in base]
@@ -426,6 +547,8 @@ def verify(stocks: dict[str, list[tuple]], recent: int = 120, groups: dict[str, 
                 "毎日の売り指値（直近4日の平均、約定値+0.2%が下限）、"
                 "10営業日で手仕舞い、往復0.1%のコスト。同じ銘柄は手仕舞うまで次の注文を数えない。"
                 "同時に持つ数の上限は置いていない（1回ごとの成績）。",
+        # 本番どおりの置き方をした口座（1回ごとの成績と違い、約定しなかった注文の資金が遊ぶ分まで入る）
+        "account": account(days, orders_on, lambda c, d: closes.get(c, {}).get(d), sector_of),
     }
     if groups:
         out["peer"] = {k: summarize([t for t in trades if t["peer"] == k]) for k in PEER_CLASSES if k not in PEER_SKIP}
@@ -557,3 +680,22 @@ def paper_update(track: dict, today: str, orders: list[dict], ind_of) -> dict:
     st["issued"] = len(entries)
     st["since"] = entries[0]["asof"] if entries else None
     return {"updated_at": today, "orders": entries, "stats": st}
+
+
+def paper_account(track: dict, days: list[str], close_of, sector_of: dict | None = None) -> dict | None:
+    """アプリが出した注文を、出した日から本番どおりに（資金の SLOT_PCT% ずつ・空いている現金の範囲で）置いていたら、の口座。
+
+    結果がまだ分からない注文（翌日の日足がまだ無い）は置かない。期間は最初の注文の日から days の最後まで。"""
+    orders_on: dict[str, list[dict]] = {}
+    for e in track.get("orders") or []:
+        if e.get("filled") and e.get("entry") is not None:
+            res = {"filled": True, "entry": e["entry"], "out": e.get("out"), "ret": e.get("ret")}
+        elif e.get("done") and e.get("filled") is False:
+            res = {"filled": False}
+        else:
+            res = None
+        orders_on.setdefault(e["asof"], []).append({"code": e["code"], "res": res})
+    if not orders_on:
+        return None
+    ds = [d for d in days if d >= min(orders_on)]
+    return account(ds, orders_on, close_of, sector_of)
