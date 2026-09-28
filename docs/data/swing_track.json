@@ -7,7 +7,8 @@
 "name": "日本マクドナルドホールディングス",
 "limit": 7500,
 "stop": 7070,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-25",
@@ -15,7 +16,8 @@
 "name": "吉野家ホールディングス",
 "limit": 3545,
 "stop": 3325,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-25",
@@ -23,7 +25,8 @@
 "name": "ラインヤフー",
 "limit": 504,
 "stop": 457,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-25",
@@ -31,7 +34,8 @@
 "name": "中部電",
 "limit": 2792,
 "stop": 2515,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-25",
@@ -39,14 +43,55 @@
 "name": "関西電",
 "limit": 2713,
 "stop": 2435,
+"done": true,
+"filled": false
+},
+{
+"asof": "2026-09-28",
+"code": "4478",
+"name": "フリー",
+"limit": 3525,
+"stop": 2975,
+"done": false
+},
+{
+"asof": "2026-09-28",
+"code": "9502",
+"name": "中部電",
+"limit": 2791,
+"stop": 2524,
+"done": false
+},
+{
+"asof": "2026-09-28",
+"code": "4180",
+"name": "Appier Group",
+"limit": 1374,
+"stop": 1176,
+"done": false
+},
+{
+"asof": "2026-09-28",
+"code": "2702",
+"name": "日本マクドナルドホールディングス",
+"limit": 7510,
+"stop": 7090,
+"done": false
+},
+{
+"asof": "2026-09-28",
+"code": "4661",
+"name": "ＯＬＣ",
+"limit": 2859,
+"stop": 2606,
 "done": false
 }
 ],
 "stats": {
 "n": 0,
-"fill": null,
+"fill": 0,
 "open": 0,
-"issued": 5,
+"issued": 10,
 "since": "2026-09-25"
 }
 }

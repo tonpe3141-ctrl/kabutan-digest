@@ -578,6 +578,45 @@
 "x5": null,
 "x20": null,
 "days": 0
+},
+{
+"date": "2026-09-28",
+"kind": "高値掴み注意",
+"key": "4073",
+"name": "ジィ・シィ企画",
+"price": 737.0,
+"nk": 65877.62,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-28",
+"kind": "高値掴み注意",
+"key": "4935",
+"name": "リベルタ",
+"price": 212.0,
+"nk": 65877.62,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-28",
+"kind": "高値掴み注意",
+"key": "6977",
+"name": "日本抵抗器製作所",
+"price": 1893.0,
+"nk": 65877.62,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
 }
 ],
 "stats": [
@@ -655,7 +694,7 @@
 },
 {
 "kind": "高値掴み注意",
-"count": 7,
+"count": 10,
 "n5": 0,
 "d5_median": null,
 "x5_median": null,
