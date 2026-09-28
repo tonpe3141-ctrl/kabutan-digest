@@ -667,8 +667,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "東証スタンダードでストップ高となり、上昇率8位・出来高急増で引っかかった。株探の大引け概況記事でもストップ高銘柄として名前が挙がっているが、材料そのものの裏付けは確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0f041a9fd848156c2c859e8cf4ff8b9b3a4c9da1"
   },
   {
    "code": "4012",
@@ -693,7 +693,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
    "note_url": null
   }
  ],
