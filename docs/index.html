@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>マーケット</title>
-<meta name="description" content="寄り前・前場・大引の3視点で日本株を振り返り、注目銘柄を溜めて追うスマホ向けアプリ">
+<meta name="description" content="日本株の注文・保有銘柄・市況・業種・ニュースを1つにまとめたスマホ向けの売買デスク">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,19 +14,22 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=157db6d8">
+<link rel="stylesheet" href="style.css?v=88ce3f55">
 </head>
 <body>
 
 <header class="appbar">
   <div class="appbar__row">
     <div class="appbar__lead">
-      <h1 class="appbar__title" id="viewTitle">今日</h1>
+      <h1 class="appbar__title" id="viewTitle">売買</h1>
       <div class="appbar__date" id="headDate">読み込み中…</div>
     </div>
     <div class="appbar__meta">
       <span class="dot" id="freshDot"></span>
       <span id="headUpdated">—</span>
+      <button class="iconbtn" id="searchBtn" aria-label="銘柄を探す" title="銘柄を探す">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <button class="iconbtn" id="reloadBtn" aria-label="再読み込み" title="再読み込み">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.66 5.66L4 15.5M4 20v-4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -37,45 +40,49 @@
 </header>
 
 <main id="main">
-  <section class="view" id="view-today" data-view="today"></section>
-  <section class="view" id="view-thermo" data-view="thermo" hidden></section>
+  <section class="view" id="view-trade" data-view="trade"></section>
+  <section class="view" id="view-market" data-view="market" hidden></section>
   <section class="view" id="view-sectors" data-view="sectors" hidden></section>
-  <section class="view" id="view-history" data-view="history" hidden></section>
-  <section class="view" id="view-stocks" data-view="stocks" hidden></section>
+  <section class="view" id="view-news" data-view="news" hidden></section>
+  <section class="view" id="view-verify" data-view="verify" hidden></section>
 </main>
 
 <footer class="foot">
   <p>
     出典: CNBC（指数・為替・金利・商品）／Yahoo!ファイナンス（ランキング・市況記事）／
     TDnet 適時開示（決算・業績修正）／日経（225採用銘柄・PER）／CNBC 日足（四本値・相場温度計）。数値は各サイトの掲載値を自動取得したもので、
-    正確性・即時性は保証されません。想定オープン・シグナル・注文の指値・相場温度・買う前／売る前チェックは予測ではなく、決めた規則と外部環境の並び順を機械的に整理したものです。
+    正確性・即時性は保証されません。想定オープン・注文の指値・保有銘柄の判定・業種の強弱・相場温度・買う前／売る前チェックは予測ではなく、決めた規則と外部環境の並び順を機械的に整理したものです。
     投資判断はご自身の責任でお願いします。
   </p>
   <p id="footMeta"></p>
 </footer>
 
 <nav class="bottomnav" aria-label="メイン">
-  <button class="bottomnav__btn" data-view="today" aria-current="page">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-    <span>今日</span>
-  </button>
-  <button class="bottomnav__btn" data-view="thermo">
+  <button class="bottomnav__btn" data-view="trade" aria-current="page">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>作戦</span>
+    <span>売買</span>
+  </button>
+  <button class="bottomnav__btn" data-view="market">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3.5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>市況</span>
   </button>
   <button class="bottomnav__btn" data-view="sectors">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16v-4M10 16V8M14 16v-6M18 16V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>業種</span>
   </button>
-  <button class="bottomnav__btn" data-view="history">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 4v16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-    <span>履歴</span>
+  <button class="bottomnav__btn" data-view="news">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11v16H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2h-2M8 8h5M8 12h5M8 16h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>ニュース</span>
   </button>
-  <button class="bottomnav__btn" data-view="stocks">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-    <span>銘柄</span>
+  <button class="bottomnav__btn" data-view="verify">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6v3H9zM7 5.5H5.5V20h13V5.5H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>検証</span>
   </button>
 </nav>
+
+<dialog class="sheet sheet--stock" id="stockSheet" aria-label="銘柄">
+  <div class="sheet__inner" id="stockBody"></div>
+</dialog>
 
 <dialog class="sheet" id="wlSheet">
   <form method="dialog" class="sheet__inner">
@@ -123,6 +130,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=a34a33c6"></script>
+<script src="app.js?v=771889ed"></script>
 </body>
 </html>

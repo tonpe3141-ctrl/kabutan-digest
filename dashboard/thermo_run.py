@@ -502,7 +502,7 @@ NEAR_PCT = -3.0      # 「もうすぐ注文対象」: あと3%以内の下げ�
 
 
 def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, theme_stocks: dict | None = None) -> dict:
-    """thermo.json の swing（作戦タブの中心）。注文・次点・見送り・もうすぐ注文対象・業種の中の位置・ルールの検証。
+    """thermo.json の swing（売買タブの中心）。注文・次点・見送り・もうすぐ注文対象・業種の中の位置・ルールの検証。
 
     注文は最新の日付（asof）の引けまで日足がそろった銘柄からだけ出す。大引の時点で当日の日足がまだ無い銘柄は、
     前の営業日の引けの注文（もう期限が過ぎている）を出さない。業種と比べるのも asof の日足がそろった銘柄どうしだけ。"""
@@ -606,7 +606,7 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
             notes.append({"tone": "info", "text": f"押した形だが、業種（{sw.get('g')} {sw.get('g20'):+.1f}%）の上げに沿った押しなので"
                                                   "注文は見送り（検証で勝率が低かった形）"})
         elif sw.get("st") == "signal":
-            notes.append({"tone": "chance", "text": "短期の押し目買いの注文対象（作戦タブの注文を参照）"})
+            notes.append({"tone": "chance", "text": "短期の押し目買いの注文対象（売買タブの注文を参照）"})
         if "高値掴み注意" in r["cls"]:
             notes.append({"tone": "warn", "text": "短期で上がりすぎ。買い増しは押すまで待つ"})
         if "売られすぎ・下げ止まり" in r["cls"]:
@@ -627,7 +627,7 @@ def _peer_brief(pc: dict | None) -> dict | None:
 
 
 def summary(th: dict) -> dict | None:
-    """latest.json の各スロットに載せる要約（Routine の分析と「今日」タブの要点カードが読む）。"""
+    """latest.json の各スロットに載せる要約（Routine の分析が読む。アプリは thermo.json を直接読む）。"""
     mk = th.get("market") or {}
     if not mk:
         return None

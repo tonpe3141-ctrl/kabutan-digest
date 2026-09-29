@@ -57,7 +57,7 @@ def sector_trend(today_sectors: list[dict] | None, history_sessions: list[dict],
                     "時価総額加重の業種指数とは一致しない。"}
 
 
-# 履歴タブと「今日」タブで時間軸を出す指数。履歴には indices 丸ごと残してある。
+# 時間軸を出す指数（画面は市況の推移。Routine の分析も読む）。履歴には indices 丸ごと残してある。
 TREND_INDICES = [("nikkei", "日経平均"), ("topix", "TOPIX")]
 
 

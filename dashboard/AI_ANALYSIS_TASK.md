@@ -136,7 +136,7 @@ git pull --rebase origin main
     `partial: true` は有料部分の手前までしか無い（書かれていない続きを推測しない）
   - `overseas[]` … CNBC（英語）の見出しと要約 `{title, summary, published, url, source}`
   - `status[]` … 情報源ごとの取得結果。`ok: false` の情報源は「取れなかった」のであって「何も無かった」ではない
-- **`thermo`**（全スロット）: 相場温度計の要約と、作戦タブの注文。`temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
+- **`thermo`**（全スロット）: 相場温度計の要約と、売買タブの注文。`temp`（0〜100）, `zone`（総悲観／悲観／中立／楽観／過熱）,
   `consensus`（全面追い風／全面向かい風）, `factors[]`（8軸の `score` −2〜+2 と `change` 改善／悪化、`text` に根拠の数字）,
   `turning`（底打ち／天井打ちの兆し）, `sector_picks`（押し目・下げ止まりの業種）, `sector_hot`, `hot`（高値掴み注意）/
   `bad_out` / `good_out`（出尽くし）, `themes`（テーマの論調×値動き）, `watch_guard`（ウォッチリストの注意書き）,

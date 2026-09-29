@@ -467,7 +467,7 @@ def run(slot: str, target_date: date | None = None) -> dict:
             "after_hours": after_hours[:40],
             "quotes": {k: v["close"] for k, v in (payload.get("indices") or {}).items()
                        if v.get("close") is not None},
-            # 履歴タブの「その日の大枠」用。大引時点の為替・原油（寄り前の米国時間の値ではない）
+            # 市況の推移（日々の記録）の「その日の大枠」用。大引時点の為替・原油（寄り前の米国時間の値ではない）
             "macro": {k: {"label": v.get("label"), "last": v.get("last"),
                           "change": v.get("change"), "change_pct": v.get("change_pct")}
                       for k, v in (payload.get("macro") or {}).items()

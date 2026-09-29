@@ -100,8 +100,8 @@ a { color: var(--accent); }
 }
 .appbar__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
 .appbar__lead { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.appbar__title { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: .01em; }
-.appbar__date { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.appbar__title { font-size: 17px; font-weight: 800; margin: 0; letter-spacing: .01em; white-space: nowrap; flex: none; }
+.appbar__date { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .appbar__meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .iconbtn {
   appearance: none; border: 0; background: var(--surface-2); color: var(--text-dim);
@@ -309,7 +309,7 @@ details.acc[open] > summary::after { transform: rotate(-90deg); }
 .track { display: inline-grid; grid-auto-flow: column; gap: 8px; font-size: 11px; color: var(--text-faint); }
 .track b { font-weight: 750; }
 
-/* ==================== 履歴 ==================== */
+/* ==================== 市況の推移（旧「履歴」） ==================== */
 /* 系列のキー（凡例・読み取り欄・表の行頭）。色だけに頼らず必ず文字と並べる */
 .key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 5px; }
 .key--nk { background: var(--series-nk); }
@@ -341,7 +341,7 @@ details.acc[open] > summary::after { transform: rotate(-90deg); }
 .ix__nt b { color: var(--text); font-weight: 700; }
 .ix__nt-hint { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
 
-/* 2. 業種の強弱（ヒートマップ） */
+/* 業種の8日（ヒートマップ。業種タブの「日経の業種」） */
 .hm__legend { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--text-faint); margin: -2px 0 8px; flex-wrap: wrap; }
 .hm__ramp {
   display: inline-block; width: 84px; height: 8px; border-radius: 4px;
@@ -413,7 +413,7 @@ details.acc[open] > summary::after { transform: rotate(-90deg); }
 .weekly > summary::-webkit-details-marker { display: none; }
 .weekly[open] > summary { margin-bottom: 10px; }
 
-/* ==================== 銘柄 ==================== */
+/* ==================== 検索欄 ==================== */
 .search { display: flex; gap: 8px; }
 .search input {
   flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px;
@@ -467,7 +467,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2
 
 .foot { max-width: 720px; margin: 18px auto 0; padding: 0 14px; font-size: 11px; color: var(--text-faint); line-height: 1.7; }
 
-/* ==================== 作戦（相場温度計） ==================== */
+/* ==================== 相場温度計 ==================== */
 /* 温度の帯: 冷たい＝青（悲観）→ 熱い＝赤（過熱）。上昇=赤／下落=青の慣習と向きをそろえる */
 .gauge { position: relative; display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 12px; }
 .gauge__seg--cold { background: var(--down); }
@@ -486,7 +486,6 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2
 .callout--warn { background: var(--warn-bg); color: var(--warn); }
 .callout--chance { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .callout--accent { background: var(--accent-soft); color: var(--accent); }
-.thermo__guide { font-size: 13.5px; line-height: 1.7; margin: 10px 0 0; }
 
 /* 8つの軸 */
 .factors { display: flex; flex-direction: column; }
@@ -533,17 +532,7 @@ table.bt--sec td:last-child, table.bt--sec thead th:last-child { padding-left: 1
 .bt__sub { display: block; font-size: 10px; color: var(--text-faint); font-weight: 500; }
 .bt__verdict { font-size: 13.5px; line-height: 1.7; margin: 0 0 6px; font-weight: 600; }
 
-/* 候補の行（タップで買う前チェックを開く） */
-.picks { display: flex; flex-direction: column; }
-.pick {
-  appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; color: inherit; font: inherit;
-  text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
-  padding: 9px 14px; min-height: 52px; cursor: pointer; width: 100%;
-}
-.picks > .pick:first-child { border-top: 0; }
-.pick__main { min-width: 0; }
-.pick__title { font-size: 11px; color: var(--text-dim); line-height: 1.45; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pick__go { font-size: 11px; color: var(--accent); font-weight: 700; margin-top: 2px; }
+/* 候補の行（押すと銘柄シート） */
 .signal--btn { appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; font: inherit; text-align: left; width: 100%; cursor: pointer; }
 .guard__note { font-size: 12.5px; line-height: 1.55; padding-left: 10px; border-left: 3px solid var(--border); margin: 3px 0; }
 .guard__note--warn { border-left-color: var(--warn); }
@@ -555,9 +544,6 @@ table.bt--sec td:last-child, table.bt--sec thead th:last-child { padding-left: 1
 .btn--buy { background: var(--up-bg); color: var(--up); border-color: transparent; min-height: 44px; font-size: 14px; }
 .btn--sell { background: var(--down-bg); color: var(--down); border-color: transparent; min-height: 44px; font-size: 14px; }
 .check__result:not(:empty) { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
-.check__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.check__head .row__meta span { white-space: nowrap; }
-.check__head > .btn { flex: none; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; }
 .verdict { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 800; }
 .verdict--stop { background: var(--warn-bg); color: var(--warn); }
 .verdict--wait { background: var(--accent-soft); color: var(--accent); }
@@ -580,10 +566,9 @@ table.bt--sec td:last-child, table.bt--sec thead th:last-child { padding-left: 1
 .plan__s { font-size: 10px; color: var(--text-dim); line-height: 1.35; margin-top: 1px; }
 .plan__size { margin-top: 5px; font-size: 12px; font-weight: 650; color: var(--text); }
 .plan__size--none { color: var(--warn); font-weight: 600; }
-.plan__inline { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 360px) { .plan__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* 資金と1回の損の上限（この端末に保存） */
+/* 資金と1件の金額（この端末に保存） */
 details.risk { margin: 8px 14px 4px; border: 1px solid var(--border); border-radius: 10px; padding: 0 10px; }
 details.risk > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--accent); padding: 9px 0; list-style: none; }
 details.risk > summary::-webkit-details-marker { display: none; }
@@ -594,7 +579,7 @@ details.risk > summary::-webkit-details-marker { display: none; }
 .risk__field small { font-size: 10px; color: var(--text-faint); font-weight: 500; }
 details.risk .hint { margin: 6px 0 10px; }
 
-/* 今日タブの作戦カード（買い注文の件数と銘柄） */
+/* 見出しの大きい枠（業種の強弱の先頭）と、表の区切り */
 .decision { border-left: 4px solid var(--accent); }
 .decision--ok { border-left-color: var(--ok); }
 .decision--warn { border-left-color: var(--warn); }
@@ -606,22 +591,11 @@ details.risk .hint { margin: 6px 0 10px; }
 .decision__label--warn { color: var(--warn); }
 .decision__aside { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .decision__text { font-size: 13.5px; font-weight: 650; line-height: 1.6; margin: 6px 0 4px; }
-.decision__reasons { list-style: none; padding: 0; margin: 6px 0 0; }
-.decision__reasons li { display: grid; grid-template-columns: 1.4em 1fr; gap: 4px; font-size: 12.5px; line-height: 1.55; color: var(--text-dim); padding: 2px 0; }
-.decision__pt { font-weight: 850; text-align: center; }
 .decision__block { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .decision__bh { font-size: 11.5px; font-weight: 750; color: var(--text-dim); margin-bottom: 4px; }
-.decision__row {
-  appearance: none; border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
-  width: 100%; padding: 7px 0; cursor: pointer; display: block; border-top: 1px solid var(--border);
-}
-.decision__block .decision__row:first-child { border-top: 0; }
-.decision__rowhead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.decision__rowhead .row__name { font-size: 14px; }
-.decision__code { font-size: 11px; color: var(--text-faint); }
 .badge--btn { appearance: none; border: 0; font: inherit; font-size: 11px; cursor: pointer; white-space: normal; text-align: left; }
 
-/* 買う前チェックの日足チャート（終値・25日線・75日線・計画の横線） */
+/* 銘柄シートの日足チャート（終値・5日線・25日線・注文と保有の価格の横線） */
 .pc { margin: 10px 0 2px; }
 .pc__svg { display: block; width: 100%; height: 150px; }
 .pc__close { fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linejoin: round; }
@@ -642,10 +616,10 @@ details.risk .hint { margin: 6px 0 10px; }
 .pc__k--ma75::before { background: var(--series-nk); }
 .pc__axis { margin-left: auto; }
 
-/* ==================== 作戦: 短期の押し目買い ==================== */
+/* ==================== 売買: 短期の押し目買い ==================== */
 .card--flush > .risk { margin-left: 14px; margin-right: 14px; }
 .orders__when { margin: 0 14px 10px; padding: 9px 11px; border-radius: 10px; background: var(--surface-2); }
-.orders__when.is-expired { background: var(--warn-bg); }
+.orders__when.is-expired, .orders__when.is-short { background: var(--warn-bg); }
 .orders__k { font-size: 11.5px; color: var(--text-dim); font-weight: 650; }
 .orders__v { font-size: 14px; font-weight: 800; margin-top: 1px; }
 .orders__when.is-expired .orders__v { color: var(--warn); }
@@ -696,9 +670,6 @@ dl.rule dt { font-weight: 750; color: var(--text-dim); }
 dl.rule dd { margin: 0; }
 details.acc--inline { margin: 8px 14px 0; }
 .card:not(.card--flush) details.acc--inline { margin: 10px 0 0; }
-.section-head { margin: 22px 4px 8px; scroll-margin-top: 150px; }
-.section-head h2 { font-size: 15px; font-weight: 800; margin: 0; }
-.section-head p { font-size: 12px; color: var(--text-dim); margin: 2px 0 0; }
 @media (max-width: 360px) { .order__form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ==================== 業種（業種の強弱） ==================== */
@@ -770,7 +741,113 @@ table.bt--wrap tbody th { white-space: normal; min-width: 5.5em; }
 .hold__why { margin-top: 3px; font-size: 12px; color: var(--text-dim); line-height: 1.55; }
 .hold__ev { margin-top: 3px; font-size: 11px; color: var(--text-faint); line-height: 1.5; }
 .hold__pad { margin: 10px 14px 0; }
-details.risk.hold__proof { margin: 10px 0 4px; }
-.hold__proof .tablewrap { margin: 4px 0 6px; }
 .hold__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .chip { font: inherit; font-size: 12px; font-weight: 650; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+
+/* ==================== 再構成（DESIGN.md 19章）: 売買・市況・業種・ニュース・検証と銘柄シート ==================== */
+/* 押せる行（銘柄の行・ヒートマップのセル・注文の見出し）はボタン。見た目は今までの行のまま */
+.row--btn, .heat__cell, .order__title--btn {
+  appearance: none; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+}
+.row--btn { border: 0; border-top: 1px solid var(--border); background: transparent; }
+.rows > .row--btn:first-child { border-top: 0; }
+.row--btn:active, .signal--btn:active { background: var(--surface-2); }
+.heat__cell { border: 0; text-align: center; }
+.order__title--btn { border: 0; background: transparent; padding: 0; min-width: 0; flex: 1; }
+.row--disc .row__meta { flex-wrap: nowrap; }
+.row__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tag--mine { color: var(--warn) !important; }
+.kind {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 5px; font-size: 10px; font-weight: 700;
+  vertical-align: 2px; background: var(--surface-2); color: var(--text-dim); white-space: nowrap;
+}
+.kind--rule { background: var(--accent-soft); color: var(--accent); }
+
+/* 切り替え（業種・ランキング・開示・ニュース・監視）。カードの見出しの下に置く */
+.card__seg { padding: 0 14px 8px; }
+.card__head .seg { flex: none; }
+
+/* 畳んで出す本文（見立て・8つの軸） */
+details.fold { margin-top: 10px; border-top: 1px dashed var(--border); }
+details.fold > summary {
+  list-style: none; cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--accent); padding: 10px 0 2px;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after { content: " ›"; }
+details.fold[open] > summary::after { content: " ‹"; }
+.fold__body { padding-top: 8px; }
+.card:not(.card--flush) details.acc--inline > summary { padding-left: 0; padding-right: 0; }
+.acc__body--plain { white-space: pre-line; font-size: 12.5px; line-height: 1.7; }
+
+/* 検証の一行（勝率は比べる相手と、偏りと一緒に）。押すと検証タブのその表へ */
+.evidence {
+  appearance: none; border: 0; background: var(--surface-2); color: var(--text-dim); font: inherit; text-align: left; cursor: pointer;
+  display: block; width: calc(100% - 28px); margin: 10px 14px 0; padding: 9px 11px; border-radius: 10px; font-size: 12px; line-height: 1.6;
+}
+.evidence b { display: block; margin-top: 3px; color: var(--accent); font-weight: 700; }
+.card:not(.card--flush) > .evidence, .evidence--in { width: 100%; margin-left: 0; margin-right: 0; }
+
+/* 売買タブの先頭: 市況の一行 */
+.pulse {
+  appearance: none; display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  border-left: 4px solid var(--accent);
+}
+.pulse__todo { font-size: 12px; font-weight: 700; color: var(--accent); line-height: 1.5; }
+.pulse__head { font-size: 15.5px; font-weight: 750; line-height: 1.45; margin: 4px 0 9px; letter-spacing: -.01em; }
+.pulse__stats--4 { grid-template-columns: repeat(4, 1fr); }
+.pulse__stats--4 .stat__value { font-size: 15px; }
+.pulse__go { margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--accent); text-align: right; }
+
+/* ニュース: 見出しの行と本文つきの記事を1本の一覧に */
+.feed > * { border-top: 1px solid var(--border) !important; }
+.feed > *:first-child { border-top: 0 !important; }
+details.acc.news > summary { align-items: flex-start; font-weight: 600; font-size: 13.5px; line-height: 1.45; }
+.news__tag { color: var(--warn); font-weight: 700; }
+
+/* 業種の8日の期間 */
+.hm__span { font-size: 11px; color: var(--text-faint); margin: -2px 0 6px; }
+
+/* 判断メモ（検証タブの自分の記録の中） */
+.memo .signal { padding-left: 0; padding-right: 0; }
+.decision__block--first { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* ==================== 銘柄シート ==================== */
+dialog.sheet--stock { max-width: 640px; }
+.sheet--stock .sheet__inner { max-height: 92vh; padding-top: 0; }
+.sd__head { position: sticky; top: 0; z-index: 2; background: var(--surface); margin: 0 -16px 8px; padding: 12px 16px 8px; border-bottom: 1px solid var(--border); gap: 8px; }
+.sd__head .iconbtn { font-size: 22px; line-height: 1; flex: none; }
+.sd__title { flex: 1; min-width: 0; }
+.sd__title .sheet__title { font-size: 16.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd__sub { display: block; font-size: 11.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd__price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.sd__last { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.sd__chg { font-size: 15px; font-weight: 750; }
+.sd__asof { font-size: 11px; color: var(--text-faint); margin-left: auto; }
+.sd__badges { margin-top: 6px; }
+.sd__stats { margin-top: 8px; }
+.sd__sec { margin: 14px -16px 0; padding: 10px 0 2px; border-top: 8px solid var(--bg); }
+.sd__sh { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 16px 6px; }
+.sd__sh h3 { margin: 0; font-size: 13.5px; font-weight: 800; }
+.sd__sh small { font-size: 11px; color: var(--text-faint); }
+.sd__pad { padding: 0 16px; }
+.sd__state { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.55; margin-bottom: 6px; }
+.sd__state .badge { flex: none; margin-top: 1px; }
+.sd__order { margin-top: 4px; }
+.sd__order .order { padding-left: 16px; padding-right: 16px; }
+.sd__sec .orders .order { padding-left: 16px; padding-right: 16px; }
+.sd__sec > .rows .row, .sd__sec > .feed .row, .sd__sec > .feed details.acc > summary { padding-left: 16px; padding-right: 16px; }
+.sd__line { font-size: 12.5px; line-height: 1.6; color: var(--text); margin-top: 4px; }
+.sd__line b { color: var(--text-dim); font-weight: 700; }
+.sd__line--dim { color: var(--text-dim); }
+.sd__pad > .chips { margin-bottom: 4px; }
+.sd__acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px -16px 0; padding: 12px 16px 0; border-top: 8px solid var(--bg); }
+.sd__acts .btn { text-decoration: none; display: inline-flex; align-items: center; min-height: 40px; }
+.sd__acts .status { flex-basis: 100%; margin-top: 2px; }
+.btn--on { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.sd__k { font-size: 11px; font-weight: 700; color: var(--text-faint); margin: 4px 0 6px; }
+.sd__results .rows { margin: 8px -16px 0; }
+.sd__results .row { padding-left: 16px; padding-right: 16px; }
+.sheet--stock .sheet__inner.is-search { min-height: 86vh; }
+.sd__results .row { grid-template-columns: 1fr auto; }
+.sd__results .row__rank { display: none; }
+.row--disc { grid-template-columns: 34px 1fr auto; }
