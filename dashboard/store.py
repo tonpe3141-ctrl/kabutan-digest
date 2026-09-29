@@ -90,7 +90,7 @@ def update_history(d: date, patch: dict) -> dict:
 
 def write_history_index() -> list[str]:
     """履歴ファイルの一覧を index.json に書く。ブラウザはディレクトリ一覧を
-    取れないので、履歴タブはこのファイルを見て各日を読みに行く。"""
+    取れないので、市況の推移（旧・履歴タブ）と業種の8日はこのファイルを見て各日を読みに行く。"""
     dates = [d.isoformat() for d in list_history_dates()]
     _write_json(os.path.join(HISTORY_DIR, "index.json"), {"dates": dates})
     return dates

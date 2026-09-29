@@ -383,7 +383,7 @@ def thermo_section(th: dict | None, slot: str | None = None, today: str | None =
                    "、".join(f"{p['sector']}（{p['class']}）" for p in picks))
     if th.get("sector_hot"):
         out.append("短期で上がりすぎの業種は " + "、".join(th["sector_hot"][:3]) + "。追いかけ買いは控えめに")
-    # 買う側は作戦タブの1つのルール（短期の押し目買い）だけ。注文の銘柄と、そのルールの検証の数字を添える
+    # 買う側は売買タブの1つのルール（短期の押し目買い）だけ。注文の銘柄と、そのルールの検証の数字を添える
     sw = th.get("swing") or {}
     orders = sw.get("orders") or []
     ver = ((sw.get("verify") or {}).get("all")) or {}
