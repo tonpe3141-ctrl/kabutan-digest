@@ -13,8 +13,8 @@
 
 const SLOTS = ['preopen', 'zenba', 'taibike'];
 const SLOT_LABEL = { preopen: '寄り前', zenba: '前場', taibike: '大引' };
-const VIEWS = ['today', 'thermo', 'history', 'stocks'];
-const VIEW_TITLE = { today: '今日', thermo: '作戦', history: '履歴', stocks: '銘柄' };
+const VIEWS = ['today', 'thermo', 'sectors', 'history', 'stocks'];
+const VIEW_TITLE = { today: '今日', thermo: '作戦', sectors: '業種', history: '履歴', stocks: '銘柄' };
 const DEFAULT_REPO = 'tonpe3141-ctrl/kabutan-digest';
 const LS = { codes: 'md.watchlist.codes', token: 'md.gh.token', repo: 'md.gh.repo', tab: 'md.tab', view: 'md.view' };
 const HISTORY_DAYS = 15;            // 履歴タブと銘柄の検索が読み込む営業日数
@@ -617,6 +617,7 @@ function renderPreopen(d) {
   const out = [];
   out.push(summaryCard(d, 'preopen'));
   out.push(todayPlanCard(d.thermo, 'sec-thermo'));
+  out.push(strengthMiniCard(d.thermo));
   const analysis = analysisCard(d);
   if (analysis) out.push(analysis);
 
@@ -701,6 +702,7 @@ function renderSession(d, slot) {
   const out = [];
   out.push(summaryCard(d, slot));
   out.push(todayPlanCard(d.thermo, 'sec-thermo'));
+  out.push(strengthMiniCard(d.thermo));
   const analysis = analysisCard(d);
   if (analysis) out.push(analysis);
 
@@ -1198,6 +1200,8 @@ function orderCard(o, rank, day, extra) {
     ]),
     pc ? h('div', { class: 'order__peer' }, [peerBadge(pc.cls),
       h('span', { class: 'order__peer-t', text: peerLine(pc.g, pc.g20, pc.rel20) })]) : null,
+    pc && strengthOf(pc.g) ? h('div', { class: 'order__peer' }, [quadBadge(strengthOf(pc.g).quad),
+      h('span', { class: 'order__peer-t', text: strengthLine(pc.g) })]) : null,
     h('div', { class: 'plan__grid' }, [
       cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・この日だけ`),
       cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・逆指値`, 'down'),
@@ -1924,7 +1928,7 @@ function backtestCard(bt) {
 function sectorTableCard(sec) {
   if (!Array.isArray(sec) || !sec.length) return null;
   const rows = [...sec].sort((a, b) => (b.r20 ?? -99) - (a.r20 ?? -99));
-  return card('業種の温度', '20日騰落の順', foldable((n) => h('div', { class: 'tablewrap' }, h('table', { class: 'bt bt--sec' }, [
+  return card('日経の業種の温度', '20日騰落の順', foldable((n) => h('div', { class: 'tablewrap' }, h('table', { class: 'bt bt--sec' }, [
     h('thead', {}, h('tr', {}, ['業種', '判定', '5日', '20日', 'RSI', 'マクロ'].map((t) => h('th', { text: t })))),
     h('tbody', {}, rows.slice(0, n).map((s) => h('tr', {}, [
       h('th', { text: s.sector }),
@@ -2269,8 +2273,6 @@ function renderThermo() {
   out.push(thermoHero(th.market));
   out.push(factorCard(th.market));
   out.push(backtestCard(th.backtest));
-  out.push(sectorTableCard(th.sectors));
-  out.push(themeToneCard(th.themes));
   out.push(trackCard(th.track));
   const cov = th.coverage || {};
   out.push(h('p', { class: 'hint', style: 'margin:4px 4px 12px', text:
@@ -2278,6 +2280,26 @@ function renderThermo() {
     `温度計の日足: マクロ ${cov.macro ?? '—'}系列・個別株 ${cov.stocks ?? '—'}銘柄、予想EPS ${cov.eps_days ?? '—'}日分、見出し ${cov.news_titles ?? '—'}本。` +
     '規則と閾値は dashboard/swing.py と thermo.py に公開しています。' }));
   return out;
+}
+
+/* 「今日」タブの業種の追い風（latest.json の要約。無ければ thermo.json） */
+function strengthMiniCard(t) {
+  const sm = (t && t.strength) || null;
+  const st = ST();
+  const top = sm ? sm.top : st ? (st.rows || []).slice(0, 5) : [];
+  const bot = sm ? sm.bottom : st ? (st.rows || []).slice(-5).reverse() : [];
+  if (!top.length) return null;
+  const qk = (label) => Object.keys(QUAD_INFO).find((k) => QUAD_INFO[k].label === label) || label;
+  const chip = (r, tone) => h('button', { class: 'badge badge--btn badge--' + tone, type: 'button',
+    onclick: () => { selectView('sectors'); setTimeout(() => focusGroup(r.g), 50); },
+    text: `${r.g} ${fmtPct(r.rs60, 1)}${r.quad ? '・' + (QUAD_INFO[qk(r.quad)] || {}).label : ''}` });
+  return card('業種の追い風', `${(sm || st).n}業種・60日の市場比`, [
+    h('div', { class: 'sgroup__h' }, [h('span', { class: 'up', text: '強い' })]),
+    h('div', { class: 'chips' }, top.slice(0, 5).map((r) => chip(r, 'up'))),
+    h('div', { class: 'sgroup__h' }, [h('span', { class: 'down', text: '弱い' })]),
+    h('div', { class: 'chips' }, bot.slice(0, 5).map((r) => chip(r, 'down'))),
+    h('button', { class: 'more', type: 'button', text: '業種を開く（4象限・全業種・検証）', onclick: () => selectView('sectors') }),
+  ], '強さ＝市場との差（60日・120日）・200日線からの位置・50日線より上の銘柄の割合。強い業種は強いままのことが多かった（業種タブの検証）。予測ではありません。', false, 'sec-strength');
 }
 
 /* 「今日」タブの作戦カード（latest.json の各区分の thermo 要約と、この端末の保有中） */
@@ -2311,6 +2333,7 @@ function todayPlanCard(t, id) {
       (() => { const z = sizeText(o.limit, o.stop); return z && z.shares ? h('div', { class: 'plan__inline num', text: z.text }) : null; })(),
       o.peer && o.peer.label && !/^(ふつうの押し|比べる業種なし)$/.test(o.peer.label)
         ? h('div', { class: 'plan__inline', text: `${o.peer.label}（${o.peer.group} ${fmtPct(o.peer.g20, 1)}・業種より ${fmtPt(o.peer.rel20)}）` }) : null,
+      o.peer && strengthLine(o.peer.group) ? h('div', { class: 'plan__inline', text: strengthLine(o.peer.group) }) : null,
     ]))));
   } else if (sw) {
     kids.push(h('p', { class: 'decision__text', text: '上昇トレンドの銘柄で、短く押したものがありません。待つのも作戦です。' }));
@@ -2320,6 +2343,352 @@ function todayPlanCard(t, id) {
   return h('section', { class: 'card decision decision--' + (orders.length && !expired ? 'ok' : 'accent'), id: id || null }, kids.concat([
     h('div', { class: 'card__note', text: '上昇トレンド中の短い押しを、翌日の指値で拾うルールの注文です（検証の勝率は作戦タブの「成績」）。予測でも売買の推奨でもありません。' }),
   ]));
+}
+
+/* ==================== 業種 ====================
+   どの業種に追い風が吹いていて、どの業種が負けているか（thermo.json の strength。dashboard/sectors.py、DESIGN.md 17章）。
+     1. 追い風・向かい風 … 強さの上位と下位、順位を上げている／下げている業種
+     2. 4象限の図       … 横に強さ（中期）、縦に勢い（10日）。直近10営業日の軌跡
+     3. 全業種          … 強さの順。開くと市場との差・200日線・50日線より上の割合・売買代金の増え方・材料・構成銘柄
+     4. 読み方と検証    … 4象限ごとの次の20日と、押し目買いの注文の成績を業種の強さで分けたもの
+   強さは値動きだけで決める（見立てや材料を混ぜない）。注文の条件にも並べ方にも使わない。 */
+const QUAD_INFO = {
+  lead: { label: '先行', tone: 'up', short: '強い・勢いあり', act: '追い風が続いている業種。この業種で押し目買いの注文が出れば、業種の後押しがある' },
+  fade: { label: '一服', tone: 'warn', short: '強い・勢いが鈍った', act: '強い業種の一息。押し目買いの注文は、この局面の業種で最も成績が良かった' },
+  turn: { label: '改善', tone: 'accent', short: '弱い・戻っている', act: '弱い業種の戻り。次の20日も市場に負けがちだった。戻りを追わない' },
+  lag: { label: '出遅れ', tone: 'down', short: '弱い・勢いなし', act: '向かい風の業種。この業種の押しは、押し目買いの成績も落ちた' },
+};
+const QUAD_ORDER = ['lead', 'fade', 'turn', 'lag'];
+const TIER_TONE = { strong: 'up', up: 'up', mid: '', down: 'down', weak: 'down' };
+// 4年の検証（本番の sectors.py で数え直した。前半 2023-07〜2024-12／後半 2025-01〜2026-08、40業種、5営業日おき）。
+// 次の20営業日の、業種と市場（全銘柄の等ウェイト）の差の平均
+const STRENGTH_4Y = {
+  top: ['+1.2%', '+2.2%'], topPos: ['53%', '55%'], bottom: ['−0.4%', '−1.1%'], bottomPos: ['40%', '41%'], beat: ['56%', '64%'],
+  quad: { lead: ['+0.1%', '+1.6%'], fade: ['+0.1%', '+0.1%'], turn: ['−0.4%', '−0.7%'], lag: ['−0.5%', '−0.8%'] },
+};
+// 押し目買いの注文（今のルール。swing.verify と同じ数え方）を、注文の日の業種の強さで分けた成績（勝率・1回の平均・PF。前半／後半）
+// 列は [勝率, 1回の平均, PF] の前半／後半
+const SWING_BY_STRENGTH = [
+  ['上位1/5', '強さ', ['87', '86'], ['+1.18', '+1.95'], ['2.12', '2.30']],
+  ['中間', '', ['86', '89'], ['+0.53', '+1.50'], ['1.52', '2.87']],
+  ['下位1/5', '', ['86', '82'], ['+0.42', '+0.35'], ['1.38', '1.26']],
+  ['一服の業種', '強い・勢いが鈍った', ['87', '90'], ['+0.89', '+2.22'], ['1.88', '3.85']],
+  ['業種ぐるみの押し', '強さ 上半分の業種', ['95', '95'], ['+2.68', '+5.64'], ['6.08', '11.26']],
+  ['業種ぐるみの押し', '強さ 下半分の業種', ['89', '86'], ['+0.65', '+1.65'], ['1.51', '2.09']],
+  ['注文の全体', '', ['86', '87'], ['+0.60', '+1.24'], ['1.57', '2.17']],
+];
+
+function ST() { return (THERMO || {}).strength || null; }
+function strengthOf(g) { const st = ST(); return (g && st && (st.rows || []).find((r) => r.g === g)) || null; }
+const rankMove = (r) => (isNum(r.rank20) ? r.rank20 - r.rank : null);     // プラス＝20営業日前より順位を上げた
+
+function quadBadge(q) {
+  const qi = QUAD_INFO[q];
+  return qi ? h('span', { class: 'badge badge--' + qi.tone, text: qi.label }) : null;
+}
+function scoreBar(r) {
+  return h('span', { class: 'sbar', title: `強さ ${r.score}` }, [
+    h('span', { class: 'sbar__fill sbar__fill--' + (TIER_TONE[r.tier] || 'mid'), style: `width:${Math.max(3, Math.min(100, r.score))}%` }),
+  ]);
+}
+function moveText(r) {
+  const m = rankMove(r);
+  if (!isNum(m)) return null;
+  if (m === 0) return h('span', { class: 'smove flat', text: '→' });
+  return h('span', { class: 'smove ' + (m > 0 ? 'up' : 'down'), text: (m > 0 ? '▲' : '▼') + Math.abs(m) });
+}
+/* 作戦タブの注文・監視に添える一言（「業種「半導体」の強さ 3位/40・先行」） */
+function strengthLine(g) {
+  const r = strengthOf(g);
+  if (!r) return null;
+  const st = ST();
+  return `業種「${g}」の強さ ${r.rank}位/${st.n}・${(QUAD_INFO[r.quad] || {}).label || '—'}`;
+}
+
+/* 一覧の行（押すと全業種の一覧でその業種を開く） */
+function strengthRow(r) {
+  return h('button', { class: 'srow', type: 'button', onclick: () => focusGroup(r.g) }, [
+    h('span', { class: 'srow__rank num', text: String(r.rank) }),
+    h('span', { class: 'srow__main' }, [
+      h('span', { class: 'srow__name', text: r.g }),
+      h('small', { class: 'num', text: `強さ ${r.score}・50日線より上 ${r.br50}%` }),
+    ]),
+    quadBadge(r.quad),
+    h('span', { class: 'srow__v num' }, [
+      h('b', { class: cls(r.rs60), text: fmtPct(r.rs60, 1) }),
+      h('small', { class: cls(r.rs120), text: `120日 ${fmtPct(r.rs120, 0)}` }),
+    ]),
+  ]);
+}
+
+function strengthHero(st) {
+  const rows = st.rows || [];
+  const top = rows.slice(0, 5);
+  const bot = rows.slice(-5).reverse();
+  const moved = rows.filter((r) => isNum(rankMove(r)) && Math.abs(rankMove(r)) >= 5);
+  const rising = moved.filter((r) => rankMove(r) > 0).sort((a, b) => rankMove(b) - rankMove(a)).slice(0, 4);
+  const falling = moved.filter((r) => rankMove(r) < 0).sort((a, b) => rankMove(a) - rankMove(b)).slice(0, 4);
+  const mk = st.market || {};
+  const v = st.verify;
+  const names = (xs) => xs.slice(0, 3).map((r) => r.g).join('・');
+  const chips = (xs) => h('div', { class: 'chips', style: 'margin-top:4px' }, xs.map((r) =>
+    h('button', { class: 'badge badge--btn', type: 'button', onclick: () => focusGroup(r.g) }, [
+      document.createTextNode(`${r.g} `), moveText(r), document.createTextNode(` → ${r.rank}位`)])));
+  return h('section', { class: 'card decision decision--accent', id: 'sc-hero' }, [
+    h('div', { class: 'decision__head' }, [
+      h('div', {}, [
+        h('div', { class: 'decision__k', text: `業種の強弱（${md(st.asof)} の引けまで・${st.n}業種）` }),
+        h('div', { class: 'decision__label decision__label--accent', text: `追い風 ${top[0].g}` }),
+      ]),
+      h('div', { class: 'decision__aside' }, [
+        h('span', { class: 'badge', text: `市場 20日 ${fmtPct(mk.r20, 1)}` }),
+        h('span', { class: 'badge', text: `60日 ${fmtPct(mk.r60, 1)}` }),
+      ]),
+    ]),
+    h('p', { class: 'decision__text', text: `強い: ${names(top)}。弱い: ${names(bot)}。` }),
+    h('div', { class: 'sgroup__h' }, [h('span', { class: 'up', text: '追い風（強い業種）' }), h('small', { text: '市場との差 60日／120日' })]),
+    h('div', {}, top.map(strengthRow)),
+    h('div', { class: 'sgroup__h' }, [h('span', { class: 'down', text: '向かい風（弱い業種）' }), h('small', { text: '市場との差 60日／120日' })]),
+    h('div', {}, bot.map(strengthRow)),
+    rising.length ? h('div', { class: 'sgroup__h' }, [h('span', { text: '順位を上げている（20営業日前から5位以上）' })]) : null,
+    rising.length ? chips(rising) : null,
+    falling.length ? h('div', { class: 'sgroup__h' }, [h('span', { text: '順位を下げている' })]) : null,
+    falling.length ? chips(falling) : null,
+    v && v.top ? h('div', { class: 'callout callout--accent', style: 'margin-top:10px', text:
+      `直近の検証（${ym(v.from)}〜${ym(v.to)}、${v.dates}回）: 強さの上位1/5 の業種は、次の20営業日に市場を平均 ${fmtSigned(v.top.avg, 1)}% 上回り、` +
+      `下位1/5 は ${fmtSigned(v.bottom.avg, 1)}%。上位が下位を上回った回は ${v.beat}%。ただし業種1つ1つが市場に勝った割合は ${v.top.pos}% で、` +
+      '平均は大きく勝つ業種に引っ張られています。' }) : null,
+    h('div', { class: 'card__note', text:
+      '強さ＝市場との差（60日・120日）、業種の200日線からの位置、50日線より上にある構成銘柄の割合、の4つの順位の平均（0〜100）。' +
+      '業種は押し目買いと同じ束ね方（テーマ辞書の主テーマ、無ければ日経の業種。4銘柄以上）、市場は日足のある全銘柄の等ウェイト。予測ではありません。' }),
+  ]);
+}
+
+/* ---- 4象限の図（自前の SVG を DOM で組む。業種名はテーマ辞書由来なので textContent で入れる） ---- */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs = {}, children = []) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined) continue;
+    if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  [].concat(children).forEach((c) => c && el.appendChild(c));
+  return el;
+}
+
+function rrgCard(st) {
+  const rows = (st.rows || []).filter((r) => isNum(r.score) && isNum(r.mom));
+  if (rows.length < 4) return null;
+  const W = 340, H = 318, L = 24, R = 8, T = 20, B = 36;
+  const X = (v) => L + (W - L - R) * v / 100;
+  const Y = (v) => T + (H - T - B) * (1 - v / 100);
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'rrg', role: 'img', 'aria-label': '業種の4象限の図（横が強さ、縦が勢い）' });
+  [['turn', 0, 50, 50, 100], ['lead', 50, 50, 100, 100], ['lag', 0, 0, 50, 50], ['fade', 50, 0, 100, 50]].forEach(([q, x0, y0, x1, y1]) => {
+    svg.appendChild(sv('rect', { x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1), class: 'rrg__q rrg__q--' + q }));
+  });
+  // 象限の名前は図の外（上と下）に置き、点や業種名と重ならないようにする
+  const corner = [['turn', X(0), T - 7, 'start'], ['lead', X(100), T - 7, 'end'],
+    ['lag', X(0), Y(0) + 12, 'start'], ['fade', X(100), Y(0) + 12, 'end']];
+  corner.forEach(([q, x, y, anchor]) => svg.appendChild(sv('text', { x, y, 'text-anchor': anchor, class: 'rrg__ql rrg__c--' + q,
+    text: `${QUAD_INFO[q].label}（${QUAD_INFO[q].short}）` })));
+  svg.appendChild(sv('text', { x: X(50), y: H - 4, 'text-anchor': 'middle', class: 'rrg__ax', text: '弱い ← 強さ（60日・120日の市場比ほか）→ 強い' }));
+  svg.appendChild(sv('text', { x: 10, y: Y(50), 'text-anchor': 'middle', class: 'rrg__ax', transform: `rotate(-90 10 ${Y(50)})`, text: '勢い（10日の市場比）→' }));
+  // 名前を出す業種: 強い5・弱い3・順位を大きく動かした3。ほかは点だけ（押すと一覧で開く）
+  const moved = rows.filter((r) => isNum(rankMove(r))).sort((a, b) => Math.abs(rankMove(b)) - Math.abs(rankMove(a))).slice(0, 3);
+  const named = new Set([...rows.slice(0, 5), ...rows.slice(-3), ...moved].map((r) => r.g));
+  const boxes = [];
+  const fits = (b) => b.x0 >= L && b.x1 <= W && b.y0 >= T && b.y1 <= Y(0) && !boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+  const dots = sv('g');
+  const labels = sv('g');
+  // 弱い順に描き、強い業種の点と名前を上に重ねる
+  [...rows].reverse().forEach((r) => {
+    const x = X(r.score), y = Y(r.mom);
+    const on = named.has(r.g);
+    if (on && Array.isArray(r.trail)) {
+      // 軌跡は10営業日前・5営業日前・今日の3点（毎日の点を結ぶと勢いの順位の日々の揺れで読めなくなる）
+      const tr = r.trail;
+      const pts = [tr[0], tr[Math.floor((tr.length - 1) / 2)], tr[tr.length - 1]].filter((p) => Array.isArray(p))
+        .map(([a, b]) => `${X(a).toFixed(1)},${Y(b).toFixed(1)}`);
+      if (pts.length > 1) dots.appendChild(sv('polyline', { points: pts.join(' '), class: 'rrg__trail rrg__c--' + r.quad }));
+    }
+    dots.appendChild(sv('circle', { cx: x, cy: y, r: on ? 4 : 3, class: 'rrg__dot rrg__c--' + r.quad + (on ? '' : ' rrg__dot--dim') }));
+    dots.appendChild(sv('circle', { cx: x, cy: y, r: 11, class: 'rrg__hit', onclick: () => focusGroup(r.g) }, [sv('title', { text: `${r.g}（${r.rank}位・強さ ${r.score}・勢い ${r.mom}）` })]));
+    if (!on) return;
+    const w = r.g.length * 10 + 4, hgt = 12;
+    const cands = [[x + 6, y + 4, 'start', x + 5, y - 7], [x - 6, y + 4, 'end', x - 5 - w, y - 7],
+      [x, y - 8, 'middle', x - w / 2, y - 18], [x, y + 15, 'middle', x - w / 2, y + 5]];
+    for (const [tx, ty, anchor, bx, by] of cands) {
+      const b = { x0: bx, x1: bx + w, y0: by, y1: by + hgt };
+      if (!fits(b)) continue;
+      boxes.push(b);
+      labels.appendChild(sv('text', { x: tx, y: ty, 'text-anchor': anchor, class: 'rrg__lab', text: r.g }));
+      break;
+    }
+  });
+  svg.appendChild(dots);
+  svg.appendChild(labels);
+  return card('4象限', '点を押すと一覧で開く', h('div', { class: 'rrg__wrap' }, svg),
+    '横は強さ（中期）、縦は勢い（市場との差・10日）。どちらも全業種の中の順位（0〜100）で、真ん中の線は全業種の真ん中。' +
+    '名前のある業種は10営業日前→5営業日前→今日の軌跡つき（点が今日）。強い業種は右上（先行）と右下（一服）を行き来し、' +
+    '左上（改善）に上がってきた弱い業種は、4年の検証では次の20日も市場に負けがちでした。', false, 'sc-map');
+}
+
+/* ---- 全業種の一覧 ---- */
+let sectorFocus = null;                 // 一覧を描き直してから開く関数（図・上位の行から呼ぶ）
+function focusGroup(g) { if (sectorFocus) sectorFocus(g); }
+
+function sectorExtras(r) {
+  const out = [];
+  const ts = ((THERMO || {}).sectors || []).find((s) => s.sector === r.sector);
+  if (ts && ts.macro && ts.macro.label) {
+    out.push(['マクロ（20日）', `${ts.macro.label}（日経の業種「${r.sector}」の金利・為替・原油などへの感応度から）`]);
+  }
+  const so = ((((DATA || {}).slots || {}).preopen || {}).data || {}).sector_outlook;
+  const us = so && r.link ? (so.all || []).find((x) => x.sector === r.link) : null;
+  if (us && isNum(us.score)) {
+    out.push(['米国の連想（今朝）', `${us.score > 0 ? '追い風' : us.score < 0 ? '向かい風' : '中立'} ${fmtSigned(us.score, 2)}` +
+      ((us.drivers || []).length ? `（${us.drivers.slice(0, 2).map((d) => `${d.driver} ${d.display}`).join('・')}）` : '')]);
+  }
+  if (Array.isArray(r.rev) && (r.rev[0] || r.rev[1])) out.push(['業績修正（直近10営業日）', `上方 ${r.rev[0]}件・下方 ${r.rev[1]}件`]);
+  const tt = ((THERMO || {}).themes || []).find((t) => t.theme === r.g);
+  if (tt && tt.label) out.push(['見出しの論調', tt.label]);
+  return out;
+}
+
+function sectorMember(m) {
+  const ws = watchState(m.code);
+  const [label, tone] = WATCH_STATE[ws.key] || ['—', ''];
+  const st = ((THERMO || {}).stocks || {})[m.code] || {};
+  return h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openCheck(m.code) }, [
+    h('div', { class: 'signal__name', text: cleanName(st.n || m.name) || m.code }),
+    h('div', { class: 'signal__right num' }, [
+      h('b', { class: cls(m.r20), text: `20日 ${fmtPct(m.r20, 1)}` }),
+      h('small', { text: `${m.code}　60日 ${fmtPct(m.r60, 1)}` }),
+    ]),
+    h('div', { class: 'signal__tags' }, [h('span', { class: 'badge' + (tone ? ' badge--' + tone : ''), text: label }),
+      ['signal', 'near', 'wait'].includes(ws.key) && (swOf(m.code) || {}).pc !== 'hot' ? peerBadge((swOf(m.code) || {}).pc) : null]),
+    ['signal', 'near', 'skip'].includes(ws.key) ? h('div', { class: 'signal__why', text: ws.text }) : null,
+  ]);
+}
+
+function groupAcc(r, st) {
+  const qi = QUAD_INFO[r.quad] || {};
+  const extras = sectorExtras(r);
+  const members = r.members || [];
+  const acc = h('details', { class: 'acc sacc' }, [
+    h('summary', {}, [
+      h('span', { class: 'acc__title' }, [
+        h('span', { class: 'sacc__name' }, [h('span', { class: 'num', text: `${r.rank}. ` }), document.createTextNode(r.g), h('span', { text: ' ' }), moveText(r)]),
+        h('small', { class: 'num', text: `${r.n}銘柄・強さ ${r.score}・60日 市場比 ${fmtPct(r.rs60, 1)}` }),
+      ]),
+      h('span', { class: 'sacc__right' }, [quadBadge(r.quad), scoreBar(r)]),
+    ]),
+    h('div', { class: 'sacc__body' }, [
+      h('p', { class: 'sacc__act', text: `${qi.label || ''}（${qi.short || ''}）: ${qi.act || ''}` }),
+      h('div', { class: 'plan__grid' }, [
+        cell('市場比 5日', fmtPct(r.rs5, 1), null, cls(r.rs5)),
+        cell('20日', fmtPct(r.rs20, 1), null, cls(r.rs20)),
+        cell('60日', fmtPct(r.rs60, 1), null, cls(r.rs60)),
+        cell('120日', fmtPct(r.rs120, 1), null, cls(r.rs120)),
+      ]),
+      h('div', { class: 'plan__grid', style: 'margin-top:4px' }, [
+        cell('200日線から', fmtPct(r.ma200, 1), '業種の値動き', cls(r.ma200)),
+        cell('50日線の上', `${r.br50}%`, '構成銘柄の割合'),
+        cell('売買代金', isNum(r.flow) ? `${r.flow.toFixed(2)}倍` : '—', '5日÷60日・市場比', isNum(r.flow) ? (r.flow >= 1.2 ? 'up' : r.flow <= 0.8 ? 'down' : '') : ''),
+        cell('今日', fmtPct(r.d1, 1), `20日 ${fmtPct(r.r20, 1)}`, cls(r.d1)),
+      ]),
+      h('div', { class: 'sacc__rank num', text: `順位: 今日 ${r.rank}位／5営業日前 ${r.rank5 ?? '—'}位／20営業日前 ${r.rank20 ?? '—'}位（${st.n}業種）` }),
+      extras.length ? h('div', { class: 'sacc__ext' }, [h('div', { class: 'sacc__k', text: '材料（値動きの外。強さには入れていない・検証していない）' })]
+        .concat(extras.map(([k, v]) => h('div', { class: 'sacc__line' }, [h('b', { text: k + ' ' }), document.createTextNode(v)])))) : null,
+      h('div', { class: 'sacc__k', style: 'margin-top:8px', text: '構成銘柄（20日の騰落の順）と、押し目買いのルールでの位置' }),
+    ]),
+    foldable((n) => h('div', {}, members.slice(0, n).map(sectorMember)), members.length, 8, '全銘柄'),
+  ]);
+  acc.dataset.g = r.g;
+  return acc;
+}
+
+function strengthListCard(st) {
+  const rows = st.rows || [];
+  const list = h('div', {});
+  let filter = 'all';
+  const draw = () => {
+    list.textContent = '';
+    const rs = rows.filter((r) => filter === 'all' || r.quad === filter);
+    if (!rs.length) { list.appendChild(h('div', { class: 'empty', style: 'padding:6px 14px', text: 'なし' })); return; }
+    rs.forEach((r) => list.appendChild(groupAcc(r, st)));
+  };
+  const count = (q) => rows.filter((r) => r.quad === q).length;
+  const seg = segmented([['all', `全部 ${rows.length}`]].concat(QUAD_ORDER.map((q) => [q, `${QUAD_INFO[q].label} ${count(q)}`])),
+    (k) => { filter = k; draw(); }, 'all');
+  seg.classList.add('seg--scroll');
+  sectorFocus = (g) => {
+    if (filter !== 'all') { filter = 'all'; [...seg.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === 'all'))); draw(); }
+    const el = [...list.children].find((d) => d.dataset && d.dataset.g === g);
+    if (!el) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  draw();
+  return card('全業種', '強さの順', [h('div', { style: 'padding:0 14px 8px' }, seg), list],
+    '▲▼は20営業日前からの順位の動き。開くと、市場との差・業種の200日線からの位置・50日線より上の銘柄の割合・売買代金の増え方と、' +
+    '値動きの外の材料（マクロ・米国の連想・業績修正・見出し）、構成銘柄の押し目買いのルールでの位置（押すと買う前チェック）。', true, 'sc-list');
+}
+
+/* ---- 読み方と検証 ---- */
+function strengthGuideCard(st) {
+  const v = st.verify || {};
+  const q = v.quad || {};
+  const cellV = (x) => (x && isNum(x.avg) ? `${fmtSigned(x.avg, 1)}%（${x.pos}%）` : '—');
+  const tbl = (head, body) => h('div', { class: 'tablewrap' }, h('table', { class: 'bt bt--wrap' }, [
+    h('thead', {}, h('tr', {}, head.map((t) => h('th', { text: t })))), h('tbody', {}, body)]));
+  const quadRows = QUAD_ORDER.map((k) => h('tr', {}, [
+    h('th', {}, [quadBadge(k), h('small', { class: 'bt__sub', text: QUAD_INFO[k].short })]),
+    h('td', { class: 'num', text: cellV(q[k]) }),
+    h('td', { class: 'num', text: `${STRENGTH_4Y.quad[k][0]}／${STRENGTH_4Y.quad[k][1]}` }),
+  ]));
+  const tierRows = [['強さの上位1/5', v.top, `${STRENGTH_4Y.top[0]}／${STRENGTH_4Y.top[1]}`],
+    ['強さの下位1/5', v.bottom, `${STRENGTH_4Y.bottom[0]}／${STRENGTH_4Y.bottom[1]}`],
+    ['全業種', v.all, '—']].map(([k, x, y]) => h('tr', {}, [h('th', { text: k }), h('td', { class: 'num', text: cellV(x) }), h('td', { class: 'num', text: y })]));
+  const swRows = SWING_BY_STRENGTH.map(([k, sub, w, a, pf], i) => h('tr', { class: i === SWING_BY_STRENGTH.length - 1 ? 'bt__all' : null }, [
+    h('th', {}, [document.createTextNode(k), sub ? h('small', { class: 'bt__sub', text: sub }) : null]),
+    h('td', { class: 'num', text: `${w[0]}／${w[1]}%` }), h('td', { class: 'num', text: `${a[0]}／${a[1]}%` }),
+    h('td', { class: 'num', text: `${pf[0]}／${pf[1]}` })]));
+  return card('読み方と検証', '次の20営業日の市場との差', [
+    h('p', { class: 'bt__verdict', text: '強い業種は強いまま、弱い業種は弱いままのことが多かった。弱い業種の戻り（改善）は追わない。' }),
+    tbl(['象限', `直近（${ym(v.from)}〜）`, '4年 前半／後半'], quadRows),
+    tbl(['強さ', '直近', '4年 前半／後半'], tierRows),
+    h('p', { class: 'hint', text: `括弧は業種が市場に勝った割合。4年の「上位が下位を上回った回」は ${STRENGTH_4Y.beat[0]}／${STRENGTH_4Y.beat[1]}` +
+      (isNum(v.beat) ? `、直近は ${v.beat}%。` : '。') + '平均の差ははっきりしているが、1回ごとの当たり外れは大きい。' }),
+    h('div', { class: 'sgroup__h', style: 'margin-top:12px' }, [h('span', { text: '押し目買いの注文を、注文の日の業種の強さで分けると' })]),
+    tbl(['業種', '勝率', '1回の平均', 'PF'], swRows),
+    h('p', { class: 'hint', text:
+      '4年の検証（同じ銘柄は手仕舞うまで次を数えない）。各欄は前半 2023-24／後半 2025-26。強い業種の押しは成績が良く、弱い業種（下位1/5）の押しは両方の期間で落ちた。特に「強い業種が業種ぐるみで下げた押し」が良い。' +
+      'ただし、この強さを注文の並べ方や見送りに入れた口座の再現は、前半（決める期間）では良くなったが後半（確かめる期間）では良くならなかったので、' +
+      '注文の条件にも並べ方にも使っていません。注文を見るときの追い風・向かい風の目安として使ってください。' }),
+  ], '業種は今のテーマ辞書で束ねているので、今注目されている銘柄で過去を測る偏り（生存者の偏り）を含みます。' +
+    '日経の業種（225銘柄を業種で束ねたもの）で同じ物差しを測ると、効き目ははっきりしませんでした（下の「日経の業種の温度」は別の物差し）。' +
+    '短い期間（5日・10日）の強さだけでは先は読めません。直近の列は日足キャッシュ（約2年）で毎回数え直しています。', false, 'sc-guide');
+}
+
+function renderSectors() {
+  const out = [];
+  const st = ST();
+  if (!st || !(st.rows || []).length) {
+    out.push(card('業種の強弱', null, h('div', { class: 'empty', text: 'データがまだありません。次の自動更新で作られます。' })));
+  } else {
+    out.push(strengthHero(st));
+    out.push(rrgCard(st));
+    out.push(strengthListCard(st));
+    out.push(strengthGuideCard(st));
+  }
+  const th = THERMO || {};
+  out.push(sectionHead('ほかの見方', '日経の業種・テーマの論調（相場温度計の物差し）', 'sc-other'));
+  out.push(sectorTableCard(th.sectors));
+  out.push(themeToneCard(th.themes));
+  return out;
 }
 
 /* ==================== 履歴 ====================
@@ -2912,7 +3281,7 @@ function bindSheet() {
 
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMP_LABELS = [
-  ['sec-summary', '要点'], ['sec-thermo', '作戦'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
+  ['sec-summary', '要点'], ['sec-thermo', '作戦'], ['sec-strength', '追い風'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
   ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'], ['sec-outlook', '連想'], ['sec-ussector', '米セクター'],
   ['sec-sector33', '業種'], ['sec-theme', 'テーマ'], ['sec-trend', '時間軸'], ['sec-heat', 'ヒートマップ'],
   ['sec-value', '売買代金'], ['sec-moves', '値動き'], ['sec-ytd', '高値更新'], ['sec-volsurge', '出来高'],
@@ -2920,7 +3289,10 @@ const JUMP_LABELS = [
 ];
 const THERMO_JUMPS = [
   ['sw-orders', '注文'], ['sw-pos', '保有中'], ['sw-watch', '監視'], ['sw-peer', '業種'], ['sw-avoid', '追わない'], ['sw-stats', '成績'],
-  ['th-check', 'チェック'], ['sw-rule', 'ルール'], ['th-market', '相場の温度'], ['th-bt', '温度の検証'], ['th-sectors', '業種'],
+  ['th-check', 'チェック'], ['sw-rule', 'ルール'], ['th-market', '相場の温度'], ['th-bt', '温度の検証'],
+];
+const SECTOR_JUMPS = [
+  ['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-guide', '読み方'], ['th-sectors', '日経の業種'], ['th-themes', 'テーマ'],
 ];
 
 function drawSlotBar() {
@@ -2942,7 +3314,8 @@ function drawSlotBar() {
 function drawJumpBar() {
   const bar = $('jumpBar');
   bar.textContent = '';
-  const jumps = activeView === 'today' ? JUMP_LABELS : activeView === 'thermo' ? THERMO_JUMPS : null;
+  const jumps = activeView === 'today' ? JUMP_LABELS : activeView === 'thermo' ? THERMO_JUMPS
+    : activeView === 'sectors' ? SECTOR_JUMPS : null;
   if (!jumps) return;
   const panel = $('view-' + activeView);
   jumps.forEach(([id, label]) => {
@@ -2970,6 +3343,7 @@ function render() {
 
   const fill = (id, fn) => { const el = $(id); el.textContent = ''; fn().forEach((n) => n && el.appendChild(n)); };
   fill('view-thermo', renderThermo);
+  fill('view-sectors', renderSectors);
   fill('view-history', renderHistory);
   fill('view-stocks', renderStocks);
 

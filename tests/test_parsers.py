@@ -1044,6 +1044,79 @@ def test_names():
         check("取得で例外が出ても止めない", boom, {})
 
 
+# ==================== 業種の強弱（sectors.py） ====================
+def test_sectors():
+    from dashboard import sectors as X
+    from dashboard import thermo_run as R
+
+    print("\n[業種の強弱]")
+    check("順位は同じ値を平均の順位に（pandas の rank(pct=True) と同じ）",
+          X.pct_rank({"a": 1.0, "b": 1.0, "c": 2.0}), {"a": 0.5, "b": 0.5, "c": 1.0})
+    check("4象限（強さ・勢いが真ん中より上か下か）",
+          [X.quad_of(0.9, 0.9), X.quad_of(0.9, 0.1), X.quad_of(0.1, 0.9), X.quad_of(0.1, 0.1), X.quad_of(None, 0.5)],
+          ["lead", "fade", "turn", "lag", None])
+    check("段階（上位1/5 は 0.8 より上、下位1/5 は 0.2 以下）",
+          [X.tier_of(0.85), X.tier_of(0.8), X.tier_of(0.5), X.tier_of(0.21), X.tier_of(0.2)],
+          ["strong", "up", "mid", "down", "weak"])
+
+    # 10業種 × 4銘柄。業種 i は毎日 (i−5)×0.05% ずつ動く（強さの順が決まっている）。銘柄ごとに小さな揺れ
+    n, G = 320, 10
+    dates = [f"d{t:03d}" for t in range(n)]
+    closes, vols, groups = {}, {}, {}
+    for g in range(G):
+        for k in range(4):
+            code = f"S{g}_{k}"
+            px, arr = 1000.0, []
+            for t in range(n):
+                px *= 1 + (g - 5) * 0.0005 + (0.004 if (t + k + g) % 3 == 0 else -0.002)
+                arr.append(px)
+            closes[code] = arr
+            vols[code] = [1000 + (500 if (g == 9 and t >= n - 5) else 0) for t in range(n)]
+            groups[code] = f"G{g}"
+    P = X.Panel(dates, closes, groups)
+    check("200日線が引けるまでは順位を付けない", P.at(150), {})
+    now = P.at(n - 1)
+    order = sorted(now, key=lambda g: now[g]["rank"])
+    check("強い順（毎日上げる業種が1位、毎日下げる業種が最下位）", (order[0], order[-1]), ("G9", "G0"))
+    check("強さは4つの順位の平均（最も強い業種が最大、0〜1）",
+          (max(now, key=lambda g: now[g]["score"]), all(0 < v["score"] <= 1 for v in now.values())), ("G9", True))
+
+    # 先読みしない: t より後の値を変えても、t の強さは変わらない
+    t = 260
+    cl2 = {c: a[:t + 1] + [x * (3.0 if c.startswith("S0") else 0.3) for x in a[t + 1:]] for c, a in closes.items()}
+    P2 = X.Panel(dates, cl2, groups)
+    check("t 日目の強さは t 日目の引けまでで決まる",
+          {g: round(v["score"], 6) for g, v in P2.at(t).items()} == {g: round(v["score"], 6) for g, v in P.at(t).items()}, True)
+    check("先の成績は翌営業日の引けから20日（最後の21日は測れない）", (P.fwd("G9", n - 21), P.fwd("G9", n - 22) is not None),
+          (None, True))
+
+    # 分割の取りこぼし（1日で10倍）は捨て、その日の業種の値動きはほかの銘柄で測る
+    cl3 = {c: list(a) for c, a in closes.items()}
+    cl3["S3_0"] = [x * (10 if i >= 100 else 1) for i, x in enumerate(cl3["S3_0"])]
+    P3 = X.Panel(dates, cl3, groups)
+    others = [(cl3[f"S3_{k}"][100] / cl3[f"S3_{k}"][99] - 1) * 100 for k in (1, 2, 3)]
+    got = (P3.idx["G3"][100] / P3.idx["G3"][99] - 1) * 100
+    check("1日の騰落が50%を超える値は捨てる", round(got, 6), round(sum(others) / 3, 6))
+
+    v = X.verify(P)
+    check("検証: 強さの上位1/5 は下位1/5 より先の成績が良い（強さが続く作り）",
+          (v["top"]["avg"] > v["bottom"]["avg"], v["beat"], v["dates"] > 5), (True, 100, True))
+    events = [{"code": "S9_0", "dir": "up"}, {"code": "S9_1", "dir": "down"}, {"code": "S9_2", "dir": "flat"},
+              {"code": "ZZZ", "dir": "up"}]
+    b = X.board(dates, closes, vols, groups, {"S9_0": "電気機器", "S9_1": "電気機器", "S9_2": "機械"}, events, panel=P)
+    top = b["rows"][0]
+    check("一覧は強い順・1位は先行か一服", ([r["rank"] for r in b["rows"]] == list(range(1, G + 1)), top["g"], top["tier"]),
+          (True, "G9", "strong"))
+    check("業種の中の多数派の日経の業種と、米国の連想の業種名", (top["sector"], top["link"]), ("電気機器", "電気機器（半導体・電子部品）"))
+    check("業績修正は上方・下方だけ数える", top["rev"], [1, 1])
+    check("売買代金の増え方（直近5日だけ増えた業種は市場より多い）", top["flow"] > 1.0, True)
+    check("構成銘柄は20日の騰落の順", [m["r20"] for m in top["members"]] == sorted([m["r20"] for m in top["members"]], reverse=True), True)
+    check("軌跡は直近10営業日", len(top["trail"]), X.TRAIL)
+    brief = R._strength_brief({**b, "verify": v})
+    check("要約: 上位5と下位5（下位は弱い順）", (brief["top"][0]["g"], brief["bottom"][0]["g"], len(brief["top"])), ("G9", "G0", 5))
+    check("日足がそろわなければ一覧を出さない", X.board(dates[:50], {c: a[:50] for c, a in closes.items()}, {}, groups), None)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1060,6 +1133,7 @@ if __name__ == "__main__":
     test_ohlc_cache()
     test_ledger_stats()
     test_press()
+    test_sectors()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
