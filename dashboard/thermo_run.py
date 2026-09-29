@@ -15,7 +15,7 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, hold as HD, store, swing as W, thermo as T
+from . import bars as bars_mod, hold as HD, sectors as X, store, swing as W, thermo as T
 from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
@@ -307,7 +307,18 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             r = None
         if r:
             hold_rows[code] = r
-    hold = hold_block({c: ind_of(c) for c in sw_rows}, dict(bars_mod.series(data, "nikkei")), hold_rows)
+    try:
+        hold = hold_block({c: ind_of(c) for c in sw_rows}, dict(bars_mod.series(data, "nikkei")), hold_rows)
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  保有株の判定で例外: {e}")
+        hold = None
+    # 業種の強弱（押し目買いと同じ業種のグループ。注文の条件には使わない）
+    try:
+        strength = strength_block(ohlc, W.peer_groups(list(sw_rows), themes.get("stocks") or {}, sector_of),
+                                  sector_of, names, recent_events)
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  業種の強弱で例外: {e}")
+        strength = None
 
     stock_rows = {}
     for code, mt in metrics.items():
@@ -346,7 +357,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "hold": hold, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -544,6 +555,28 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, th
             "verify": verify, "cal": (ohlc.get("dates") or [])[-40:]}
 
 
+def strength_block(ohlc: dict, groups: dict, sector_of: dict, names: dict, events: list[dict]) -> dict | None:
+    """thermo.json の strength（業種タブ）。四本値のキャッシュの終値と売買代金から、業種の強弱と、その物差しの検証。"""
+    dates = list(ohlc.get("dates") or [])
+    closes, vols = {}, {}
+    for c, rows in (ohlc.get("stocks") or {}).items():
+        rows = (list(rows or []) + [None] * len(dates))[:len(dates)]
+        closes[c] = [r[3] if r and r[3] and r[3] > 0 else None for r in rows]
+        vols[c] = [r[4] if r else None for r in rows]
+    panel = X.Panel(dates, closes, groups)
+    b = X.board(dates, closes, vols, groups, sector_of, events, panel=panel)
+    if not b:
+        return None
+    for r in b["rows"]:
+        for m in r["members"]:
+            m["name"] = names.get(m["code"]) or m["code"]
+    b["verify"] = X.verify(panel)
+    top = b["rows"][0]
+    print(f"    ✅ 業種の強弱: {b['n']}業種、最も強い「{top['g']}」（{X.QUADS.get(top['quad'])}）、"
+          f"最も弱い「{b['rows'][-1]['g']}」")
+    return b
+
+
 def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: list[dict],
                 today: str) -> list[dict]:
     """ウォッチリスト（保有・注目）の銘柄ごとに、衝動に対する一言を機械的に付ける。"""
@@ -646,4 +679,21 @@ def summary(th: dict) -> dict | None:
             "paper": {**pick(paper), "account": acct(paper.get("account"))} if paper.get("n") else None,
             "slot_pct": W.SLOT_PCT,
         },
+        # 業種の強弱（強い順の上位と下位。先行＝強い・勢いあり、一服、出遅れ、改善＝弱い業種の戻り）
+        "strength": _strength_brief(th.get("strength")),
     }
+
+
+def _strength_brief(st: dict | None) -> dict | None:
+    if not st or not st.get("rows"):
+        return None
+    brief = lambda r: {"g": r["g"], "rank": r["rank"], "score": r["score"], "quad": X.QUADS.get(r["quad"]),   # noqa: E731
+                       "rs60": r["rs60"], "rs120": r["rs120"], "rs20": r["rs20"], "br50": r["br50"],
+                       "rank20": r.get("rank20")}
+    rows = st["rows"]
+    v = st.get("verify") or {}
+    return {"asof": st.get("asof"), "n": st.get("n"), "top": [brief(r) for r in rows[:5]],
+            "bottom": [brief(r) for r in rows[-5:][::-1]],
+            "rising": [brief(r) for r in sorted((r for r in rows if r.get("rank20")), key=lambda r: r["rank"] - r["rank20"])[:3]
+                       if r["rank20"] - r["rank"] >= 5],
+            "verify": {k: v.get(k) for k in ("from", "to", "dates", "top", "bottom", "beat")} if v else None}
