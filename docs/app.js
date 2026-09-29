@@ -617,6 +617,7 @@ function renderPreopen(d) {
   const out = [];
   out.push(summaryCard(d, 'preopen'));
   out.push(todayPlanCard(d.thermo, 'sec-thermo'));
+  out.push(holdingsCard('sec-hold', true));
   const analysis = analysisCard(d);
   if (analysis) out.push(analysis);
 
@@ -701,6 +702,7 @@ function renderSession(d, slot) {
   const out = [];
   out.push(summaryCard(d, slot));
   out.push(todayPlanCard(d.thermo, 'sec-thermo'));
+  out.push(holdingsCard('sec-hold', true));
   const analysis = analysisCard(d);
   if (analysis) out.push(analysis);
 
@@ -1344,6 +1346,361 @@ function positionsCard() {
     `ただし買値 +${rules().floor}% より下には置きません。含み損のうちに平均まで戻ったところで売ると小さな損が確定しますが、` +
     '4年の検証ではその多くが10営業日のうちに買値の上まで戻っていました（勝率 70% → 86%）。損切りは約定した日から置いたまま動かしません。' +
     '計画にない理由で売らない（下げても、損切りの価格までは持つ）ことが、このルールの勝率の前提です。', true, 'sw-pos');
+}
+
+/* ---- 保有株の判定（自分の判断で持っている銘柄。dashboard/hold.py、DESIGN.md 18章） ----
+   押し目買いのルールで買った銘柄は「保有中」の計画（売り指値・損切り・期限）で手仕舞う。ここはそれ以外の銘柄。
+   判定は前の営業日（大引の更新のあとは今日）の引けの形だけで決まる: 20日の騰落（勝ち・中立・負け・急落）と2日RSI。
+   買値は判定に使わない（撤退ラインと含み損益の表示だけ）。場中は判定を変えず、撤退ライン・売り指値に届いたかだけを見る
+   （後場の騰落は前場の形からは読めなかった）。記録はこの端末にだけ保存する（公開リポジトリに保有を書かない）。 */
+const LS_HOLD = 'md.hold';              // 保有株（この端末だけ）
+const LS_HOLD_DONE = 'md.hold.done';    // 売った記録（この端末だけ）
+function readHold() { return lsJson(LS_HOLD); }
+function writeHold(v) { lsSave(LS_HOLD, v); }
+function HOLDX() { return (THERMO || {}).hold || null; }
+function hdOf(code) { return (((THERMO || {}).stocks || {})[code] || {}).hd || null; }
+const HOLD_TONE = { ok: 'ok', accent: 'accent', warn: 'warn', '': '' };
+const tickDown = (p) => {
+  if (!isNum(p)) return null;
+  const t = (TICKS.find(([lim]) => p <= lim) || [0, 5000])[1];
+  return Math.floor(p / t + 1e-9) * t;
+};
+
+/* 今の時間帯（東証の立会）。祝日は分からないので平日で数える */
+function marketPhase() {
+  const n = jstNow();
+  if (n.getDay() === 0 || n.getDay() === 6) return 'closed';
+  const m = n.getHours() * 60 + n.getMinutes();
+  if (m < 9 * 60) return 'pre';
+  if (m < 11 * 60 + 30) return 'am';
+  if (m < 12 * 60 + 30) return 'lunch';
+  if (m < 15 * 60 + 30) return 'pm';
+  return 'after';
+}
+
+/* 今日の前場の値（前場の更新のウォッチリストにある銘柄だけ。始値・高値・安値つき） */
+function amQuote(code) {
+  const z = ((DATA || {}).slots || {}).zenba;
+  // 大引の更新が来たら前場の値は使わない（引けの値と、明日の判定に切り替わる）
+  if (!z || !z.data || DATA.date !== isoToday() || (DATA.slots || {}).taibike) return null;
+  const w = (z.data.watchlist || []).find((x) => x.code === code && isNum(x.price));
+  if (!w) return null;
+  const nk = (z.data.indices || {}).nikkei;
+  return { ...w, updated: (z.updated_at || '').slice(11, 16), nk: nk && !nk.stale ? nk.change_pct : null };
+}
+
+/* 撤退ライン（自分で決めた値。無ければ目安 = 買値 − 3ATR） */
+function holdStop(p, hd) {
+  if (isNum(p.stop) && p.stop > 0) return { v: p.stop, own: true };
+  const r = (HOLDX() || {}).rules || {};
+  if (hd && isNum(hd.atr) && isNum(p.entry)) return { v: tickDown(p.entry - (r.stop_atr || 3) * hd.atr), own: false };
+  return { v: null, own: false };
+}
+
+/* 判定の根拠の一行: この形が次の20日に日経とどれだけ差をつけたか（日足キャッシュに毎日当てた検証） */
+function holdEvidence(hd) {
+  const v = (HOLDX() || {}).verify;
+  if (!v || !hd) return null;
+  const key = ['trim_limit', 'trim_now', 'trim'].includes(hd.v) ? hd.v : hd.cls;
+  const s = (v.cls || {})[key], all = (v.cls || {}).all;
+  if (!s || !all || !s[0].n) return null;
+  const pt = (x) => { if (!isNum(x)) return '—'; const r = Number(x.toFixed(1)) || 0; return (r > 0 ? '+' : '') + r.toFixed(1) + 'pt'; };
+  return `この形のあと20営業日の日経との差: 前半 ${pt(s[0].avg)}／後半 ${pt(s[1].avg)}（全銘柄 ${pt(all[0].avg)}／${pt(all[1].avg)}）。` +
+    `日経に勝った割合 ${s[0].win ?? '—'}%／${s[1].win ?? '—'}%。${md(v.from)}〜${md(v.to)} の日足、前半は ${md(v.split)} まで`;
+}
+
+/* 判定ごとの「次にやること」。day は売り指値が有効な日のラベル */
+function holdTodo(hd, stop, day) {
+  const r = (HOLDX() || {}).rules || {};
+  const sell = isNum(hd.sell) ? `${fmtTick(hd.sell)}円` : '—';
+  const st = isNum(stop.v) ? `撤退ライン ${fmtTick(stop.v)}円 を割ったら売る（逆指値を置いておく）` : '撤退ラインを決めておく';
+  switch (hd.v) {
+    case 'hold': return `売らない。${st}`;
+    case 'wait': return `投げない。減らすなら、戻って売り指値 ${sell}（直近${r.exit_n || 4}日の終値の平均）に届いてから`;
+    case 'trim_limit': return `減らすなら${day}の売り指値 ${sell}（直近${r.exit_n || 4}日の終値の平均）。寄りの成行では売らない。` +
+      `${r.exec_n || 5}営業日で届かなければ${r.exec_n || 5}日目の引けで`;
+    case 'trim_now': return `減らすなら${day}の寄り〜場中に（戻った日は、寄りで売っても売り指値 ${sell} でも差がなかった）`;
+    case 'trim': return `減らすなら売り指値 ${sell}（直近${r.exit_n || 4}日の終値の平均）で。成行で投げない`;
+    default: return `値動きの形からは差がない。${st}。あとは業績の前提（決算・修正）で決める`;
+  }
+}
+
+function holdRow(p) {
+  const st = ((THERMO || {}).stocks || {})[p.code] || {};
+  const hd = st.hd;
+  const X = HOLDX() || {};
+  const vd = hd ? (X.verdicts || {})[hd.v] : null;
+  const am = amQuote(p.code);
+  const now = am ? am.price : st.price;
+  const pl = isNum(now) && isNum(p.entry) ? (now / p.entry - 1) * 100 : null;
+  const plYen = isNum(now) && isNum(p.entry) && p.shares ? (now - p.entry) * p.shares : null;
+  const stop = holdStop(p, hd);
+  const day = hd ? orderDay(hd.asof) : null;
+  const swingPos = readPos().some((q) => q.code === p.code);
+  const lines = [];
+  const note = (tone, text) => lines.push(h('div', { class: 'guard__note guard__note--' + tone, text }));
+
+  // 撤退ライン・売り指値に届いたか（前場の高安・今の値）
+  const lo = am && isNum(am.low) ? Math.min(am.low, am.price) : now;
+  const hi = am && isNum(am.high) ? Math.max(am.high, am.price) : now;
+  if (isNum(stop.v) && isNum(lo) && lo <= stop.v) {
+    note('warn', stop.own
+      ? `${am ? `前場（${am.updated} 更新）の安値 ${fmtPrice(lo)}円` : `${fmtPrice(now)}円`}で撤退ライン ${fmtTick(stop.v)}円 を割った。決めたとおり売る（逆指値を置いていれば約定している）`
+      : `目安の撤退ライン（買値 − 3ATR = ${fmtTick(stop.v)}円）をもう割っている。撤退ラインを決めていなかった分、負けが目安より深い。` +
+        'ここから投げるかどうかは上の判定（売るなら売り指値で）。次に買う銘柄は、買う前に撤退ラインを決めて「編集」で入れておく');
+  }
+  if (hd && hd.v && hd.v.startsWith('trim') && isNum(hd.sell) && isNum(hi) && hi >= hd.sell && day && day.state === 'today') {
+    note('chance', `今日 ${fmtPrice(hi)}円 まで上げて売り指値 ${fmtTick(hd.sell)}円 に届いた（置いていれば約定している）`);
+  }
+  if (am) {
+    const ph = marketPhase();
+    note('info', `前場 ${fmtPct(am.change_pct, 1)}（日経 ${fmtPct(am.nk, 1)}・${am.updated} 更新）。` +
+      (ph === 'lunch' || ph === 'pm' || ph === 'am'
+        ? '後場は判定を変えない。前場の形から後場の騰落は読めなかった（銘柄タブの「判定の根拠」）。決めた価格（売り指値・撤退ライン）だけで動く'
+        : '前場の形では判定を変えない'));
+  } else if (['am', 'lunch', 'pm'].includes(marketPhase()) && ((DATA || {}).slots || {}).zenba && !((DATA.slots.zenba.data || {}).watchlist || []).some((w) => w.code === p.code)) {
+    note('info', 'ウォッチリスト（リポジトリに反映したもの）に入れておくと、前場の更新で前場の安値・高値も撤退ライン・売り指値と突き合わせます');
+  }
+  const ev = st.ev;
+  if (ev && ev.dir === 'down' && !String(ev.label || '').startsWith('悪材料出尽くし')) {
+    note('warn', `下方修正・減配の開示（${md(ev.date)}）。判定は値動きだけで出している。業績の前提が変わったなら、持つ理由を見直す`);
+  } else if (ev && ev.label) {
+    note('info', `${ev.label}（${md(ev.date)}・その後 ${fmtPct(ev.since, 1)}）`);
+  }
+
+  const acts = h('div', { class: 'order__acts' });
+  const formBox = h('div', {});
+  acts.appendChild(h('button', { class: 'btn', type: 'button', text: '売った', onclick: (e) => {
+    e.currentTarget.disabled = true;
+    const price = h('input', { type: 'number', inputmode: 'decimal', step: 'any', value: isNum(now) ? String(now) : '' });
+    const qty = h('input', { type: 'number', inputmode: 'numeric', step: '100', min: '0', value: p.shares ? String(p.shares) : '' });
+    formBox.appendChild(h('div', { class: 'order__form' }, [
+      h('label', {}, [h('span', { text: '売値' }), price]),
+      h('label', {}, [h('span', { text: '売った株数' }), qty]),
+      h('button', { class: 'btn btn--primary', type: 'button', text: '記録する', onclick: () => {
+        const x = parseFloat(price.value);
+        if (!isFinite(x) || x <= 0) { price.focus(); return; }
+        const n = parseInt(qty.value, 10) || null;
+        const done = lsJson(LS_HOLD_DONE);
+        done.push({ ...p, exit: x, sold: n, out: isoToday(), v: hd && hd.v, ret: isNum(p.entry) ? Math.round((x / p.entry - 1) * 10000) / 100 : null });
+        lsSave(LS_HOLD_DONE, done.slice(-200));
+        // 判断メモにも残す（売ったあとにどうなったかを振り返る）
+        const log = readLog();
+        log.push({ at: isoToday(), code: p.code, name: p.name || st.n, intent: 'sell', verdict: `売った（判定: ${vd ? vd.label : '—'}）`,
+          level: 'ok', price: x });
+        writeLog(log);
+        const rest = readHold().map((q) => (q.code !== p.code ? q : n && q.shares && n < q.shares ? { ...q, shares: q.shares - n } : null)).filter(Boolean);
+        writeHold(rest);
+        refreshPlan();
+      } }),
+      h('p', { class: 'hint', text: '一部だけ売ったときは株数を減らして残します。判断メモに「売った」として残り、その後の値動きと比べられます。' }),
+    ]));
+  } }));
+  acts.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', text: '編集', onclick: () => {
+    formBox.textContent = '';
+    formBox.appendChild(holdForm(p));
+  } }));
+  acts.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', text: 'チェック', onclick: () => openCheck(p.code, 'sell') }));
+
+  return h('div', { class: 'order hold' }, [
+    h('div', { class: 'order__head' }, [
+      h('div', { class: 'order__title' }, [
+        h('div', { class: 'row__name', text: cleanName(p.name || st.n) || p.code }),
+        h('div', { class: 'row__meta' }, [
+          h('span', { text: p.code }),
+          isNum(p.entry) ? h('span', { text: `買値 ${fmtPrice(p.entry)}円` }) : null,
+          p.shares ? h('span', { text: `${p.shares.toLocaleString('ja-JP')}株` }) : null,
+          isNum(now) ? h('span', { text: `いま ${fmtPrice(now)}円` }) : null,
+        ]),
+      ]),
+      h('div', { class: 'hold__pl' }, [
+        h('div', { class: 'order__pl num ' + cls(pl), text: isNum(pl) ? fmtPct(pl, 1) : '—' }),
+        isNum(plYen) ? h('div', { class: 'hold__yen num ' + cls(plYen), text: (plYen > 0 ? '+' : plYen < 0 ? '−' : '') + fmtYen(Math.abs(plYen)) }) : null,
+      ]),
+    ]),
+    swingPos
+      ? h('div', { class: 'callout callout--accent', text: '押し目買いのルールで買った銘柄。売りはルールの計画（作戦タブの「保有中」の売り指値・損切り・期限）どおりに。' })
+      : !hd || !vd
+        ? h('div', { class: 'callout callout--warn', text: 'この銘柄の四本値の日足がまだありません（ウォッチリストに入れると次の更新で入ります）。' })
+        : h('div', { class: 'hold__verdict' }, [
+          h('div', { class: 'hold__vhead' }, [
+            h('span', { class: 'badge badge--' + (HOLD_TONE[vd.tone] || ''), text: vd.label }),
+            h('span', { class: 'hold__asof', text: `${md(hd.asof)}の引けの形・${(X.classes || {})[hd.cls] || ''}` }),
+          ]),
+          h('div', { class: 'hold__todo', text: holdTodo(hd, stop, day ? day.label : '次の営業日') }),
+          h('div', { class: 'hold__why', text: `${vd.text}。20日 ${fmtPct(hd.r20, 1)}・2日RSI ${isNum(hd.rsi2) ? Math.round(hd.rsi2) : '—'}・60日高値から ${fmtPct(hd.dd60, 1)}` }),
+          (() => { const t = holdEvidence(hd); return t ? h('div', { class: 'hold__ev', text: t }) : null; })(),
+        ]),
+    swingPos || !hd ? null : h('div', { class: 'plan__grid plan__grid--3' }, [
+      cell(hd.v && hd.v.startsWith('trim') || hd.v === 'wait' ? '売り指値' : '売るなら', isNum(hd.sell) ? fmtTick(hd.sell) : '—',
+        day ? `${day.label}・直近4日の平均` : '直近4日の平均', 'up'),
+      cell(stop.own ? '撤退ライン' : '撤退ライン（目安）', isNum(stop.v) ? fmtTick(stop.v) : '—',
+        isNum(stop.v) && isNum(now) ? `いまから ${fmtPct((stop.v / now - 1) * 100, 1)}${stop.own ? '' : '・買値−3ATR'}` : '', 'down'),
+      cell('前の引け', isNum(hd.c) ? fmtPrice(hd.c) : fmtPrice(st.price), `${md(hd.asof)}・5日 ${fmtPct(hd.r5, 1)}`),
+    ]),
+    lines.length ? h('div', { style: 'margin-top:6px' }, lines) : null,
+    acts,
+    formBox,
+  ]);
+}
+
+/* 保有株を足す・直すフォーム。コードは日足のある銘柄（温度計の対象）なら社名を引く */
+function holdForm(p) {
+  const code = h('input', { type: 'text', inputmode: 'numeric', maxlength: '5', autocomplete: 'off', placeholder: '7203', value: p ? p.code : '' });
+  const entry = h('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: '買値', value: p && isNum(p.entry) ? String(p.entry) : '' });
+  const qty = h('input', { type: 'number', inputmode: 'numeric', step: '100', min: '0', placeholder: '100', value: p && p.shares ? String(p.shares) : '' });
+  const stop = h('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: '任意', value: p && isNum(p.stop) ? String(p.stop) : '' });
+  const msg = h('p', { class: 'hint', text: '撤退ラインは空なら目安（買値 − 3ATR）を出します。数字はこの端末にだけ保存されます。' });
+  const watch = effectiveWatchlist(latestSession() || ((DATA.slots || {}).preopen || {}).data || {});
+  const held = new Set(readHold().map((q) => q.code));
+  const chips = p ? null : h('div', { class: 'hold__chips' }, watch.filter((w) => !held.has(w.code)).slice(0, 12).map((w) =>
+    h('button', { class: 'chip', type: 'button', text: cleanName(w.name) || w.code, onclick: () => {
+      code.value = w.code;
+      if (!entry.value && isNum(w.price)) entry.placeholder = `いま ${fmtPrice(w.price)}`;
+      entry.focus();
+    } })));
+  const save = h('button', { class: 'btn btn--primary', type: 'button', text: p ? '直す' : '保有株に入れる', onclick: () => {
+    const c = code.value.trim().toUpperCase();
+    if (!/^[0-9][0-9A-Z]{3}$/.test(c)) { code.focus(); msg.textContent = '証券コード（4桁）を入れてください'; return; }
+    const e = parseFloat(entry.value);
+    if (!isFinite(e) || e <= 0) { entry.focus(); msg.textContent = '買値を入れてください（平均取得単価）'; return; }
+    const s = parseFloat(stop.value);
+    const st = ((THERMO || {}).stocks || {})[c] || {};
+    const w = watch.find((x) => x.code === c);
+    const rec = { code: c, name: (p && p.name) || st.n || (w && w.name) || c, entry: e, shares: parseInt(qty.value, 10) || null,
+      stop: isFinite(s) && s > 0 ? s : null, date: (p && p.date) || isoToday() };
+    writeHold(readHold().filter((q) => q.code !== c && (!p || q.code !== p.code)).concat([rec]));
+    refreshPlan();
+  } });
+  return h('div', {}, [
+    chips && chips.childNodes.length ? h('div', { class: 'hint', style: 'margin:0 0 4px', text: 'ウォッチリストから選ぶ' }) : null,
+    chips && chips.childNodes.length ? chips : null,
+    h('div', { class: 'order__form' }, [
+      h('label', {}, [h('span', { text: '証券コード' }), code]),
+      h('label', {}, [h('span', { text: '買値（平均）' }), entry]),
+      h('label', {}, [h('span', { text: '株数' }), qty]),
+      h('label', {}, [h('span', { text: '撤退ライン' }), stop]),
+      save,
+      p ? h('button', { class: 'btn btn--ghost', type: 'button', text: '保有株から外す（記録しない）', onclick: () => {
+        if (confirm(`${cleanName(p.name)} を保有株から外しますか？`)) { writeHold(readHold().filter((q) => q.code !== p.code)); refreshPlan(); }
+      } }) : null,
+      msg,
+    ]),
+  ]);
+}
+
+/* 判定の根拠（検証の表）。畳んで出す */
+function holdProof() {
+  const X = HOLDX();
+  if (!X) return null;
+  const v = X.verify;
+  const pt = (x) => { if (!isNum(x)) return '—'; const r = Number(x.toFixed(1)) || 0; return (r > 0 ? '+' : '') + r.toFixed(1); };
+  const pc = (x) => fmtPct(x, 2);
+  const kids = [];
+  if (v) {
+    const rows = [['win', '勝ち→持つ'], ['crash', '急落→売らない'], ['lose', '負け→減らす'], ['flat', '中立'], ['all', '全銘柄']];
+    const nAll = v.cls.all ? v.cls.all[0].n + v.cls.all[1].n : 0;
+    kids.push(h('div', { class: 'check__lh', text: `形ごとの、次の20営業日の日経との差（pt）と日経に勝った割合。勝ち＝20日 +${X.rules.win}%以上、` +
+      `負け＝${X.rules.lose}〜${X.rules.crash}%、急落＝${X.rules.crash}%超。${md(v.from)}〜${md(v.to)}（${nAll.toLocaleString('ja-JP')}件）、前半は ${md(v.split)} まで` }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['形', '前半', '後半', '勝った割合'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, rows.filter(([k]) => (v.cls || {})[k]).map(([k, label]) => {
+        const s = v.cls[k];
+        return h('tr', {}, [h('th', { text: label }), h('td', { class: 'num ' + cls(s[0].avg), text: pt(s[0].avg) }),
+          h('td', { class: 'num ' + cls(s[1].avg), text: pt(s[1].avg) }), h('td', { class: 'num', text: `${s[0].win ?? '—'}／${s[1].win ?? '—'}%` })]);
+      })),
+    ])));
+    const R = X.research;
+    if (R) {
+      const q = (k) => `${pt(R.cls[k][0])}／${pt(R.cls[k][1])}pt`;
+      kids.push(h('p', { class: 'hint', text: `判定の線を決めた4年の研究（${R.stocks}銘柄・${R.period[0]}で決め、${R.period[1]}で確かめた）では: ` +
+        `勝ち ${q('win')}、負け ${q('lose')}、急落 ${q('crash')}、中立 ${q('flat')}、全銘柄 ${q('all')}。上の表はそれを毎日、手元の約2年の日足で数え直したもの。` }));
+    }
+    const ex = (v.exec || {}).dip;
+    if (ex && ex[0].n) {
+      kids.push(h('p', { class: 'hint', text: `売り方: 押した日（2日RSI < ${X.rules.dip}）の翌日から売り指値（直近${X.rules.exit_n}日の平均・${X.rules.exec_n}日目の引けまで）で売ると、` +
+        `翌日の寄りで成行で売るより 前半 ${pc(ex[0].avg)}／後半 ${pc(ex[1].avg)}（高く売れた割合 ${ex[0].win}%／${ex[1].win}%）。` +
+        '戻った日（2日RSI > 70）はどちらでも同じ。' }));
+    }
+    const g = v.gap || {};
+    if (g.dn && g.dn[0].n) {
+      kids.push(h('p', { class: 'hint', text: `寄りの窓（参考・判定には使わない）: 前日比 −${X.rules.gap}% 以下で寄った日の寄り→大引は 前半 ${pc(g.dn[0].avg)}／後半 ${pc(g.dn[1].avg)}、` +
+        `+${X.rules.gap}% 以上は ${pc(g.up[0].avg)}／${pc(g.up[1].avg)}。4年で見ると年によって向きが逆になる（窓を開けて下げた日: 2024年 −1.7%、2025年 +0.7%）ので、寄りの窓で売り方を変える規則は置いていない。` }));
+    }
+  }
+  const E = X.exits;
+  if (E) {
+    kids.push(h('div', { class: 'check__lh', style: 'margin-top:10px', text: `値動きで売る規則の比較（研究・前半 ${E.period[0]}／後半 ${E.period[1]}。全銘柄を5日おきに買ったことにして最長${E.days}営業日、コスト込み）` }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['出口', '平均%', '下から5%'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, E.rows.map((r) => h('tr', {}, [h('th', { text: r.label }),
+        h('td', { class: 'num', text: `${pt(r.avg[0])}／${pt(r.avg[1])}` }), h('td', { class: 'num', text: `${pt(r.p5[0])}／${pt(r.p5[1])}` })]))),
+    ])));
+    kids.push(h('p', { class: 'hint', text: '損切りや追いかけ売りは、深い負けを浅くする代わりに平均を下げた（保険料）。撤退ラインは「ここまでなら負けてよい」額で決める保険で、勝つための道具ではない。' }));
+  }
+  const P = X.pm;
+  if (P) {
+    kids.push(h('div', { class: 'check__lh', style: 'margin-top:10px', text: `前場の騰落（前日比）ごとの、後場寄り→大引（研究・1時間足 ${P.stocks}銘柄・前半 ${P.period[0]}／後半 ${P.period[1]}）` }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['前場', '後場の平均%', '上げた割合'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, P.rows.map((r) => h('tr', {}, [h('th', { text: r.k }),
+        h('td', { class: 'num', text: `${fmtSigned(r.pm[0], 2)}／${fmtSigned(r.pm[1], 2)}` }), h('td', { class: 'num', text: `${r.win[0]}／${r.win[1]}%` })]))),
+    ])));
+    kids.push(h('p', { class: 'hint', text: `後場の値動きの幅（1銘柄1日の標準偏差）は ±${P.sd[0]}〜${P.sd[1]}% で、前場の形による平均の差（±0.3%以内）はその中に埋もれる。前場を見て後場に売り買いを変えても、平均では何も変わらなかった。` }));
+  }
+  kids.push(h('p', { class: 'hint', text: '差は平均の話で、1銘柄ずつでは日経に勝つ割合は4〜5割。今の採用銘柄だけで測っている（生存者の偏り）。予測ではなく、同じ形の銘柄が過去にどうなったかの並びです。' }));
+  return h('details', { class: 'risk hold__proof' }, [h('summary', { text: '判定の根拠（検証）' }), h('div', {}, kids)]);
+}
+
+function holdingsCard(id, compact) {
+  const list = readHold();
+  const X = HOLDX();
+  const addBox = h('div', {});
+  const addBtn = h('button', { class: 'btn btn--ghost', type: 'button', text: '＋ 追加', onclick: () => {
+    addBox.textContent = '';
+    addBox.appendChild(holdForm(null));
+    addBtn.hidden = true;
+  } });
+  if (!list.length) {
+    if (compact) return null;
+    return card('保有株の判定', addBtn, [
+      h('p', { class: 'hint', style: 'margin:0 0 8px', text: '持っている銘柄（コード・買値・株数）を入れると、毎日の引けの形から「持つ／今は売らない／減らす候補」と、' +
+        '次の営業日の売り指値・撤退ラインを出します。場中は撤退ライン・売り指値に届いたかだけを見ます。' }),
+      addBox, holdProof(),
+    ], '押し目買いのルールで買った銘柄は、作戦タブの「保有中」の計画どおりに手仕舞います。予測でも売買の推奨でもありません。', false, id);
+  }
+  const rows = list.map(holdRow);
+  // 合計（今の値が分かる銘柄だけ）
+  let val = 0, cost = 0;
+  const cnt = {};
+  list.forEach((p) => {
+    const st = ((THERMO || {}).stocks || {})[p.code] || {};
+    const am = amQuote(p.code);
+    const now = am ? am.price : st.price;
+    if (p.shares && isNum(now) && isNum(p.entry)) { val += now * p.shares; cost += p.entry * p.shares; }
+    const hd = st.hd;
+    const vd = hd && X ? (X.verdicts || {})[hd.v] : null;
+    if (vd && !readPos().some((q) => q.code === p.code)) cnt[vd.label] = (cnt[vd.label] || 0) + 1;
+  });
+  const ph = marketPhase();
+  const fresh = list.some((p) => { const hd = hdOf(p.code); return hd && hd.asof === isoToday(); });
+  const phaseText = { pre: '寄りの前: 下の売り指値・撤退ラインを置いておく', am: '場中: 判定は変えない。撤退ライン・売り指値に届いたかだけを見る',
+    lunch: '昼休み: 後場も判定は変えない。前場の形から後場の騰落は読めなかった', pm: '後場: 決めた価格（売り指値・撤退ライン）だけで動く',
+    after: fresh ? '引けのあと: 今日の引けで決まった、次の営業日の判定と売り指値' : '引けのあと: 大引の更新（夕方〜夜）で、次の営業日の判定と売り指値が出る', closed: '休場日: 次の営業日の売り指値・撤退ラインを置いておく' }[ph];
+  const head = h('div', { class: 'hold__sum' }, [
+    h('div', {}, [
+      h('div', { class: 'decision__k', text: phaseText }),
+      h('div', { class: 'hold__counts' }, Object.entries(cnt).map(([k, n]) => h('span', { class: 'badge', text: `${k} ${n}` }))),
+    ]),
+    cost ? h('div', { class: 'hold__total num ' + cls(val - cost) }, [
+      h('div', { text: `${val - cost > 0 ? '+' : val - cost < 0 ? '−' : ''}${fmtYen(Math.abs(val - cost))}` }),
+      h('small', { text: `${fmtPct((val / cost - 1) * 100, 1)}・評価 ${fmtYen(val)}` }),
+    ]) : null,
+  ]);
+  return card('保有株の判定', compact ? `${list.length}銘柄` : addBtn, [
+    head, h('div', { class: 'orders' }, rows), compact ? null : h('div', { class: 'hold__pad' }, [addBox, holdProof()]),
+  ], '判定は引けの形（20日の騰落と2日RSI）だけで決め、買値は使いません（「買値まで戻ったら売る」は負けを長く持つ癖）。' +
+    '4年の検証で、値動きで売る規則（損切り・追いかけ売り・線割れ）は平均を下げ、深い負けを浅くしました。予測でも売買の推奨でもありません。', true, id);
 }
 
 /* ---- 3. 監視（発掘・ウォッチリスト・もうすぐ注文対象を1つに） ---- */
@@ -2111,35 +2468,67 @@ function impulseCheck(code, intent) {
       plan.push('上がっている日に成行で買うのは、検証でいちばん負けやすかった形（高値に近い強い銘柄を追う・話題になった日に買う）');
     }
   } else {
-    const downEv = ev && ev.dir === 'down';
+    const downEv = ev && ev.dir === 'down' && !String(ev.label || '').startsWith('悪材料出尽くし');
+    const hd = s.hd;
+    const X = HOLDX() || {};
+    const vd = hd ? (X.verdicts || {})[hd.v] : null;
+    const own = readHold().find((q) => q.code === code) || null;
     if (pos) {
       const stop = pos.stop;
       if (isNum(s.price) && s.price > stop) bad.push(`損切りの価格（${fmtPrice(stop)}円）はまだ割っていない。計画どおりなら、売るのは売り指値（${ps.ready ? fmtTick(ps.v) + '円' : '約定日の引けのあとに決まる'}）か損切りか期限のどれか`);
       else good.push(`損切りの価格（${fmtPrice(stop)}円）を割っている。計画どおり手仕舞う`);
+    } else if (vd) {
+      // 保有株の判定（hold.py）。引けの形（20日の騰落と2日RSI）だけで決まる。買値は使わない
+      const ev20 = holdEvidence(hd);
+      const why = `${vd.text}（20日 ${fmtPct(hd.r20, 1)}・2日RSI ${isNum(hd.rsi2) ? Math.round(hd.rsi2) : '—'}）`;
+      if (hd.v === 'hold' || hd.v === 'wait') bad.push(why + (ev20 ? `。${ev20}` : ''));
+      else if (hd.v !== 'flat') good.push(why + (ev20 ? `。${ev20}` : ''));
+      const stop = holdStop(own || { entry: null }, hd);
+      if (own && isNum(stop.v) && isNum(s.price) && s.price <= stop.v) good.push(`${stop.own ? '決めた' : '目安の'}撤退ライン（${fmtTick(stop.v)}円）を割っている`);
     }
     if (isNum(s.d1) && s.d1 <= -3 && !downEv) bad.push(`直近 ${fmtPct(s.d1, 1)}。ただし下方修正などの個別の悪材料は見当たらない`);
     if (isNum(s.d1) && s.d1 < 0 && ((isNum(nkD1) && nkD1 < 0) || (sec && isNum(sec.d1) && sec.d1 < 0))) bad.push('相場・業種と一緒の下げ（地合いの下げ）。狼狽売りになりやすい');
-    if (isNum(s.rsi) && s.rsi <= 30) bad.push(`RSI(14) ${Math.round(s.rsi)}。売られすぎ。ここで売ると反発を取り逃がしやすい`);
-    if (isNum(s.dev25) && s.dev25 <= -10) bad.push(`25日線から ${fmtPct(s.dev25, 1)}。平均への戻りが起きやすい距離`);
-    if (isNum(mk.temp) && mk.temp <= 38) bad.push(`相場全体が「${mk.zone}」（温度 ${mk.temp}）。悪材料が出そろった局面は底に近いことが多い`);
+    if (!vd) {
+      if (isNum(s.rsi) && s.rsi <= 30) bad.push(`RSI(14) ${Math.round(s.rsi)}。売られすぎ。ここで売ると反発を取り逃がしやすい`);
+      if (isNum(s.dev25) && s.dev25 <= -10) bad.push(`25日線から ${fmtPct(s.dev25, 1)}。平均への戻りが起きやすい距離`);
+      if ((s.cls || []).includes('下落トレンド') && isNum(s.r60) && s.r60 <= -15) good.push(`60日で ${fmtPct(s.r60, 1)} の下落トレンド。戻りで減らすのは合理的`);
+      if (isNum(mk.temp) && mk.temp <= 38) bad.push(`相場全体が「${mk.zone}」（温度 ${mk.temp}）。悪材料が出そろった局面は底に近いことが多い`);
+      if ((s.cls || []).includes('高値掴み注意')) good.push('短期で上がりすぎ。上がったところで一部を売るのは逆張りの基本（良いニュースで売る）');
+      if (isNum(mk.temp) && mk.temp >= 80) good.push(`相場全体が「${mk.zone}」。一部の利益確定は合理的`);
+    }
     if (ev && ev.label.startsWith('悪材料出尽くし')) bad.push(`下方修正のあと ${fmtPct(ev.since, 1)}。悪材料で下げない＝アク抜け`);
-    if (downEv && !ev.label.startsWith('悪材料出尽くし')) good.push(`下方修正・減配の開示（${md(ev.date)}）。業績の前提が変わったなら、保有理由を見直すのは合理的`);
-    if ((s.cls || []).includes('下落トレンド') && isNum(s.r60) && s.r60 <= -15) good.push(`60日で ${fmtPct(s.r60, 1)} の下落トレンド。戻りで減らすのは合理的`);
-    if ((s.cls || []).includes('高値掴み注意')) good.push('短期で上がりすぎ。上がったところで一部を売るのは逆張りの基本（良いニュースで売る）');
-    if (isNum(mk.temp) && mk.temp >= 80) good.push(`相場全体が「${mk.zone}」。一部の利益確定は合理的`);
+    if (downEv) good.push(`下方修正・減配の開示（${md(ev.date)}）。業績の前提が変わったなら、保有理由を見直すのは合理的`);
     if (ev && ev.label === '好材料出尽くし') good.push(`上方修正でも ${fmtPct(ev.since, 1)}。材料出尽くしの売りが出ている`);
-    if (bad.length >= 2 && !good.length) { level = 'stop'; title = '今日は売らない（一晩おく）'; }
-    else if (bad.length && good.length) { level = 'wait'; title = '売るなら半分だけ'; }
-    else if (good.length) { level = 'ok'; title = '売る理由がある（計画どおりに）'; }
-    else { level = 'wait'; title = '急いで売る理由は見当たらない'; }
-    if (pos) plan.push(`計画の売り: 指値 ${ps.ready ? fmtTick(ps.v) + `円（毎朝置き直す・買値+${r.floor}%より下には置かない）` : '約定日の引けのあとに出る'}／損切り ${fmtPrice(pos.stop)}円／${r.max_hold}営業日で引け`);
-    if (level === 'stop') plan.push('成行で売らず、翌日の寄り付き後まで待って同じチェックをもう一度');
-    if (!pos) plan.push('売るなら「どこまで下がったら売るか」を先に決め、その価格で機械的に');
+    if (!pos && vd) {
+      // 判定を見出しにする（同じ銘柄に保有株カードと違うことを言わない）
+      level = { hold: 'stop', wait: 'stop', trim_limit: 'wait', trim: 'wait', trim_now: 'ok', flat: 'wait' }[hd.v] || 'wait';
+      title = { hold: '売らない（勝ちを早く売らない）', wait: '今は売らない（急落のあとは反発しやすい）',
+        trim_limit: '減らすなら売り指値で（寄りの成行で投げない）', trim: '減らすなら売り指値で', trim_now: '減らすなら戻った今',
+        flat: '形からは差がない（撤退ラインと業績の前提で）' }[hd.v] || vd.label;
+      if (downEv && (hd.v === 'hold' || hd.v === 'wait' || hd.v === 'flat')) { level = 'wait'; title += '。ただし業績の前提を見直す'; }
+      plan.push(holdTodo(hd, holdStop(own || { entry: null }, hd), (orderDay(hd.asof) || {}).label || '次の営業日'));
+      if (!own) plan.push('「保有株の判定」（今日・銘柄タブ）に買値と株数を入れると、撤退ラインと含み損益も並べて出します');
+    } else {
+      if (bad.length >= 2 && !good.length) { level = 'stop'; title = '今日は売らない（一晩おく）'; }
+      else if (bad.length && good.length) { level = 'wait'; title = '売るなら半分だけ'; }
+      else if (good.length) { level = 'ok'; title = '売る理由がある（計画どおりに）'; }
+      else { level = 'wait'; title = '急いで売る理由は見当たらない'; }
+      if (pos) plan.push(`計画の売り: 指値 ${ps.ready ? fmtTick(ps.v) + `円（毎朝置き直す・買値+${r.floor}%より下には置かない）` : '約定日の引けのあとに出る'}／損切り ${fmtPrice(pos.stop)}円／${r.max_hold}営業日で引け`);
+      if (level === 'stop') plan.push('成行で売らず、翌日の寄り付き後まで待って同じチェックをもう一度');
+      if (!pos) plan.push('売るなら「どこまで下がったら売るか」を先に決め、その価格で機械的に');
+    }
   }
   const lines = [];
   if (intent === 'buy' && order) lines.push(['entry', order.limit, '指値'], ['stop', order.stop, '損切'], ['target', order.sell, '売り']);
   else if (intent === 'buy' && isNum(sw.trig)) lines.push(['entry', sw.trig, '待つ']);
   if (intent === 'sell' && pos) lines.push(['entry', pos.entry, '買値'], ['stop', pos.stop, '損切'], ['target', ps.ready ? ps.v : null, '売り']);
+  else if (intent === 'sell' && s.hd) {
+    const own = readHold().find((q) => q.code === code);
+    if (own) lines.push(['entry', own.entry, '買値']);
+    const stp = holdStop(own || { entry: null }, s.hd);
+    if (isNum(stp.v)) lines.push(['stop', stp.v, '撤退']);
+    if (isNum(s.hd.sell)) lines.push(['target', s.hd.sell, '売り']);
+  }
   return { s, level, title, bad, good, plan, lines };
 }
 
@@ -2208,7 +2597,7 @@ function checkCard() {
       h('button', { class: 'btn btn--sell', type: 'button', text: '売りたい', onclick: () => draw('sell') }),
     ]),
     result,
-  ], '買う側は短期の押し目買いのルールでの位置だけで判定します（注文対象か、いくらまで待つか）。売る側は、保有中に記録した銘柄なら計画（売り指値・損切り・期限）を、それ以外は狼狽売りになりやすい形かを見ます。売買の推奨ではありません。', false, 'th-check');
+  ], '買う側は短期の押し目買いのルールでの位置だけで判定します（注文対象か、いくらまで待つか）。売る側は、保有中に記録した銘柄なら計画（売り指値・損切り・期限）を、それ以外は保有株の判定（20日の騰落と2日RSI、4年で検証）と、狼狽売りになりやすい形かを見ます。売買の推奨ではありません。', false, 'th-check');
   if (checkCode) setTimeout(() => draw(checkIntent), 0);
   return node;
 }
@@ -2763,6 +3152,7 @@ function searchIndex() {
 function renderStocks() {
   const out = [];
   const d = latestSession() || ((DATA.slots || {}).preopen || {}).data || {};
+  out.push(holdingsCard('st-hold', false));
   out.push(watchlistCard(d));
 
   const input = h('input', { type: 'search', placeholder: 'コードまたは社名で横断検索', autocomplete: 'off', inputmode: 'search' });
@@ -2912,7 +3302,7 @@ function bindSheet() {
 
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMP_LABELS = [
-  ['sec-summary', '要点'], ['sec-thermo', '作戦'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
+  ['sec-summary', '要点'], ['sec-thermo', '作戦'], ['sec-hold', '保有株'], ['sec-analysis', '見立て'], ['sec-open', '想定'], ['sec-index', '指数'],
   ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'], ['sec-outlook', '連想'], ['sec-ussector', '米セクター'],
   ['sec-sector33', '業種'], ['sec-theme', 'テーマ'], ['sec-trend', '時間軸'], ['sec-heat', 'ヒートマップ'],
   ['sec-value', '売買代金'], ['sec-moves', '値動き'], ['sec-ytd', '高値更新'], ['sec-volsurge', '出来高'],
