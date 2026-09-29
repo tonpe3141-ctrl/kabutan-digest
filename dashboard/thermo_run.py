@@ -15,7 +15,7 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, sectors as X, store, swing as W, thermo as T
+from . import bars as bars_mod, hold as HD, sectors as X, store, swing as W, thermo as T
 from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
@@ -298,6 +298,20 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         if row:
             sw_rows[code] = row
     swing = swing_block(ohlc, sw_rows, ind_of, names, sector_of, themes.get("stocks") or {})
+    # 保有株の判定（自分の判断で持っている銘柄向け。確定した日足だけで決める。前場の値はアプリが突き合わせる）
+    hold_rows = {}
+    for code in sw_rows:
+        try:
+            r = HD.today_row(ind_of(code))
+        except Exception:                       # noqa: BLE001  1銘柄の不具合で止めない
+            r = None
+        if r:
+            hold_rows[code] = r
+    try:
+        hold = hold_block({c: ind_of(c) for c in sw_rows}, dict(bars_mod.series(data, "nikkei")), hold_rows)
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  保有株の判定で例外: {e}")
+        hold = None
     # 業種の強弱（押し目買いと同じ業種のグループ。注文の条件には使わない）
     try:
         strength = strength_block(ohlc, W.peer_groups(list(sw_rows), themes.get("stocks") or {}, sector_of),
@@ -318,6 +332,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             **mt, "cls": cls, "ev": ev,
             "sc": sector_cls.get(sector_of.get(code)),
             "sw": _sw_brief(sw_rows.get(code)),
+            "hd": _hd_brief(hold_rows.get(code)),
         }
 
     def pick_list(kind, key_fn, limit, reverse=False):
@@ -342,7 +357,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "strength": strength, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -455,6 +470,32 @@ def _sw_brief(row: dict | None) -> dict | None:
         # 業種の中での位置（g: 比べるグループ、g20: 業種の20日騰落、rel: 業種との差、pc: 押しの形）
         out.update({"g": pc["g"], "g20": pc["g20"], "rel": pc["rel20"], "pc": pc["cls"]})
     return out
+
+
+def _hd_brief(row: dict | None) -> dict | None:
+    """銘柄ごとの、保有株の判定（アプリの「保有株」カードと売る前チェックが読む）。"""
+    if not row:
+        return None
+    return {k: row.get(k) for k in ("asof", "c", "cls", "v", "r20", "rsi2", "r5", "dd60", "atr", "sell")}
+
+
+def hold_block(inds: dict, nk: dict, rows: dict) -> dict:
+    """thermo.json の hold。判定の定数と一言、日足キャッシュに毎日当てた検証、研究の値（出口の規則・後場）。"""
+    try:
+        verify = HD.verify(inds, nk)
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  保有株の判定の検証で例外: {e}")
+        verify = None
+    cnt = {}
+    for r in rows.values():
+        cnt[r["v"]] = cnt.get(r["v"], 0) + 1
+    print(f"    ✅ 保有株の判定: {len(rows)}銘柄（" + "・".join(f"{HD.VERDICTS[k]['label']} {n}" for k, n in sorted(cnt.items()))
+          + "）" + (f"、検証 {verify['from']}〜{verify['to']}" if verify else "、検証なし"))
+    return {"rules": {"r_n": HD.R_N, "win": HD.WIN_R, "lose": HD.LOSE_R, "crash": HD.CRASH_R, "dip": HD.DIP_RSI,
+                      "bounce": HD.BOUNCE_RSI, "exit_n": HD.EXIT_N, "exec_n": HD.EXEC_N, "gap": HD.GAP,
+                      "stop_atr": HD.STOP_ATR, "h": HD.H},
+            "verdicts": HD.VERDICTS, "classes": HD.CLASSES, "verify": verify,
+            "research": HD.RESEARCH, "exits": HD.EXIT_STATS, "pm": HD.PM_STATS}
 
 
 NEAR_PCT = -3.0      # 「もうすぐ注文対象」: あと3%以内の下げで入口に入り、その価格でも上昇トレンドを保つ
