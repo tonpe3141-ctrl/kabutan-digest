@@ -1525,7 +1525,9 @@ function holdRow(p) {
     swingPos
       ? h('div', { class: 'callout callout--accent', text: '押し目買いのルールで買った銘柄。売りはルールの計画（作戦タブの「保有中」の売り指値・損切り・期限）どおりに。' })
       : !hd || !vd
-        ? h('div', { class: 'callout callout--warn', text: 'この銘柄の四本値の日足がまだありません（ウォッチリストに入れると次の更新で入ります）。' })
+        ? h('div', { class: 'callout callout--' + (X.verdicts ? 'warn' : 'accent'), text: X.verdicts
+          ? 'この銘柄の四本値の日足がまだありません（ウォッチリストに入れると次の更新で入ります）。'
+          : '判定は次の収集（寄り前・前場・大引の更新）から出ます。いま出ているデータは、この機能を入れる前に作られたものです。' })
         : h('div', { class: 'hold__verdict' }, [
           h('div', { class: 'hold__vhead' }, [
             h('span', { class: 'badge badge--' + (HOLD_TONE[vd.tone] || ''), text: vd.label }),
