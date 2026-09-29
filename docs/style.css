@@ -459,7 +459,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2
 .bottomnav__btn {
   appearance: none; border: 0; background: transparent; color: var(--text-faint);
   font: inherit; font-size: 10.5px; font-weight: 650; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 4px 10px; min-width: 64px; min-height: 48px; border-radius: 10px; cursor: pointer;
+  padding: 4px 6px; min-width: 56px; min-height: 48px; border-radius: 10px; cursor: pointer;
 }
 .bottomnav__btn svg { width: 22px; height: 22px; }
 .bottomnav__btn[aria-current="page"] { color: var(--accent); }
@@ -696,3 +696,59 @@ details.acc--inline { margin: 8px 14px 0; }
 .section-head h2 { font-size: 15px; font-weight: 800; margin: 0; }
 .section-head p { font-size: 12px; color: var(--text-dim); margin: 2px 0 0; }
 @media (max-width: 360px) { .order__form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ==================== 業種（業種の強弱） ==================== */
+.sgroup__h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 10px 0 2px; font-size: 12px; font-weight: 750; }
+.sgroup__h small { font-size: 10.5px; color: var(--text-faint); font-weight: 500; }
+.srow {
+  appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; font: inherit; color: inherit;
+  width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto 4.6em;
+  align-items: center; gap: 8px; padding: 8px 0; min-height: 44px;
+}
+.srow:first-child { border-top: 0; }
+.srow__rank { font-size: 12px; font-weight: 800; color: var(--text-faint); text-align: center; }
+.srow__main { min-width: 0; }
+.srow__name { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow__main small { display: block; font-size: 10.5px; color: var(--text-faint); }
+.srow__v { text-align: right; font-size: 13px; }
+.srow__v b { font-weight: 800; }
+.srow__v small { display: block; font-size: 9.5px; color: var(--text-faint); font-weight: 500; }
+.smove { font-size: 11px; font-weight: 750; }
+.sbar { display: inline-block; width: 52px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; vertical-align: middle; }
+.sbar__fill { display: block; height: 100%; border-radius: 3px; background: var(--flat); }
+.sbar__fill--up { background: var(--up); }
+.sbar__fill--down { background: var(--down); }
+.sacc { scroll-margin-top: 130px; }
+.sacc > summary { align-items: center; }
+.sacc__name { display: block; font-size: 14px; font-weight: 700; }
+.sacc__right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
+.sacc__body { padding: 0 14px 4px; }
+.sacc__act { font-size: 12.5px; line-height: 1.6; color: var(--text); margin: 0 0 8px; font-weight: 600; }
+.sacc__rank { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+.sacc__ext { margin-top: 8px; background: var(--surface-2); border-radius: 8px; padding: 7px 9px; }
+.sacc__k { font-size: 10.5px; color: var(--text-faint); font-weight: 700; margin-bottom: 2px; }
+.sacc__line { font-size: 12px; line-height: 1.6; color: var(--text-dim); }
+.sacc__line b { color: var(--text); font-weight: 700; }
+.seg--scroll { overflow-x: auto; scrollbar-width: none; }
+.seg--scroll::-webkit-scrollbar { display: none; }
+.seg--scroll .seg__btn { flex: none; }
+.rrg__wrap { margin: 0 -4px; }
+.rrg { display: block; width: 100%; height: auto; font-family: inherit; }
+.rrg__q--lead { fill: var(--up-bg); }
+.rrg__q--fade { fill: var(--warn-bg); }
+.rrg__q--lag { fill: var(--down-bg); }
+.rrg__q--turn { fill: var(--accent-soft); }
+.rrg__ql { font-size: 9.5px; font-weight: 750; }
+.rrg__ax { font-size: 9px; fill: var(--text-faint); }
+.rrg__c--lead { fill: var(--up); stroke: var(--up); }
+.rrg__c--fade { fill: var(--warn); stroke: var(--warn); }
+.rrg__c--lag { fill: var(--down); stroke: var(--down); }
+.rrg__c--turn { fill: var(--accent); stroke: var(--accent); }
+.rrg__ql.rrg__c--lead, .rrg__ql.rrg__c--fade, .rrg__ql.rrg__c--lag, .rrg__ql.rrg__c--turn { stroke: none; }
+.rrg__trail { fill: none; stroke-width: 1.5; opacity: .5; stroke-linejoin: round; stroke-dasharray: 3 2; }
+.rrg__dot { stroke: var(--surface); stroke-width: 1; }
+.rrg__dot--dim { opacity: .45; }
+.rrg__hit { fill: transparent; stroke: none; cursor: pointer; }
+.rrg__lab { font-size: 10px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+table.bt--wrap tbody th { white-space: normal; min-width: 5.5em; }
+table.bt--wrap thead th:first-child { text-align: left; }
