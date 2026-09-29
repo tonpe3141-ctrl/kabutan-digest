@@ -523,7 +523,11 @@ table.bt { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.bt th, table.bt td { padding: 6px 4px; text-align: right; border-top: 1px solid var(--border); white-space: nowrap; }
 table.bt thead th { border-top: 0; font-size: 10.5px; color: var(--text-faint); font-weight: 650; }
 table.bt tbody th { text-align: left; font-weight: 650; }
-table.bt--sec td:nth-child(2), table.bt--sec td:last-child { text-align: left; }
+/* 見出しは列の中身と同じ側にそろえる（1列目は名前なので左、数字の列は右） */
+table.bt thead th:first-child { text-align: left; }
+table.bt--sec td:nth-child(2), table.bt--sec td:last-child,
+table.bt--sec thead th:nth-child(2), table.bt--sec thead th:last-child { text-align: left; }
+table.bt--sec td:last-child, table.bt--sec thead th:last-child { padding-left: 14px; }
 .bt__all th, .bt__all td { color: var(--text-dim); font-weight: 650; background: var(--surface-2); }
 .bt__cons th { font-size: 11px; color: var(--text-dim); }
 .bt__sub { display: block; font-size: 10px; color: var(--text-faint); font-weight: 500; }
@@ -751,4 +755,3 @@ details.acc--inline { margin: 8px 14px 0; }
 .rrg__hit { fill: transparent; stroke: none; cursor: pointer; }
 .rrg__lab { font-size: 10px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 table.bt--wrap tbody th { white-space: normal; min-width: 5.5em; }
-table.bt--wrap thead th:first-child { text-align: left; }
