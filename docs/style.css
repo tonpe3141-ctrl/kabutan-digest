@@ -752,3 +752,22 @@ details.acc--inline { margin: 8px 14px 0; }
 .rrg__lab { font-size: 10px; font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 table.bt--wrap tbody th { white-space: normal; min-width: 5.5em; }
 table.bt--wrap thead th:first-child { text-align: left; }
+/* 保有株の判定 */
+.hold__sum { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin: 0 14px 10px; padding: 9px 11px; border-radius: 10px; background: var(--surface-2); }
+.hold__counts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.hold__total { flex: none; text-align: right; font-size: 16px; font-weight: 800; }
+.hold__total small { display: block; font-size: 10.5px; font-weight: 650; color: var(--text-dim); }
+.hold__pl { flex: none; text-align: right; }
+.hold__yen { font-size: 11.5px; font-weight: 700; }
+.hold__verdict { margin: 0 0 8px; }
+.hold__vhead { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.hold__vhead .badge { font-size: 13px; padding: 3px 9px; }
+.hold__asof { font-size: 11px; color: var(--text-faint); font-weight: 600; }
+.hold__todo { margin-top: 6px; font-size: 14px; font-weight: 750; line-height: 1.5; color: var(--text); }
+.hold__why { margin-top: 3px; font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+.hold__ev { margin-top: 3px; font-size: 11px; color: var(--text-faint); line-height: 1.5; }
+.hold__pad { margin: 10px 14px 0; }
+details.risk.hold__proof { margin: 10px 0 4px; }
+.hold__proof .tablewrap { margin: 4px 0 6px; }
+.hold__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { font: inherit; font-size: 12px; font-weight: 650; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }

@@ -80,9 +80,11 @@ def _fetch_watchlist(tables: dict, disclosures: list[dict],
     quotes = []
     for code in codes:
         q = have.get(code)
+        # 始値・高値・安値と時刻は、アプリの保有株カードが前場の値動き（撤退ライン・売り指値に届いたか）を見るため
         quotes.append({"code": code, "name": ja.get(code) or q.get("name"), "price": q.get("last"),
                        "change": q.get("change"), "change_pct": q.get("change_pct"),
-                       "sector": q.get("sector")}
+                       "sector": q.get("sector"), "open": q.get("open"), "high": q.get("high"),
+                       "low": q.get("low"), "at": q.get("last_time")}
                       if q else {"code": code, "name": ja.get(code), "error": True})
 
     enriched = analyze.enrich_watchlist(quotes, tables, [])
