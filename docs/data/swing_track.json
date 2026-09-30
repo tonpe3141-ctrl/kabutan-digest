@@ -56,9 +56,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 3528.39,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3600.0
+"last": 3560.0
 },
 {
 "asof": "2026-09-28",
@@ -70,9 +70,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2709.0
+"last": 2709.5
 },
 {
 "asof": "2026-09-28",
@@ -84,9 +84,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 1374.14,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1382.0
+"last": 1396.0
 },
 {
 "asof": "2026-09-28",
@@ -98,9 +98,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 7510.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 7490.0
+"last": 7550.0
 },
 {
 "asof": "2026-09-28",
@@ -117,7 +117,8 @@
 "name": "ＳＨＩＦＴ",
 "limit": 826,
 "stop": 722,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-29",
@@ -125,15 +126,22 @@
 "name": "フリー",
 "limit": 3510,
 "stop": 2983,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-29",
 "code": "9502",
 "name": "中部電",
 "limit": 2661,
-"stop": 2378,
-"done": false
+"stop": 2379.88,
+"done": false,
+"filled": true,
+"in": "2026-09-30",
+"entry": 2661.98,
+"days": 1,
+"open": true,
+"last": 2709.5
 },
 {
 "asof": "2026-09-29",
@@ -141,7 +149,8 @@
 "name": "ＵＢＥ",
 "limit": 3285,
 "stop": 3090,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-29",
@@ -149,14 +158,55 @@
 "name": "豊田通商",
 "limit": 6990,
 "stop": 6340,
+"done": true,
+"filled": false
+},
+{
+"asof": "2026-09-30",
+"code": "4478",
+"name": "フリー",
+"limit": 3480,
+"stop": 3015,
+"done": false
+},
+{
+"asof": "2026-09-30",
+"code": "4443",
+"name": "Sansan",
+"limit": 1975,
+"stop": 1761,
+"done": false
+},
+{
+"asof": "2026-09-30",
+"code": "9502",
+"name": "中部電",
+"limit": 2662,
+"stop": 2382,
+"done": false
+},
+{
+"asof": "2026-09-30",
+"code": "9735",
+"name": "セコム",
+"limit": 6140,
+"stop": 5820,
+"done": false
+},
+{
+"asof": "2026-09-30",
+"code": "2269",
+"name": "明治ＨＤ",
+"limit": 4110,
+"stop": 3850,
 "done": false
 }
 ],
 "stats": {
 "n": 0,
-"fill": 40,
-"open": 4,
-"issued": 15,
+"fill": 33,
+"open": 5,
+"issued": 20,
 "since": "2026-09-25"
 }
 }

@@ -1,11 +1,12 @@
 {
-"updated_at": "2026-09-29",
+"updated_at": "2026-09-30",
 "dates": [
 "2026-09-23",
 "2026-09-24",
 "2026-09-25",
 "2026-09-28",
-"2026-09-29"
+"2026-09-29",
+"2026-09-30"
 ],
 "entries": [
 {
@@ -15,11 +16,11 @@
 "name": "食品",
 "price": null,
 "nk": 65018.95,
-"d5": null,
+"d5": -0.85,
 "d20": null,
-"x5": null,
+"x5": -3.52,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -28,11 +29,11 @@
 "name": "その他製造",
 "price": null,
 "nk": 65018.95,
-"d5": null,
+"d5": 0.32,
 "d20": null,
-"x5": null,
+"x5": -2.35,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -41,11 +42,11 @@
 "name": "マネーフォワード",
 "price": 5901.0,
 "nk": 65018.95,
-"d5": null,
+"d5": 0.88,
 "d20": null,
-"x5": null,
+"x5": -1.79,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -54,11 +55,11 @@
 "name": "カバー",
 "price": 1603.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -4.8,
 "d20": null,
-"x5": null,
+"x5": -7.47,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -67,11 +68,11 @@
 "name": "ニトリＨＤ",
 "price": 3030.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -2.97,
 "d20": null,
-"x5": null,
+"x5": -5.64,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -80,11 +81,11 @@
 "name": "GENDA",
 "price": 690.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -4.64,
 "d20": null,
-"x5": null,
+"x5": -7.31,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -93,11 +94,11 @@
 "name": "M&A総研ホールディングス",
 "price": 1033.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -1.16,
 "d20": null,
-"x5": null,
+"x5": -3.83,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -106,11 +107,11 @@
 "name": "メルカリ",
 "price": 3699.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -2.57,
 "d20": null,
-"x5": null,
+"x5": -5.24,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -119,11 +120,11 @@
 "name": "FOOD & LIFE COMPANIES",
 "price": 4938.0,
 "nk": 65018.95,
-"d5": null,
+"d5": 3.95,
 "d20": null,
-"x5": null,
+"x5": 1.28,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -132,11 +133,11 @@
 "name": "三井金属",
 "price": 22795.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -89.95,
 "d20": null,
-"x5": null,
+"x5": -92.62,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -145,11 +146,11 @@
 "name": "Abalance",
 "price": 230.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -13.48,
 "d20": null,
-"x5": null,
+"x5": -16.15,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -158,11 +159,11 @@
 "name": "レゾナック",
 "price": 13895.0,
 "nk": 65018.95,
-"d5": null,
+"d5": 7.84,
 "d20": null,
-"x5": null,
+"x5": 5.18,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -171,11 +172,11 @@
 "name": "メディシノバ",
 "price": 485.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -48.66,
 "d20": null,
-"x5": null,
+"x5": -51.33,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -184,11 +185,11 @@
 "name": "レオパレス21",
 "price": 1040.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -1.73,
 "d20": null,
-"x5": null,
+"x5": -4.4,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -197,11 +198,11 @@
 "name": "コパ・コーポレーション",
 "price": 513.0,
 "nk": 65018.95,
-"d5": null,
+"d5": -22.61,
 "d20": null,
-"x5": null,
+"x5": -25.28,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -210,11 +211,11 @@
 "name": "ミンカブ・ジ・インフォノイド",
 "price": 600.0,
 "nk": 65018.95,
-"d5": null,
+"d5": 15.33,
 "d20": null,
-"x5": null,
+"x5": 12.67,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -223,11 +224,11 @@
 "name": "ヴィッツ",
 "price": 2459.0,
 "nk": 65018.95,
-"d5": null,
+"d5": 1.55,
 "d20": null,
-"x5": null,
+"x5": -1.12,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -240,7 +241,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-23",
@@ -253,7 +254,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 4
+"days": 5
 },
 {
 "date": "2026-09-24",
@@ -266,7 +267,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -279,7 +280,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -292,7 +293,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -305,7 +306,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -318,7 +319,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -331,7 +332,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -344,7 +345,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -357,7 +358,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -370,7 +371,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -383,7 +384,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-24",
@@ -396,7 +397,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 3
+"days": 4
 },
 {
 "date": "2026-09-25",
@@ -409,7 +410,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -422,7 +423,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -435,7 +436,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -448,7 +449,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -461,7 +462,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -474,7 +475,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -487,7 +488,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -500,7 +501,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -513,7 +514,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -526,7 +527,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -539,7 +540,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-25",
@@ -552,7 +553,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 2
+"days": 3
 },
 {
 "date": "2026-09-28",
@@ -565,7 +566,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 1
+"days": 2
 },
 {
 "date": "2026-09-28",
@@ -578,7 +579,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 1
+"days": 2
 },
 {
 "date": "2026-09-28",
@@ -591,7 +592,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 1
+"days": 2
 },
 {
 "date": "2026-09-28",
@@ -604,7 +605,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 1
+"days": 2
 },
 {
 "date": "2026-09-28",
@@ -617,7 +618,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 1
+"days": 2
 },
 {
 "date": "2026-09-29",
@@ -630,7 +631,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -643,7 +644,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -656,7 +657,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -669,7 +670,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -682,7 +683,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -695,7 +696,7 @@
 "d20": null,
 "x5": null,
 "x20": null,
-"days": 0
+"days": 1
 },
 {
 "date": "2026-09-29",
@@ -708,6 +709,32 @@
 "d20": null,
 "x5": null,
 "x20": null,
+"days": 1
+},
+{
+"date": "2026-09-30",
+"kind": "注目業種",
+"key": "鉄鋼",
+"name": "鉄鋼",
+"price": null,
+"nk": 66753.72,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
+"days": 0
+},
+{
+"date": "2026-09-30",
+"kind": "高値掴み注意",
+"key": "3143",
+"name": "オーウイル",
+"price": 1042.0,
+"nk": 66753.72,
+"d5": null,
+"d20": null,
+"x5": null,
+"x20": null,
 "days": 0
 }
 ],
@@ -715,10 +742,10 @@
 {
 "kind": "売られすぎ反発",
 "count": 8,
-"n5": 0,
-"d5_median": null,
-"x5_median": null,
-"beat5": null,
+"n5": 5,
+"d5_median": -2.57,
+"x5_median": -5.24,
+"beat5": 40,
 "n20": 0,
 "d20_median": null,
 "x20_median": null,
@@ -751,10 +778,10 @@
 {
 "kind": "押し目候補",
 "count": 11,
-"n5": 0,
-"d5_median": null,
-"x5_median": null,
-"beat5": null,
+"n5": 5,
+"d5_median": -2.97,
+"x5_median": -5.64,
+"beat5": 0,
 "n20": 0,
 "d20_median": null,
 "x20_median": null,
@@ -762,11 +789,11 @@
 },
 {
 "kind": "注目業種",
-"count": 10,
-"n5": 0,
-"d5_median": null,
-"x5_median": null,
-"beat5": null,
+"count": 11,
+"n5": 2,
+"d5_median": -0.27,
+"x5_median": -2.94,
+"beat5": 0,
 "n20": 0,
 "d20_median": null,
 "x20_median": null,
@@ -786,11 +813,11 @@
 },
 {
 "kind": "高値掴み注意",
-"count": 12,
-"n5": 0,
-"d5_median": null,
-"x5_median": null,
-"beat5": null,
+"count": 13,
+"n5": 5,
+"d5_median": -1.73,
+"x5_median": -4.4,
+"beat5": 20,
 "n20": 0,
 "d20_median": null,
 "x20_median": null,
