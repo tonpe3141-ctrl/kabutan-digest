@@ -830,8 +830,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "東証プライムの値上がり率1位で、上昇率・出来高急増と年初来高値の両方に引っかかった。株探は前日引け後に発表した26年12月末株主からの株主優待制度の導入を材料に挙げている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/e4bc5cfb6be8e289ccebf289a5a50a8c9a42d390",
    "tracked_by": "日足"
   },
   {
@@ -859,8 +859,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "出来高急増を伴って年初来高値を更新し引っかかった。株探の東証グロース大引け記事でも年初来高値更新銘柄に挙がっているが、材料そのものの裏付けは確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/4fa77a3e7193b10a3f4c2c08f58d830cb285ce33"
   },
   {
    "code": "8358",
@@ -887,8 +887,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:30に27年3月期の業績予想と配当予想の修正（増配）を開示し引っかかった。時事通信も経常利益を475億円→560億円、純利益を320億円→440億円に上方修正したと伝えている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/709ea6335f24ab876b737f866982985c3f92be87",
    "tracked_by": "日足"
   },
   {
@@ -916,7 +916,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "15:50に中間配当と期末配当予想の修正（記念配当と普通配当の増配）を開示し引っかかった。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -945,8 +945,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値を更新し商いを伴ったため引っかかった。株探の大引け記事は、NASストレージ製品の大口受注の獲得を材料に挙げている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/e4bc5cfb6be8e289ccebf289a5a50a8c9a42d390",
    "tracked_by": "日足"
   }
  ],
