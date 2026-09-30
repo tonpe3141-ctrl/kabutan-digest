@@ -143,6 +143,16 @@ def test_slot():
     check("寄り前は遅れても寄り前", adjust_slot("preopen", at(10, 30)), "preopen")
     check("大引はそのまま", adjust_slot("taibike", at(18, 5)), "taibike")
 
+    from datetime import date
+
+    from dashboard.build import insurance_target
+    # 前の日の保険が深夜に発火した場合。今日の大引として保存しない（2026-09-30 00:41 の実測）
+    check("深夜の大引の保険は前の日の大引", insurance_target("taibike", at(0, 41)), ("taibike", date(2026, 9, 6)))
+    check("深夜の前場の保険も前の日の大引", insurance_target("zenba", at(2, 10)), ("taibike", date(2026, 9, 6)))
+    check("夕方の大引の保険は今日", insurance_target("taibike", at(18, 5)), ("taibike", date(2026, 9, 7)))
+    check("遅れた前場の保険は今日の大引", insurance_target("zenba", at(17, 59)), ("taibike", date(2026, 9, 7)))
+    check("寄り前の保険は今日", insurance_target("preopen", at(7, 35)), ("preopen", date(2026, 9, 7)))
+
     check("auto 07:05", resolve_slot(at(7, 5)), "preopen")
     check("auto 12:05", resolve_slot(at(12, 5)), "zenba")
     check("auto 17:35", resolve_slot(at(17, 35)), "taibike")
