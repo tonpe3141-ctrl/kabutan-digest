@@ -4,7 +4,7 @@
    （h() の html: は自前で組み立てた SVG 専用）。
 
    画面は5つ。1つの情報は1か所だけに置き、ほかの画面には1行の要約とそこへ跳ぶボタンだけを出す（DESIGN.md 19章）:
-     売買     … 今日やること。市況の一行 → 注文 → 保有銘柄 → 監視（ウォッチ・発掘・もうすぐ・業種で見る・追わない）
+     売買     … 今日やること。市況の一行 → 短期の押し目買い → 中期の押し目 → 保有銘柄 → 監視（ウォッチ・発掘・もうすぐ・業種で見る・追わない）
      市況     … 寄り前 / 前場 / 大引 / 推移 を切り替えて、相場で何が起きたかを読む
      業種     … 業種の強弱・4象限・全業種・日経の業種（8日の推移と温度）・テーマ
      ニュース … 保有・監視の銘柄の材料 → 開示 → 報道・公的機関・株探・市況記事・海外
@@ -1117,11 +1117,12 @@ async function toggleWatch(code) {
 /* ==================== 売買（短期の押し目買いと保有銘柄） ====================
    売買タブは「今日やること」だけを上から並べる:
      0. 市況の一行   … いまの時間帯にやること・見立ての見出し・日経／想定オープン・温度（押すと市況タブ）
-     1. 注文         … 前の営業日の引けで出た買いの指値（次の営業日だけ有効）と株数（dashboard/swing.py、DESIGN.md 13章）
-     2. 保有銘柄     … 押し目買いで買った銘柄の計画（売り指値・損切り・期限）と、自分の判断で持つ銘柄の判定（hold.py、18章）を1つに
+     1. 短期の押し目買い … 前の営業日の引けで出た買いの指値（次の営業日だけ有効）と株数（dashboard/swing.py、DESIGN.md 13章）
+     1b. 中期の押し目 … 1年で強い銘柄の1〜3か月の調整で押した日の指値・調整中の銘柄（DESIGN.md 21章）
+     2. 保有銘柄     … 押し目買い・中期の押し目で買った銘柄の計画と、自分の判断で持つ銘柄の判定（hold.py、18章）を1つに
      3. 監視         … もうすぐ注文対象・ウォッチリスト・発掘（台帳）・業種で見る・追いかけない。あと何％下げたら注文対象か
    成績・ルール・判定の根拠は検証タブ、買う前／売る前チェックは銘柄シートに置く。
-   買う候補を出すのはこのルールだけ（同じ銘柄に2つの画面が別々の計画を出さない）。 */
+   買う候補を出すのは短期と中期の2つのルールだけで、1銘柄に1つの計画（中期の形の押しは中期だけ。同じ銘柄に別々の計画を出さない）。 */
 function latestSession() {
   const slots = (DATA && DATA.slots) || {};
   return (slots.taibike || slots.zenba || {}).data || null;
@@ -1152,7 +1153,10 @@ const CLASS_TONE = {
 };
 const RULE_DEFAULT = { rsi_n: 2, rsi_max: 10, ma_long: 200, ma_mid: 50, liq_min: 10, min_price: 300, entry_atr: 0.5,
   stop_atr: 3, exit_n: 4, floor: 0.2, max_hold: 10, max_orders: 5, sector_cap: 2, slot_pct: 10, cost: 0.1,
-  peer_n: 20, peer_dip: -5, peer_up: 3, peer_lag: -5 };
+  peer_n: 20, peer_dip: -5, peer_up: 3, peer_lag: -5,
+  // 中期の押し目（swing.py の MID_*。DESIGN.md 21章）
+  mid_mom_n: 250, mid_mom_skip: 20, mid_top: 0.6667, mid_slope_n: 20, mid_hi_n: 60, mid_age: [20, 59], mid_depth: -10,
+  mid_stop_atr: 1, mid_hold: 60, mid_slots: 6 };
 
 /* 業種の中での位置（押しの形）。swing.py の PEER_CLASSES と同じキー。
    4年の検証（DESIGN.md 14章で決め、15章の売り指値の下限つきで数え直した。前半 2023-24・後半 2025-26）の勝率を並べて出す */
@@ -1178,8 +1182,12 @@ function peerBadge(key) {
 }
 
 function SW() { return (THERMO || {}).swing || null; }
+function MID() { return (SW() || {}).mid || null; }
 function rules() { return { ...RULE_DEFAULT, ...((SW() || {}).rules || {}) }; }
 function swOf(code) { return (((THERMO || {}).stocks || {})[code] || {}).sw || null; }
+/* 中期の押し目の注文（今日の引けで出たもの）と、保有中の中期の銘柄 */
+function midOrderOf(code) { return ((MID() || {}).orders || []).find((o) => o.code === code) || null; }
+const isMidPos = (p) => p && p.kind === 'mid';
 
 function lsNum(key, def) {
   try { const v = parseFloat(localStorage.getItem(key)); return isFinite(v) && v > 0 ? v : def; } catch (e) { return def; }
@@ -1336,7 +1344,7 @@ function refreshPlan() {
   if ($('stockSheet').open) drawSheetBody(false);
 }
 
-function boughtForm(o, day) {
+function boughtForm(o, day, mid) {
   const z = sizeText(o.limit, o.stop);
   const price = h('input', { type: 'number', inputmode: 'decimal', step: 'any', value: String(o.limit) });
   const qty = h('input', { type: 'number', inputmode: 'numeric', step: '100', min: '0', value: z && z.shares ? String(z.shares) : '' });
@@ -1346,8 +1354,11 @@ function boughtForm(o, day) {
     if (!isFinite(e) || e <= 0) { price.focus(); return; }
     const r = rules();
     const pos = readPos().filter((p) => p.code !== o.code);
-    pos.push({ code: o.code, name: o.name, entry: e, shares: parseInt(qty.value, 10) || null, date: date.value || isoToday(),
-      atr: o.atr, stop: Math.floor((e - r.stop_atr * o.atr) * 10) / 10, asof: o.asof });
+    const rec = { code: o.code, name: o.name, entry: e, shares: parseInt(qty.value, 10) || null, date: date.value || isoToday(),
+      atr: o.atr, stop: Math.floor((e - r.stop_atr * o.atr) * 10) / 10, asof: o.asof };
+    // 中期の押し目: 損切りは min(調整の安値, 約定値) − 1ATR、売りの指値は置かず60営業日目の引けで売る
+    if (mid) Object.assign(rec, { kind: 'mid', low: o.low, hi: o.hi, stop: tickDown(Math.min(o.low, e) - r.mid_stop_atr * o.atr) });
+    pos.push(rec);
     writePos(pos);
     refreshPlan();
   } });
@@ -1356,7 +1367,9 @@ function boughtForm(o, day) {
     h('label', {}, [h('span', { text: '株数' }), qty]),
     h('label', {}, [h('span', { text: '約定日' }), date]),
     save,
-    h('p', { class: 'hint', text: '寄りで指値より安く買えたときは、その値段を入れてください（損切りは約定値 − 3ATR で置き直します）。' }),
+    h('p', { class: 'hint', text: mid
+      ? '寄りで指値より安く買えたときは、その値段を入れてください（約定値が調整の安値より下なら、損切りは約定値 − 1ATR で置き直します）。'
+      : '寄りで指値より安く買えたときは、その値段を入れてください（損切りは約定値 − 3ATR で置き直します）。' }),
   ]);
 }
 
@@ -1402,6 +1415,110 @@ function orderCard(o, rank, day, extra, inSheet) {
   ]);
 }
 
+/* ---- 1b. 中期の押し目（大きなトレンドの中の1〜3か月の調整で押した日。dashboard/swing.py の MID_*、DESIGN.md 21章） ---- */
+function midHeld() { return readPos().filter(isMidPos); }
+
+function midOrderCard(o, rank, day, extra, inSheet) {
+  const r = rules();
+  const held = readPos().some((p) => p.code === o.code);
+  const z = sizeText(o.limit, o.stop);
+  const formBox = h('div', {});
+  const acts = h('div', { class: 'order__acts' }, [
+    held ? h('span', { class: 'badge badge--ok', text: '保有銘柄に記録済み' })
+      : h('button', { class: 'btn', type: 'button', text: '買えた', onclick: (ev) => {
+        ev.currentTarget.disabled = true;
+        formBox.appendChild(boughtForm(o, day, true));
+      } }),
+    inSheet ? null : h('button', { class: 'btn btn--ghost', type: 'button', text: 'チャートと根拠', onclick: () => openStock(o.code) }),
+  ]);
+  const meta = [h('span', { text: o.code }), o.sector ? h('span', { text: o.sector }) : null,
+    h('span', { text: `終値 ${fmtPrice(o.close)}` }),
+    isNum(o.rank) ? h('span', { text: `1年の強さ 上位${Math.max(1, 100 - o.rank)}%` }) : null,
+    isNum(o.age) ? h('span', { text: `高値から${o.age}営業日・${fmtPct(o.dd, 1)}` }) : null,
+    isNum(o.rsi2) ? h('span', { text: `2日RSI ${Math.round(o.rsi2)}` }) : null];
+  const title = [h('div', { class: 'row__name', text: cleanName(o.name) || o.code }), h('div', { class: 'row__meta' }, meta)];
+  return h('div', { class: 'order' + (extra ? ' order--more' : '') }, [
+    inSheet ? null : h('div', { class: 'order__head' }, [
+      rank ? h('span', { class: 'order__rank num', text: String(rank) }) : null,
+      h('button', { class: 'order__title order__title--btn', type: 'button', onclick: () => openStock(o.code) }, title),
+    ]),
+    h('div', { class: 'plan__grid' }, [
+      cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・この日だけ`),
+      cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・調整の安値−${r.mid_stop_atr}ATR`, 'down'),
+      cell('売り', `${o.hold || r.mid_hold}日目`, `営業日の引けで。高値 ${fmtTick(o.hi)}（${fmtPct(o.to_hi, 1)}）`, 'up'),
+      cell('株数', z && z.shares ? `${z.shares.toLocaleString('ja-JP')}株` : '—', z ? (z.none ? '1件の金額では買えない'
+        : isNum(z.loss) ? `損切りで −${fmtYen(z.loss)}（資金の${z.lossPct.toFixed(1)}%）` : '') : '資金を入れると出ます'),
+    ]),
+    z && z.none ? h('div', { class: 'plan__size plan__size--none', text: z.text }) : null,
+    extra ? h('div', { class: 'hint', style: 'margin:4px 0 0', text: extra }) : acts,
+    formBox,
+  ]);
+}
+
+function midCard() {
+  const mid = MID();
+  if (!mid) return null;
+  const r = rules();
+  const sw = SW() || {};
+  const day = orderDay(sw.asof);
+  const orders = mid.orders || [];
+  const held = midHeld();
+  const free = Math.max(0, r.mid_slots - held.length);
+  const body = [];
+  body.push(h('p', { class: 'hint', style: 'margin:0 14px 8px', text:
+    `1年で強く上げた銘柄（12か月の強さが上位1/3・200日線が上向き）が、60日高値から${r.mid_age[0]}〜${r.mid_age[1]}営業日・${r.mid_depth}% 以上の調整をしている中で、` +
+    `短く押した日（2日RSI ${r.rsi_max}未満）に指値を置く。${r.mid_hold}営業日持ち、調整の安値を割ったら手仕舞う（売りの指値は置かない）。` +
+    '短期の押し目買いとは別の計画で、同じ銘柄に両方は出しません。' }));
+  if (orders.length) {
+    body.push(h('div', { class: 'orders__when' + (day && day.state === 'expired' ? ' is-expired' : !free ? ' is-short' : '') }, [
+      h('div', { class: 'orders__k', text: `${md(sw.asof)}（${wd(sw.asof)}）の引けで出た中期の注文・中期の保有 ${held.length}／${r.mid_slots}銘柄` +
+        (free ? `（あと${free}件置ける。上から順に）` : '') }),
+      h('div', { class: 'orders__v', text: !free ? `中期の枠（${r.mid_slots}銘柄）が埋まっているので、新しい中期の注文は置かない（検証の口座も同じ置き方です）` : day ? day.text : '' }),
+    ]));
+    body.push(h('div', { class: 'orders' }, orders.map((o, i) => midOrderCard(o, i + 1, day,
+      i >= free ? `中期の枠（${r.mid_slots}銘柄）を超える分。保有が減れば同じ条件で使えます` : null))));
+  } else {
+    body.push(h('div', { class: 'callout callout--accent', style: 'margin:0 14px 8px', text:
+      `今日は中期の注文なし。調整中の銘柄が短く押した日に出ます（下の「調整中の銘柄」）。中期の保有 ${held.length}／${r.mid_slots}銘柄。` }));
+  }
+  const near = (mid.near || []).filter((x) => isNum(x.trig));
+  if (near.length) {
+    body.push(h('details', { class: 'acc acc--inline', open: orders.length ? null : 'open' }, [
+      h('summary', {}, [h('span', { class: 'acc__title', text: `調整中の銘柄 ${mid.n_shape || near.length}（押し待ち。近い順）` })]),
+      foldable((n) => h('div', {}, near.slice(0, n).map((x) => h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(x.code) }, [
+        h('div', { class: 'signal__name', text: cleanName(x.name) || x.code }),
+        h('div', { class: 'signal__right num' }, [
+          h('b', { class: 'down', text: fmtPct(x.to, 1) }),
+          h('small', { text: `${x.code}　${fmtPrice(x.price)}円` }),
+        ]),
+        h('div', { class: 'signal__tags' }, [
+          h('span', { class: 'badge badge--accent', text: `高値から${x.age}日・${fmtPct(x.dd, 1)}` }),
+          isNum(x.rank) ? h('span', { class: 'badge', text: `1年の強さ 上位${Math.max(1, 100 - x.rank)}%` }) : null,
+        ]),
+        h('div', { class: 'signal__why', text: `終値が ${fmtPrice(x.trig)}円 未満で引けたら、翌営業日に中期の注文が出る` +
+          (x.ok === false ? '（ただしそこまで下げると200日線の条件も割れる）' : '') + `。調整の安値 ${fmtPrice(x.low)}円` }),
+      ]))), near.length, 6, '全銘柄'),
+    ]));
+  }
+  body.push(midEvidenceLine());
+  return card('中期の押し目', orders.length ? `${orders.length}銘柄` : '大きなトレンドの中の調整', body, null, true, 'sw-mid');
+}
+
+/* 中期の注文のそばに置く検証の一行（比べる相手と偏りつき） */
+function midEvidenceLine() {
+  const v = ((SW() || {}).verify || {});
+  const m = v.mid || {};
+  const a = m.all || {}, b = (m.base || {}).all || {};
+  const acc = v.account || {}, prev = v.account_prev || {};
+  const text = a.n
+    ? `検証（${a.n}回）: 1回の平均 ${fmtPct(a.avg, 2)}・勝率 ${a.win}%（調整の条件なしで強い銘柄の押しを同じ出口で買うと ${fmtPct(b.avg, 2)}・${b.win ?? '—'}%）。` +
+      (isNum(acc.cagr) && isNum(prev.cagr) ? `短期と合わせた口座は年率 ${fmtPct(acc.cagr, 1)}・最大の目減り ${fmtPct(acc.dd, 1)}（短期だけなら ${fmtPct(prev.cagr, 1)}・${fmtPct(prev.dd, 1)}）。` : '') +
+      '勝率は低く、少数の大きく伸びた銘柄が平均を作る。今の採用銘柄だけで測っている（生存者の偏り）。'
+    : '検証に足りる日足がまだありません（12か月の強さに250営業日が要ります）。予測ではなく、決めた規則どおりに注文を置くための目安です。';
+  return h('button', { class: 'evidence', type: 'button', onclick: () => selectView('verify', 'v-mid') }, [
+    h('span', { text }), h('b', { text: '検証を見る ›' })]);
+}
+
 function ordersCard() {
   const sw = SW();
   if (!sw) {
@@ -1422,8 +1539,9 @@ function ordersCard() {
   ]));
   body.push(riskSettingsBox(refreshPlan));
   if (!orders.length) {
-    body.push(h('div', { class: 'callout callout--accent', text:
-      '注文なし。上昇トレンドの銘柄で、短く押したもの（2日RSI 10未満）がありません。待つのも作戦です。下の「監視」に、もうすぐ注文対象になる銘柄を出しています。' }));
+    body.push(h('div', { class: 'callout callout--accent', text: ((MID() || {}).orders || []).length
+      ? '短期の注文なし。今日押した銘柄は、大きなトレンドの中の調整なので下の「中期の押し目」に出しています（同じ銘柄に両方は出しません）。'
+      : '注文なし。上昇トレンドの銘柄で、短く押したもの（2日RSI 10未満）がありません。待つのも作戦です。下の「監視」に、もうすぐ注文対象になる銘柄を出しています。' }));
   } else {
     body.push(h('div', { class: 'orders' }, orders.map((o, i) => orderCard(o, i + 1, day))));
   }
@@ -1456,7 +1574,7 @@ function ordersCard() {
       `${r.max_hold}営業日で売れなければ引けで売る。\n並べ方は、25日線からの下離れ＋業種より遅れている分が大きい順（業種ぐるみの押し・出遅れの押しが先に来る）。1日${r.max_orders}銘柄・同じ業種${r.sector_cap}銘柄まで。` }),
   ]));
   body.push(evidenceLine());
-  return card('注文', orders.length ? `${orders.length}銘柄` : null, body, null, true, 'sw-orders');
+  return card('短期の押し目買い', orders.length ? `${orders.length}銘柄` : null, body, null, true, 'sw-orders');
 }
 
 /* 注文のそばに置く検証の一行。勝率は比べる相手と、偏り（生存者・急落）と一緒に出す（CLAUDE.md の約束） */
@@ -1466,7 +1584,7 @@ function evidenceLine() {
   const a = v.all || {}, base = v.base || {}, acc = v.account || {};
   const text = a.n
     ? `検証（直近${v.days || ''}営業日・${a.n}回）: 勝率 ${a.win}%（同じ銘柄を毎日買って5日後に売ると ${base.win ?? '—'}%）・1回の平均 ${fmtPct(a.avg, 2)}` +
-      (isNum(acc.cagr) ? `、本番どおりに置いた口座は年率 ${fmtPct(acc.cagr, 1)}・最大の目減り ${fmtPct(acc.dd, 1)}` : '') +
+      (isNum(acc.cagr) ? `、中期の押し目と合わせて本番どおりに置いた口座は年率 ${fmtPct(acc.cagr, 1)}・最大の目減り ${fmtPct(acc.dd, 1)}` : '') +
       '。今の採用銘柄だけで測っている（生存者の偏り）・急落に弱い。予測ではなく、決めた規則どおりに注文を置くための目安です。'
     : '検証に足りる日足がまだありません。予測ではなく、決めた規則どおりに注文を置くための目安です。';
   return h('button', { class: 'evidence', type: 'button', onclick: () => selectView('verify', 'v-swing') }, [
@@ -1487,11 +1605,19 @@ function positionRow(p, inSheet) {
   const now = st.price;
   const pl = isNum(now) ? (now / p.entry - 1) * 100 : null;
   const held = heldDays(p, sw);
-  const ps = posSell(p, sw);                            // 約定日の引けまでの日足が入っていれば売り指値が出せる
-  const due = held + 1 >= r.max_hold;
+  const mid = isMidPos(p);                              // 中期の押し目: 売りの指値は置かず、損切りか60営業日目の引け
+  const ps = mid ? { ready: false, v: null, floor: false } : posSell(p, sw);   // 約定日の引けまでの日足が入っていれば売り指値が出せる
+  const hold = mid ? r.mid_hold : r.max_hold;
+  const due = held + 1 >= hold;
   const lines = [];
-  if (isNum(now) && now <= p.stop) lines.push(h('div', { class: 'guard__note guard__note--warn', text: '損切りの価格を割っています。逆指値が約定していなければ、計画どおりに手仕舞う' }));
-  if (due) lines.push(h('div', { class: 'guard__note guard__note--info', text: `期限（${r.max_hold}営業日）。次の営業日に売り指値に届かなければ引けで売る` }));
+  if (isNum(now) && now <= p.stop) lines.push(h('div', { class: 'guard__note guard__note--warn', text: mid
+    ? '損切りの価格（調整の安値 − 1ATR）を割っています。調整明けの見立てが外れたので、逆指値が約定していなければ計画どおりに手仕舞う'
+    : '損切りの価格を割っています。逆指値が約定していなければ、計画どおりに手仕舞う' }));
+  if (due) lines.push(h('div', { class: 'guard__note guard__note--info', text: mid
+    ? `期限（${hold}営業日）。次の営業日の引けで売る`
+    : `期限（${r.max_hold}営業日）。次の営業日に売り指値に届かなければ引けで売る` }));
+  if (mid && !due) lines.push(h('div', { class: 'guard__note guard__note--info', text:
+    '売りの指値は置かない（伸びる銘柄を早く売らない）。損切りの逆指値だけを置いておき、上げても下げても決めた日まで持つ' }));
   const doneBox = h('div', {});
   const exitBtn = h('button', { class: 'btn', type: 'button', text: '売った', onclick: (ev) => {
     ev.currentTarget.disabled = true;
@@ -1515,7 +1641,7 @@ function positionRow(p, inSheet) {
     if (confirm(`${cleanName(p.name)} を保有銘柄から外しますか？（記録は残しません）`)) { writePos(readPos().filter((q) => q.code !== p.code)); refreshPlan(); }
   } });
   const title = [
-    h('div', { class: 'row__name' }, [document.createTextNode(cleanName(p.name) || p.code), h('span', { class: 'kind kind--rule', text: '押し目買い' })]),
+    h('div', { class: 'row__name' }, [document.createTextNode(cleanName(p.name) || p.code), h('span', { class: 'kind kind--rule', text: mid ? '中期の押し目' : '押し目買い' })]),
     h('div', { class: 'row__meta' }, [h('span', { text: p.code }), h('span', { text: `${md(p.date)} ${fmtPrice(p.entry)}円で買い` }),
       p.shares ? h('span', { text: `${p.shares.toLocaleString('ja-JP')}株` }) : null,
       h('span', { text: `${held}営業日目` })]),
@@ -1526,7 +1652,11 @@ function positionRow(p, inSheet) {
         : h('button', { class: 'order__title order__title--btn', type: 'button', onclick: () => openStock(p.code, 'sell') }, title),
       h('div', { class: 'order__pl num ' + cls(pl), text: isNum(pl) ? fmtPct(pl, 1) : '—' }),
     ]),
-    h('div', { class: 'plan__grid plan__grid--3' }, [
+    h('div', { class: 'plan__grid plan__grid--3' }, mid ? [
+      cell('損切り（逆指値）', fmtPrice(p.stop), `${fmtPct((p.stop / p.entry - 1) * 100, 1)}・調整の安値−${r.mid_stop_atr}ATR`, 'down'),
+      cell('期限', due ? '次の営業日' : `あと${hold - held}日`, due ? '引けで売る' : `${hold}営業日目の引け`),
+      cell('60日高値', isNum(p.hi) ? fmtTick(p.hi) : '—', isNum(p.hi) && isNum(now) ? `いまから ${fmtPct((p.hi / now - 1) * 100, 1)}` : '調整の起点', 'up'),
+    ] : [
       cell('次の売り指値', ps.ready ? fmtTick(ps.v) : '—',
         ps.ready ? `${ps.floor ? `下限（買値+${r.floor}%）` : `直近${r.exit_n}日の平均`}・${fmtPct((ps.v / p.entry - 1) * 100, 1)}` : '約定日の引けのあとに出ます', 'up'),
       cell('損切り（逆指値）', fmtPrice(p.stop), fmtPct((p.stop / p.entry - 1) * 100, 1), 'down'),
@@ -1865,7 +1995,8 @@ function portfolioCard() {
     addBox.appendChild(holdForm(null));
     addBtn.hidden = true;
   } });
-  const note = '押し目買いの銘柄は計画（毎朝の売り指値・損切り・期限）どおりに手仕舞い、自分の判断で持つ銘柄は引けの形（20日の騰落と2日RSI）で「持つ／今は売らない／減らす候補」を出します。' +
+  const note = '押し目買いの銘柄は計画（毎朝の売り指値・損切り・期限）どおりに、中期の押し目の銘柄は損切り（調整の安値−1ATR）か60営業日目の引けで手仕舞い、' +
+    '自分の判断で持つ銘柄は引けの形（20日の騰落と2日RSI）で「持つ／今は売らない／減らす候補」を出します。' +
     '買値・株数はこの端末にだけ保存されます。予測でも売買の推奨でもありません。';
   if (!pos.length && !own.length) {
     return card('保有銘柄', addBtn, [
@@ -1877,7 +2008,9 @@ function portfolioCard() {
   // 合計（今の値が分かる銘柄だけ）と、判定の内訳
   let val = 0, cost = 0;
   const cnt = {};
-  if (pos.length) cnt['押し目買い'] = pos.length;
+  const nMid = pos.filter(isMidPos).length;
+  if (pos.length - nMid) cnt['押し目買い'] = pos.length - nMid;
+  if (nMid) cnt['中期の押し目'] = nMid;
   pos.concat(own).forEach((p) => {
     const now = nowPrice(p.code);
     if (p.shares && isNum(now) && isNum(p.entry)) { val += now * p.shares; cost += p.entry * p.shares; }
@@ -1887,7 +2020,7 @@ function portfolioCard() {
     const vd = hd && X ? (X.verdicts || {})[hd.v] : null;
     if (vd) cnt[vd.label] = (cnt[vd.label] || 0) + 1;
   });
-  const due = pos.filter((p) => { const sw = swOf(p.code); return heldDays(p, sw) + 1 >= rules().max_hold; }).length;
+  const due = pos.filter((p) => { const sw = swOf(p.code); return heldDays(p, sw) + 1 >= (isMidPos(p) ? rules().mid_hold : rules().max_hold); }).length;
   const hit = pos.filter((p) => { const n = nowPrice(p.code); return isNum(n) && n <= p.stop; }).length;
   const head = h('div', { class: 'hold__sum' }, [
     h('div', {}, [
@@ -1921,6 +2054,20 @@ function watchState(code) {
   const r = rules();
   const sw = swOf(code);
   if (!sw) return { key: 'none', text: '次の大引の更新で日足が入ります（日経225・テーマ辞書・台帳・ウォッチリストが対象）' };
+  // 中期の形（大きなトレンドの中の1〜3か月の調整）の銘柄は、中期の押し目の計画だけを出す（1銘柄に1つの計画）
+  const mdx = sw.md;
+  if (mdx && mdx.st === 'signal') {
+    return { key: 'signal', text: midOrderOf(code) ? '今日の中期の押し目の注文に入っています' : '中期の押し目の注文対象' };
+  }
+  if (mdx) {
+    const shape = `1年で強く、60日高値から${mdx.age}営業日・${fmtPct(mdx.dd, 1)}の調整中`;
+    if (isNum(mdx.trig)) {
+      return { key: mdx.to >= -3 && mdx.ok !== false ? 'near' : 'wait', to: mdx.to,
+        text: `${shape}。終値が ${fmtPrice(mdx.trig)}円 未満（${fmtPct(mdx.to, 1)}）で引けたら、翌営業日に中期の押し目の注文が出る` +
+          (mdx.ok === false ? '（ただしそこまで下げると200日線の条件も割れる）' : '') };
+    }
+    return { key: 'wait', text: `${shape}。押した日に中期の押し目の注文が出る` };
+  }
   if (sw.st === 'signal' && sw.pc === 'hot') {
     return { key: 'skip', text: `押した形だが、業種の上げに沿った押しなので見送り（${peerLine(sw.g, sw.g20, sw.rel)}）` };
   }
@@ -1977,7 +2124,8 @@ function watchRow(it) {
       h('small', { text: `${it.code}　${isNum(price) ? fmtPrice(price) + '円' : ''}` }),
     ]),
     h('div', { class: 'signal__tags' }, [h('span', { class: 'badge' + (tone ? ' badge--' + tone : ''), text: label })]
-      .concat(['signal', 'near', 'wait'].includes(it.ws.key) && (swOf(it.code) || {}).pc !== 'hot' ? [peerBadge((swOf(it.code) || {}).pc)] : [])
+      .concat((swOf(it.code) || {}).md ? [h('span', { class: 'badge badge--accent', text: '中期' })] : [])
+      .concat(['signal', 'near', 'wait'].includes(it.ws.key) && !(swOf(it.code) || {}).md && (swOf(it.code) || {}).pc !== 'hot' ? [peerBadge((swOf(it.code) || {}).pc)] : [])
       .concat(it.src.filter((s) => s !== 'もうすぐ').map((s) => h('span', { class: 'badge badge--src', text: s })))
       .concat((wl.disclosures || []).map((m) => h('span', { class: 'badge badge--warn', text: '📄 ' + m })))
       .concat((wl.tags || []).slice(0, 2).map((t) => h('span', { class: 'badge badge--accent', text: t })))
@@ -2060,7 +2208,9 @@ function peerMember(m, kind) {
   const r = rules();
   let st = PEER_STATE[m.st] || ['—', ''];
   let why;
-  if (m.st === 'signal' && m.pc === 'hot') {
+  if (m.st === 'signal' && midOrderOf(m.code)) {
+    why = '中期の押し目の注文に入っています（大きなトレンドの中の調整で押した日）';
+  } else if (m.st === 'signal' && m.pc === 'hot') {
     st = ['見送り', 'warn'];
     why = '押したが業種並み（業種の上げに沿った押し）';
   } else if (m.st === 'signal') {
@@ -2199,12 +2349,15 @@ function statsCard() {
     const acc = v.account;
     if (acc && acc.days) {
       const r = rules();
-      body.push(accountBlock(acc, `本番どおりに置いた口座（資金の${acc.slot}%ずつ・1日${r.max_orders}件まで）`,
-        `${ym(acc.from)}〜${ym(acc.to)} に、毎日の引けでこのルールの注文を上から${r.max_orders}件まで、空いている資金の${acc.slot}%ずつ置いた場合` +
-        `（翌日だけ有効・約定しなければ資金はその日遊ぶ・保有中の銘柄には重ねない・同じ業種は${r.sector_cap}銘柄まで）。` +
-        `稼働率 ${acc.util}%（資金のうち株に入っていた割合の平均）・売買 ${acc.n}回・勝率 ${acc.win ?? '—'}%。` +
+      const prev = v.account_prev || {};
+      body.push(accountBlock(acc, `本番どおりに置いた口座（短期と中期を合わせて・資金の${acc.slot}%ずつ）`,
+        `${ym(acc.from)}〜${ym(acc.to)} に、毎日の引けで中期の押し目の注文を先に（中期の保有が${acc.mid_slots || r.mid_slots}銘柄になるまで）、` +
+        `次に短期の押し目買いの注文を上から${r.max_orders}件まで、空いている資金の${acc.slot}%ずつ置いた場合` +
+        `（翌日だけ有効・約定しなければ資金はその日遊ぶ・保有中の銘柄には重ねない・短期は同じ業種${r.sector_cap}銘柄まで）。` +
+        `稼働率 ${acc.util}%（資金のうち株に入っていた割合の平均）・短期 ${acc.n}回（勝率 ${acc.win ?? '—'}%）・中期 ${acc.mid_n || 0}回（勝率 ${acc.mid_win ?? '—'}%・平均 ${fmtPct(acc.mid_avg, 1)}）。` +
+        (isNum(prev.cagr) ? `以前の置き方（短期だけ）なら年率 ${fmtPct(prev.cagr, 1)}・最大の目減り ${fmtPct(prev.dd, 1)}・資産 ×${(prev.final || 0).toFixed(2)}。` : '') +
         '上の1回ごとの成績は資金の制約を置かない数え方で、約定しなかった注文の資金が遊ぶ分が入っていません。どれくらいの期間で増えるかは、こちらの口座で見てください。' +
-        '4年（2023-08〜2026-09）では年率 +31%・最大の目減り −14%・月でプラス 79%・3か月でプラス 89%（DESIGN.md 16章）。'));
+        '4年（2023-08〜2026-09）では、短期だけ 年率 +18%／+41%（前半／後半）・最大の目減り −15%／−13%、中期と合わせて +30%／+61%・−17%／−17%（DESIGN.md 21章）。'));
     }
     const pv = v.peer || null;
     if (pv) {
@@ -2252,6 +2405,95 @@ function statsCard() {
   return card('押し目買いの成績', v ? `${ym(v.from)}〜${ym(v.to)}・${v.universe}銘柄` : null, body,
     (v ? v.note + ' ' : '') + '銘柄は今の日経225採用・テーマ辞書・台帳・ウォッチリストで、途中で上場廃止になった銘柄は入っていない（その分だけ良く見える）。' +
     '押し目買いは急落に弱い（2024年8月の急落のような日は、損切りが寄りの窓で滑る）。1件を資金の10%前後に抑え、1日5件までで使ってください。', true, 'v-swing');
+}
+
+/* 中期の押し目の成績とルール（検証タブ）。1回ごとの成績を、調整の条件なしの強い銘柄の押しと並べる */
+function midStatsCard() {
+  const sw = SW();
+  const v = (sw && sw.verify) || {};
+  const m = v.mid || null;
+  const r = rules();
+  const body = [];
+  if (m && m.all && m.all.n) {
+    const a = m.all, b = (m.base || {}).all || {};
+    body.push(h('div', { class: 'summary__stats' }, [
+      stat('1回の平均', fmtPct(a.avg, 2), `比べる相手 ${fmtPct(b.avg, 2)}`, cls(a.avg)),
+      stat('勝率', `${a.win}%`, `${a.n}回（相手 ${b.win ?? '—'}%）`),
+      stat('PF', isNum(a.pf) ? a.pf.toFixed(2) : '—', `相手 ${isNum(b.pf) ? b.pf.toFixed(2) : '—'}・平均 ${a.days}日`),
+    ]));
+    const bs = m.base || {};
+    body.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['期間', '回数', '勝率', '平均', 'PF', '最悪'].map((t) => h('th', { text: t })))),
+      h('tbody', {}, [
+        statRow('中期 前半', m.early, m.early.from), statRow('相手 前半', bs.early || {}),
+        statRow('中期 後半', m.late, m.late.from), statRow('相手 後半', bs.late || {}),
+        statRow('中期 全期間', m.all, null, true), statRow('相手 全期間', b),
+      ]),
+    ])));
+    body.push(h('p', { class: 'hint', text: `比べる相手: 12か月の強さが上位1/3・上昇トレンドの銘柄が押した日（2日RSI ${r.rsi_max}未満）に、1〜3か月の調整の条件なしで同じ注文を置いた場合。` +
+      `損切りで終わったのは ${a.stops}%、${r.mid_hold}営業日の期限で終わったのは ${a.times}%。勝ちの平均 ${fmtPct(a.avg_win, 1)}・負けの平均 ${fmtPct(a.avg_loss, 1)}。` +
+      '勝率は低く、損切りで終わる回が多い。少数の大きく伸びた銘柄が平均を作る形です。' }));
+  } else {
+    body.push(h('div', { class: 'empty', text: '検証に足りる日足がまだありません（12か月の強さに250営業日が要ります）' }));
+  }
+  const p = ((MID() || {}).paper) || {};
+  if (p.issued) {
+    const recent = (p.recent || []).slice().reverse().slice(0, 12);
+    body.push(h('div', { class: 'decision__block' }, [
+      h('div', { class: 'decision__bh', text: `このアプリが出した中期の注文の実績（${md(p.since)}〜・${p.issued}件）` }),
+      h('p', { class: 'stats__line', text: p.n
+        ? `結果が出た ${p.n}回: 勝率 ${p.win}%・平均 ${fmtPct(p.avg, 2)}。約定率 ${isNum(p.fill) ? p.fill + '%' : '—'}、保有中 ${p.open || 0}件。`
+        : `まだ結果が出た注文はありません（${isNum(p.fill) ? `約定率 ${p.fill}%、` : ''}保有中 ${p.open || 0}件）。${r.mid_hold}営業日持つので、結果が出るまで3か月ほどかかります。` }),
+      h('div', {}, recent.map((e) => h('div', { class: 'paper__row' }, [
+        h('span', { class: 'paper__d num', text: md(e.asof) }),
+        h('span', { class: 'paper__n', text: cleanName(e.name) || e.code }),
+        h('span', { class: 'paper__r num ' + (isNum(e.ret) ? cls(e.ret) : ''), text:
+          e.done && !e.filled ? '約定せず' : isNum(e.ret) ? `${fmtPct(e.ret, 1)}（${{ stop: '損切り', time: '期限' }[e.why] || ''}）`
+            : e.filled ? `保有中 ${isNum(e.last) && isNum(e.entry) ? fmtPct((e.last / e.entry - 1) * 100, 1) : ''}` : '待ち' }),
+      ]))),
+    ]));
+  }
+  const lines = [
+    ['形', `12か月の強さ（${r.mid_mom_skip}営業日前の終値 ÷ ${r.mid_mom_n}営業日前の終値。直近1か月は除く）が、その日の銘柄の上位1/3。終値 > ${r.ma_long}日線で、${r.ma_long}日線が${r.mid_slope_n}営業日前より上。` +
+      `${r.mid_hi_n}営業日の最高値（終値）から${r.mid_age[0]}〜${r.mid_age[1]}営業日たち、そこから ${r.mid_depth}% 以下（1〜3か月の調整）`],
+    ['入口', `その形の銘柄が2日RSI ${r.rsi_max}未満まで短く押した日。売買代金（20日平均）${r.liq_min}億円以上・株価${r.min_price}円以上`],
+    ['買い', `翌営業日だけ有効の指値 = 終値 − ${r.entry_atr}×ATR(14)（短期と同じ）`],
+    ['損切り', `min(調整の安値, 約定値) − ${r.mid_stop_atr}×ATR(14) に逆指値。調整の安値（高値の日からの終値の最安）を割ったら「調整明け」の見立て違い`],
+    ['売り', `売りの指値は置かない。${r.mid_hold}営業日目の引けで売る（伸びる銘柄を早く売らない）`],
+    ['枠と並べ方', `中期の保有は${r.mid_slots}銘柄まで・1件は資金の${r.slot_pct}%。短期より先に置く。同じ日に複数あれば25日線からの下離れの大きい順`],
+    ['短期との関係', '中期の形の押しは中期の計画だけで出し、短期の押し目買いの注文には出さない（1銘柄に1つの計画）'],
+  ];
+  body.push(h('div', { class: 'decision__block' }, [
+    h('div', { class: 'decision__bh', text: '中期の押し目のルール' }),
+    h('dl', { class: 'rule' }, lines.flatMap(([k, t]) => [h('dt', { text: k }), h('dd', { text: t })])),
+  ]));
+  body.push(h('details', { class: 'acc acc--inline' }, [
+    h('summary', {}, [h('span', { class: 'acc__title', text: '4年の研究と、採らなかった形（DESIGN.md 21章）' })]),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['前半 2023-24／後半 2025-26', '中期', '比べる相手'].map((t) => h('th', { text: t })))),
+      h('tbody', {}, [
+        ['1回の平均（本番の出口）', '+5.38／+6.20%', '+2.95／+3.55%'],
+        ['勝率', '34／27%', '27／23%'],
+        ['PF', '2.83／2.38', '1.98／1.84'],
+        ['60営業日持つだけ（損切りなし）', '+11.2／+14.2%', '+6.5／+9.2%'],
+        ['同・大勝ちの上位10銘柄を除く', '+7.9／+7.9%', '+4.7／+6.7%'],
+      ].map((row) => h('tr', {}, [h('th', { text: row[0] }), h('td', { class: 'num', text: row[1] }), h('td', { class: 'num', text: row[2] })]))),
+    ])),
+    h('p', { class: 'hint', text:
+      '1年で強い銘柄が1〜3か月調整した押しは、調整の条件なしで強い銘柄の押しを買うより、前半・後半とも、日経225の銘柄だけでも、試した7つの出口のどれでも成績が良かった' +
+      '（年ごとでは、60営業日持つだけなら2023〜2026年のどの年も上。本番の出口では2023年だけ同じくらい: +10.6% 対 +11.0%）。' +
+      '口座では、短期の押し目買いに中期の枠（6銘柄）を足すと、並び順をでたらめにした30通りで年率は前半・後半とも30通りすべてで上、シャープは28通り・24通りで上、最大の目減りは30通りすべてで深い（中央値 −15% → −20%）。' +
+      'ただし口座の改善の多くは、大きく伸びた少数の銘柄（メタプラネット・古河電工・さくらインターネットなど）から来ていて、上位10銘柄を除くと口座の改善はほぼ消える。' +
+      'テーマ辞書は今注目されている銘柄で作られているので、「強い銘柄は強いまま」を実際より良く見せている可能性がある（生存者の偏り）。向きは確か、大きさは不確かと読んでください。' +
+      '枠は多いほど（8・10銘柄）この期間では良かったが、この偏りを考えて6銘柄に抑えた。' }),
+    h('p', { class: 'hint', text:
+      '試して採らなかったもの: 保ち合いからの高値更新で買う（前半は平均より悪い）、調整の途中で25日線・50日線を回復した日に買う（大きなトレンドの銘柄をどの日に買っても変わらないか、それより悪い。' +
+      '強い銘柄が20日線を回復した日は、次の20日でむしろ負けた）、' +
+      '押していない日に寄りで買う（押した日の指値のほうが前半で良い）、出口を40・80営業日・5ATR・−20%・200日線割れにする（前半の口座で安値割れの出口が最も良く、後半も最も良かった）、' +
+      '並べ方を強さ・調整の深さの順にする（でたらめな並びと差がない）。' }),
+  ]));
+  return card('中期の押し目の成績', m && m.from ? `${ym(m.from)}〜${ym(v.to)}` : null, body,
+    (m ? m.note + ' ' : '') + '予測ではなく、決めた規則どおりに注文を置くための目安です。', true, 'v-mid');
 }
 
 function ruleCard() {
@@ -2703,6 +2945,33 @@ function impulseCheck(code, intent) {
   const ev = s.ev;
   const ps = pos ? posSell(pos, sw) : { ready: false };   // 約定日の引けのあとから売り指値が決まる
   let level, title;
+  const mo = midOrderOf(code);
+  const mdx = sw.md || null;
+  if (intent === 'buy' && mdx) {
+    // 中期の形（大きなトレンドの中の1〜3か月の調整）の銘柄は、中期の押し目の計画だけで判定する（1銘柄に1つの計画）
+    const shape = `1年の強さ 上位${Math.max(1, 100 - mdx.rank)}%・60日高値 ${fmtPrice(mdx.hi)}円から${mdx.age}営業日・${fmtPct(mdx.dd, 1)} の調整中（調整の安値 ${fmtPrice(mdx.low)}円）`;
+    if (mo) {
+      good.push(`中期の押し目の注文対象。${shape}`);
+      good.push(`指値 ${fmtPrice(mo.limit)}円（終値${fmtPct(mo.to_limit, 1)}）・損切り ${fmtPrice(mo.stop)}円（調整の安値−${r.mid_stop_atr}ATR）・${r.mid_hold}営業日持つ`);
+    } else {
+      bad.push(`${shape}。まだ押していない` + (isNum(mdx.trig) ? `（終値が ${fmtPrice(mdx.trig)}円 未満で引けた翌営業日に中期の注文が出る）` : ''));
+    }
+    if (isNum(s.d1) && s.d1 >= 3) bad.push(`直近 ${fmtPct(s.d1, 1)} の急騰。調整明けを先回りして飛び乗るより、押した日の指値で`);
+    if (ev && ev.dir === 'down' && !String(ev.label || '').startsWith('悪材料出尽くし')) bad.push(`下方修正・減配の開示（${md(ev.date)}）。調整の理由が業績なら、見立ての前提が違う`);
+    if (mo) {
+      level = bad.length >= 2 ? 'wait' : 'ok';
+      title = level === 'ok' ? `中期の注文どおりに（指値で・1件は資金の${r.slot_pct}%）` : '中期の注文対象。ただし気になる点あり（1件を小さく）';
+      plan.push(`${orderDay((SW() || {}).asof)?.text || '次の営業日だけ有効'}。指値 ${fmtPrice(mo.limit)}円で、成行では買わない`);
+      plan.push(`IFD で損切りの逆指値 ${fmtPrice(mo.stop)}円 を入れる。売りの指値は置かず、${r.mid_hold}営業日目の引けで売る（中期の保有は${r.mid_slots}銘柄まで）`);
+      plan.push('勝率は3割前後で、損切りで終わる回が多い。少数の大きく伸びた銘柄が平均を作るので、損切りを動かさず、伸びた銘柄を早く売らない');
+    } else {
+      level = 'stop';
+      title = '今日は買わない（調整中。押した日に中期の注文が出る）';
+      if (isNum(mdx.trig)) plan.push(`待つ価格: 終値 ${fmtPrice(mdx.trig)}円 未満。そこで引けたら、翌営業日の中期の注文に出ます`);
+      plan.push('調整明けを当てにして上げた日に成行で買うより、押した日の指値で。調整の安値を割ったら見立て違い');
+    }
+    return { s, level, title, bad, good, plan };
+  }
   if (intent === 'buy') {
     // まず、このルールでの位置（買う側の判断はこのルールだけ）
     if (sw.st === 'signal' && order) {
@@ -2747,7 +3016,10 @@ function impulseCheck(code, intent) {
     const X = HOLDX() || {};
     const vd = hd ? (X.verdicts || {})[hd.v] : null;
     const own = readHold().find((q) => q.code === code) || null;
-    if (pos) {
+    if (pos && isMidPos(pos)) {
+      if (isNum(s.price) && s.price > pos.stop) bad.push(`中期の押し目で買った銘柄。損切りの価格（${fmtPrice(pos.stop)}円＝調整の安値−${r.mid_stop_atr}ATR）はまだ割っていない。計画どおりなら、売るのは損切りか${r.mid_hold}営業日目の引けのどちらか（上げても売りの指値は置かない）`);
+      else good.push(`損切りの価格（${fmtPrice(pos.stop)}円）を割っている。調整明けの見立てが外れたので、計画どおり手仕舞う`);
+    } else if (pos) {
       const stop = pos.stop;
       if (isNum(s.price) && s.price > stop) bad.push(`損切りの価格（${fmtPrice(stop)}円）はまだ割っていない。計画どおりなら、売るのは売り指値（${ps.ready ? fmtTick(ps.v) + '円' : '約定日の引けのあとに決まる'}）か損切りか期限のどれか`);
       else good.push(`損切りの価格（${fmtPrice(stop)}円）を割っている。計画どおり手仕舞う`);
@@ -2787,7 +3059,8 @@ function impulseCheck(code, intent) {
       else if (bad.length && good.length) { level = 'wait'; title = '売るなら半分だけ'; }
       else if (good.length) { level = 'ok'; title = '売る理由がある（計画どおりに）'; }
       else { level = 'wait'; title = '急いで売る理由は見当たらない'; }
-      if (pos) plan.push(`計画の売り: 指値 ${ps.ready ? fmtTick(ps.v) + `円（毎朝置き直す・買値+${r.floor}%より下には置かない）` : '約定日の引けのあとに出る'}／損切り ${fmtPrice(pos.stop)}円／${r.max_hold}営業日で引け`);
+      if (pos && isMidPos(pos)) plan.push(`計画の売り: 損切り ${fmtPrice(pos.stop)}円／${r.mid_hold}営業日目の引け（売りの指値は置かない）`);
+      else if (pos) plan.push(`計画の売り: 指値 ${ps.ready ? fmtTick(ps.v) + `円（毎朝置き直す・買値+${r.floor}%より下には置かない）` : '約定日の引けのあとに出る'}／損切り ${fmtPrice(pos.stop)}円／${r.max_hold}営業日で引け`);
       if (level === 'stop') plan.push('成行で売らず、翌日の寄り付き後まで待って同じチェックをもう一度');
       if (!pos) plan.push('売るなら「どこまで下がったら売るか」を先に決め、その価格で機械的に');
     }
@@ -2884,6 +3157,8 @@ function renderTrade() {
     return out;
   }
   out.push(ordersCard());
+  const mc = midCard();
+  if (mc) out.push(mc);
   out.push(portfolioCard());
   out.push(watchCard());
   return out;
@@ -3830,9 +4105,13 @@ function contextLines(code) {
   const pos = readPos().find((p) => p.code === code);
   const own = readHold().find((p) => p.code === code);
   const order = [...((SW() || {}).orders || []), ...((SW() || {}).more || [])].find((o) => o.code === code);
+  const mo = midOrderOf(code);
+  if (pos && isMidPos(pos)) return [['entry', pos.entry, '買値'], ['stop', pos.stop, '損切'], ['target', pos.hi, '高値']];
   if (pos) { const ps = posSell(pos, sw); return [['entry', pos.entry, '買値'], ['stop', pos.stop, '損切'], ['target', ps.ready ? ps.v : null, '売り']]; }
   if (own && s.hd) { const stp = holdStop(own, s.hd); return [['entry', own.entry, '買値'], ['stop', stp.v, '撤退'], ['target', s.hd.sell, '売り']]; }
+  if (mo) return [['entry', mo.limit, '指値'], ['stop', mo.stop, '損切'], ['target', mo.hi, '高値']];
   if (order) return [['entry', order.limit, '指値'], ['stop', order.stop, '損切'], ['target', order.sell, '売り']];
+  if (sw.md && isNum(sw.md.trig)) return [['entry', sw.md.trig, '待つ'], ['target', sw.md.hi, '高値']];
   if (isNum(sw.trig)) return [['entry', sw.trig, '待つ']];
   return [];
 }
@@ -3933,9 +4212,12 @@ function stockView(code) {
   const sector = (s && s.s) || null;
   const kids = [sheetHead(name, [code, sector, sw.g && sw.g !== sector ? sw.g : null].filter(Boolean).join('・'), back)];
 
+  const mo = midOrderOf(code);
+  const moi = mo ? ((MID() || {}).orders || []).indexOf(mo) : -1;
   const badges = [];
   if (order) badges.push(h('span', { class: 'badge badge--ok', text: oi >= 0 ? `注文 ${oi + 1}番目` : '注文の次点' }));
-  if (pos || own) badges.push(h('span', { class: 'badge badge--accent', text: pos ? '保有（押し目買い）' : '保有（自分の判断）' }));
+  if (mo) badges.push(h('span', { class: 'badge badge--ok', text: `中期の注文 ${moi + 1}番目` }));
+  if (pos || own) badges.push(h('span', { class: 'badge badge--accent', text: pos ? (isMidPos(pos) ? '保有（中期の押し目）' : '保有（押し目買い）') : '保有（自分の判断）' }));
   if (wl) badges.push(h('span', { class: 'badge', text: 'ウォッチ' }));
   if (le) badges.push(h('span', { class: 'badge', text: '発掘' }));
   kids.push(h('div', { class: 'sd__price' }, [
@@ -3959,17 +4241,23 @@ function stockView(code) {
     ]));
   }
 
-  // 押し目買いのルールでの位置（買う候補を出すのはこのルールだけ）
+  // ルールでの位置（買う候補を出すのは短期の押し目買いと中期の押し目の2つだけ。1銘柄に1つの計画）
   const ws = watchState(code);
   const [wlabel, wtone] = WATCH_STATE[ws.key] || ['—', ''];
   const pi = PEER_INFO[sw.pc];
-  kids.push(sdSection('押し目買いのルール', [
+  const mdx = sw.md;
+  kids.push(sdSection(mdx ? '中期の押し目のルール' : '押し目買いのルール', [
     h('div', { class: 'sd__pad' }, [
       h('div', { class: 'sd__state' }, [h('span', { class: 'badge' + (wtone ? ' badge--' + wtone : ''), text: wlabel }), h('span', { text: ws.text })]),
+      mdx ? h('div', { class: 'order__peer' }, [h('span', { class: 'badge badge--accent', text: '中期' }),
+        h('span', { class: 'order__peer-t', text: `1年の強さ 上位${Math.max(1, 100 - mdx.rank)}%・60日高値 ${fmtPrice(mdx.hi)}円・調整の安値 ${fmtPrice(mdx.low)}円。` +
+          '1年で強く上げた銘柄の1〜3か月の調整。押した日に指値、調整の安値を割ったら手仕舞い、60営業日持つ' })]) : null,
       // 注文があれば業種の行は注文の中に出る
-      !order && sw.g && pi && !['plain', 'none'].includes(sw.pc) ? h('div', { class: 'order__peer' }, [peerBadge(sw.pc), h('span', { class: 'order__peer-t', text: peerLine(sw.g, sw.g20, sw.rel) })]) : null,
+      !order && !mdx && sw.g && pi && !['plain', 'none'].includes(sw.pc) ? h('div', { class: 'order__peer' }, [peerBadge(sw.pc), h('span', { class: 'order__peer-t', text: peerLine(sw.g, sw.g20, sw.rel) })]) : null,
       !order && sw.g && strengthOf(sw.g) ? h('div', { class: 'order__peer' }, [quadBadge(strengthOf(sw.g).quad), h('span', { class: 'order__peer-t', text: strengthLine(sw.g) + '（目安。注文の条件には使わない）' })]) : null,
     ]),
+    mo ? h('div', { class: 'orders sd__order' }, [midOrderCard(mo, moi + 1, orderDay(swx.asof),
+      moi >= rules().mid_slots ? `中期の枠（${rules().mid_slots}銘柄）を超える分。保有が減れば同じ条件で使えます` : null, true)]) : null,
     order ? h('div', { class: 'orders sd__order' }, [orderCard(order, oi >= 0 ? oi + 1 : null, orderDay(swx.asof), oi >= 0 ? null : '上限で外れた次点。枠が空いていれば同じ条件で使えます', true)]) : null,
   ]));
 
@@ -3980,7 +4268,8 @@ function stockView(code) {
   else {
     // 持っていない銘柄に保有の判定は出さない（買いの注文と並ぶと矛盾して見える。持っているなら下の「売りたい」で判定が出る）
     const box = h('div', { class: 'sd__pad' });
-    box.appendChild(h('p', { class: 'hint', style: 'margin:0 0 6px', text: order ? '注文が約定したら、上の「買えた」で保有銘柄に入ります（押し目買いの計画で手仕舞い）。' : '持っていません。' }));
+    box.appendChild(h('p', { class: 'hint', style: 'margin:0 0 6px', text: mo ? '注文が約定したら、上の「買えた」で保有銘柄に入ります（中期の押し目の計画で手仕舞い）。'
+      : order ? '注文が約定したら、上の「買えた」で保有銘柄に入ります（押し目買いの計画で手仕舞い）。' : '持っていません。' }));
     box.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', text: '＋ 保有銘柄に入れる（自分の判断で持っている）', onclick: (e) => {
       e.currentTarget.hidden = true;
       box.appendChild(holdForm({ code, name, entry: null, shares: null, stop: null, fresh: true }));
@@ -4017,6 +4306,7 @@ function renderVerify() {
     out.push(card('検証', null, h('div', { class: 'empty', text: 'データがまだありません。次の自動更新で作られます。' })));
   } else {
     out.push(statsCard());
+    out.push(midStatsCard());
     out.push(ruleCard());
     out.push(holdProofCard());
     out.push(backtestCard(th.backtest));
@@ -4156,7 +4446,7 @@ function bindSheet() {
 
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
-  trade: [['sw-orders', '注文'], ['sw-pos', '保有銘柄'], ['sw-watch', '監視']],
+  trade: [['sw-orders', '短期'], ['sw-mid', '中期'], ['sw-pos', '保有銘柄'], ['sw-watch', '監視']],
   preopen: [['sec-summary', '要点'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
   session: [['sec-summary', '要点'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
@@ -4164,7 +4454,7 @@ const JUMPS = {
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
   news: [['nw-mine', '自分の銘柄'], ['nw-disc', '開示'], ['nw-feed', 'ニュース']],
-  verify: [['v-swing', '成績'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-thermo', '温度計'], ['v-track', '警告'],
+  verify: [['v-swing', '成績'], ['v-mid', '中期'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-thermo', '温度計'], ['v-track', '警告'],
     ['v-sector', '業種'], ['v-ledger', '発掘'], ['v-mine', '自分の記録']],
 };
 
