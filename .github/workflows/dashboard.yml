@@ -64,9 +64,19 @@ jobs:
           # ウォッチリストの保存だけならウォッチリストの差し替えを走らせる。以前は main への push を
           # すべてウォッチリストの保存とみなしていたため、合図が main に直接届いた日（2026-09-28）に
           # 収集が走らず、寄り前は保険の cron（10:08）まで遅れ、前場は取れなかった
+          # 変わったファイルは push の前後のコミットを比べて数える。push イベントの commits[] の
+          # added/modified は空で届いていた（2026-09-29〜30 はすべて 0 件になり、main に直接届いた
+          # 合図がウォッチリストの保存とみなされて、09-30 の前場・大引の収集が走らなかった）
           trig=0
           if [ "$EVENT" = "push" ]; then
-            trig=$(jq '[.commits[]? | (.added[]?, .modified[]?)] | map(select(startswith("docs/data/trigger/"))) | length' "$GITHUB_EVENT_PATH")
+            before=$(jq -r '.before // ""' "$GITHUB_EVENT_PATH")
+            if [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ] \
+               && git fetch -q --depth=1 origin "$before" "$GITHUB_SHA"; then
+              trig=$(git diff --name-only "$before" "$GITHUB_SHA" -- docs/data/trigger/ | wc -l | tr -d ' ')
+            elif git fetch -q --depth=2 origin "$GITHUB_SHA"; then
+              # 比べる相手が無い（新しいブランチ）ときは、push の最後のコミットだけを見る
+              trig=$(git diff --name-only "$GITHUB_SHA~1" "$GITHUB_SHA" -- docs/data/trigger/ | wc -l | tr -d ' ')
+            fi
             echo "この push で変わった合図のファイル: ${trig} 件"
           fi
           if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ] && [ "${trig:-0}" = "0" ]; then

@@ -432,6 +432,18 @@ def adjust_slot(slot: str, now: datetime | None = None) -> str:
     return slot
 
 
+def insurance_target(slot: str, now: datetime | None = None) -> tuple[str, date]:
+    """保険の cron の区分と対象日。日付をまたいで発火したら前の日の大引として扱う。
+
+    前場・大引の保険は数時間遅れて深夜に発火することがある（2026-09-29 の大引の保険が 09-30 00:41 に発火）。
+    そのまま今日の日付で作ると、前の日の引けのデータが「今日の大引」として保存され、翌日の保険が
+    「今日の大引はもうある」と見送り、Routine の待機も今日のデータとして受け取ってしまう。"""
+    now = now or store.now_jst()
+    if slot in ("zenba", "taibike") and now.hour < 7:
+        return "taibike", (now - timedelta(days=1)).date()
+    return adjust_slot(slot, now), now.date()
+
+
 def resolve_slot(now: datetime | None = None) -> str:
     now = now or store.now_jst()
     minutes = now.hour * 60 + now.minute
@@ -556,9 +568,12 @@ def main(argv=None):
         return
     slot = resolve_slot() if args.slot == "auto" else args.slot
     if args.insurance:
-        slot = adjust_slot(slot)
-        if already_done(slot, target_date or store.now_jst().date()):
-            print(f"  {slot} は今日すでに更新済みです（Routine の合図で実行済み）。保険の実行は見送ります")
+        slot, day = insurance_target(slot)
+        if target_date is None and day != store.now_jst().date():
+            print(f"  ⚠️  保険の実行が日付をまたいで遅れたため、{day} の大引として扱います")
+            target_date = day
+        if already_done(slot, target_date or day):
+            print(f"  {slot} は {target_date or day} の分がすでに更新済みです（Routine の合図で実行済み）。保険の実行は見送ります")
             return
     run(slot, target_date)
 
