@@ -851,3 +851,21 @@ dialog.sheet--stock { max-width: 640px; }
 .sd__results .row { grid-template-columns: 1fr auto; }
 .sd__results .row__rank { display: none; }
 .row--disc { grid-template-columns: 34px 1fr auto; }
+
+/* ==================== マクロ環境（DESIGN.md 20章） ==================== */
+table.bt--macro tbody th small.macro__note { display: block; font-size: 10px; font-weight: 650; margin-top: 1px; }
+table.bt--macro tbody th small.macro__note.up { color: var(--up); }
+table.bt--macro tbody th small.macro__note.down { color: var(--down); }
+table.bt--macro td:last-child { width: 56px; }
+.range { position: relative; display: inline-block; width: 52px; height: 6px; border-radius: 3px; vertical-align: middle;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 30%, var(--surface-3)), var(--surface-3) 50%,
+    color-mix(in srgb, var(--up) 30%, var(--surface-3))); }
+.range__mark { position: absolute; top: -3px; width: 3px; height: 12px; margin-left: -1.5px; border-radius: 2px; background: var(--text); }
+.macro__analysis { margin-top: 12px; }
+.macro .feed .row, .macro .feed details.acc > summary { padding-left: 0; padding-right: 0; }
+.macro .feed details.acc .acc__body { padding-left: 0; padding-right: 0; }
+.topic { padding: 10px 0 4px; border-top: 1px solid var(--border); }
+.topic:first-child { border-top: 0; padding-top: 2px; }
+.topic__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13.5px; }
+.topic__n { font-size: 11.5px; color: var(--text-dim); font-weight: 650; white-space: nowrap; }
+.topic__media { font-size: 11px; color: var(--text-faint); margin-top: 2px; line-height: 1.5; }

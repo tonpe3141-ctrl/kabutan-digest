@@ -425,6 +425,11 @@ function summaryCard(d, slot) {
     }
   }
 
+  const mh = (d.ai_macro && d.ai_macro.headline) || (d.macro_view && d.macro_view.headline);
+  if (mh) {
+    chips.push(h('button', { class: 'badge badge--btn', type: 'button', text: 'マクロ: ' + mh.split('。')[0] + ' ›',
+      onclick: () => { const t = document.getElementById('sec-macro'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }));
+  }
   return h('section', { class: 'card summary', id: 'sec-summary' }, [
     headline ? h('p', { class: 'summary__head', text: headline }) : null,
     stats.length ? h('div', { class: 'summary__stats' }, stats) : null,
@@ -757,7 +762,7 @@ function renderNews() {
 }
 
 /* ==================== 市況: 寄り前 ==================== */
-function renderPreopen(d) {
+function renderPreopen(d, upd) {
   const out = [summaryCard(d, 'preopen')];
   const io = d.implied_open;
   if (io) {
@@ -781,9 +786,7 @@ function renderPreopen(d) {
     out.push(card('米国市場', d.freshness && d.freshness.us_asof ? d.freshness.us_asof + ' 終値' : null,
       quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix']), null, false, 'sec-us'));
   }
-  if (d.macro && Object.keys(d.macro).length) {
-    out.push(card('為替・金利・商品', null, quoteTiles(d.macro, ['usdjpy', 'us10y', 'us2y', 'wti', 'gold']), null, false, 'sec-macro'));
-  }
+  out.push(macroCard(d, upd));
   if (d.risk) {
     out.push(card('リスク環境',
       h('span', { class: 'badge badge--' + (d.risk.tone === 'positive' ? 'up' : d.risk.tone === 'negative' ? 'down' : 'accent'), text: d.risk.label }),
@@ -827,6 +830,121 @@ function usLinkCard(d) {
       opts.length > 1 ? segmented(opts, draw, opts[0][0]) : h('span', { class: 'card__sub', text: opts[0][1] })]),
     body, note,
   ]);
+}
+
+/* ==================== マクロ環境（金利・為替・商品の流れと、報道で多かった話題。DESIGN.md 20章） ====================
+   上から: 見立ての見出し → 系列の表（水準・前日・5日・20日・1年のレンジの位置）→ 見立ての本文（AI が書いていれば AI、
+   無ければ数字だけで組み立てた文章）→ ニュースの論点・指標と要人発言・材料の本文（畳む）。
+   ニュースタブの一覧には、ここの短信・材料の本文は入れない（1つの情報は1か所だけ）。 */
+function macroMove(r, k) {
+  const v = r[k];
+  if (!isNum(v)) return '—';
+  if (r.group === 'rate') return v ? `${v > 0 ? '+' : ''}${v}bp` : '0bp';
+  return fmtPct(v, 1);
+}
+function macroLevel(r) {
+  if (r.group === 'rate') return fmtNum(r.last, 3) + '%';
+  return fmtNum(r.last, Math.min(r.digits ?? 2, 2));
+}
+/* 1年のレンジの中の位置（左端＝1年の最低、右端＝最高） */
+function rangeBar(pos) {
+  if (!isNum(pos)) return h('span', { text: '—' });
+  const mark = h('i', { class: 'range__mark' });
+  mark.style.left = Math.max(0, Math.min(100, pos)) + '%';
+  return h('span', { class: 'range', title: `1年のレンジの ${pos}% の位置`, 'aria-label': `1年のレンジの ${pos}% の位置` }, [mark]);
+}
+function macroRowNote(r) {
+  if (r.record === 'high') return `約${r.years}年で最高`;
+  if (r.record === 'low') return `約${r.years}年で最低`;
+  if (r.trend) return `20日で${r.trend}`;
+  return null;
+}
+function macroTable(rows) {
+  return h('div', { class: 'tablewrap' }, h('table', { class: 'bt bt--macro' }, [
+    h('thead', {}, h('tr', {}, ['', '水準', '前日', '5日', '20日', '1年の位置'].map((t) => h('th', { text: t })))),
+    h('tbody', {}, rows.map((r) => {
+      const note = macroRowNote(r);
+      return h('tr', {}, [
+        h('th', {}, [document.createTextNode(r.label),
+          note ? h('small', { class: 'macro__note ' + (r.record === 'high' || (r.trend && isNum(r.norm) && r.norm > 0) ? 'up' : 'down'), text: note }) : null]),
+        h('td', { class: 'num', text: macroLevel(r) }),
+        h('td', { class: 'num ' + cls(r.d1), text: macroMove(r, 'd1') }),
+        h('td', { class: 'num ' + cls(r.d5), text: macroMove(r, 'd5') }),
+        h('td', { class: 'num ' + cls(r.d20), text: macroMove(r, 'd20') }),
+        h('td', {}, rangeBar(r.pos)),
+      ]);
+    })),
+  ]));
+}
+/* 報道・短信の1行（ニュースタブと同じ部品） */
+function macroNews(x, tag, upd) {
+  return newsItem({ title: x.title || x.headline, url: x.url, body: x.body || null, partial: !!x.partial,
+    source: x.source || x.provider || '', t: newsTime(x, upd) }, tag);
+}
+function macroCard(d, upd) {
+  const mv = d.macro_view;
+  const ai = d.ai_macro && (d.ai_macro.sections || []).length ? d.ai_macro : null;
+  const c = ai || (mv && mv.commentary);
+  const pr = d.press || {};
+  if (!mv && !c) {
+    return card('マクロ環境', null, h('div', { class: 'empty', text: 'マクロ環境のデータはまだありません。次の自動更新（寄り前・前場・大引）で作られます。' }), null, false, 'sec-macro');
+  }
+  const kids = [];
+  const head = (c && c.headline) || (mv && mv.headline);
+  if (head) kids.push(h('p', { class: 'analysis__headline', text: head }));
+  const rows = (mv && mv.rows) || [];
+  if (rows.length) {
+    const groups = [['rate', '金利'], ['fx', '為替'], ['commo', '商品']];
+    kids.push(macroTable(rows.slice().sort((a, b) => groups.findIndex((g) => g[0] === a.group) - groups.findIndex((g) => g[0] === b.group))));
+    const sp = (mv.spreads || []).map((s) => `${s.label} ${fmtNum(s.last, 2)}%（20日 ${s.d20 > 0 ? '+' : ''}${s.d20}bp）`);
+    if (sp.length) kids.push(h('div', { class: 'hint' }, sp.map((t) => h('div', { text: t }))));
+  }
+  if (c && c.sections && c.sections.length) {
+    const secs = c.sections.map((s) => h('div', { class: 'analysis__sec' }, [
+      h('div', { class: 'analysis__t', text: s.title }), h('div', { class: 'analysis__b', text: s.body })]));
+    if (ai && Array.isArray(ai.sources) && ai.sources.length) {
+      secs.push(h('div', { class: 'analysis__srcs' }, ai.sources.map((src) =>
+        h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
+    }
+    kids.push(h('div', { class: 'macro__analysis' }, secs));
+  }
+  const tps = (mv && mv.topics) || [];
+  if (tps.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: `ニュースの論点（${tps.length}つの話題・何媒体が報じたか）` }),
+      h('div', { class: 'fold__body' }, tps.map((t) => h('div', { class: 'topic' }, [
+        h('div', { class: 'topic__head' }, [h('b', { text: t.label }),
+          h('span', { class: 'topic__n', text: `${t.media.length}媒体・${t.n}本` + (t.official ? `（公的機関 ${t.official}）` : '') })]),
+        h('div', { class: 'topic__media', text: t.media.join('・') }),
+        h('div', { class: 'feed' }, (t.items || []).map((x) => macroNews(x, x.official ? '公式' : null, upd))),
+      ]))),
+    ]));
+  }
+  const wire = pr.wire || [];
+  if (wire.length) {
+    const tag = { result: '結果', schedule: '予定', remarks: '発言' };
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: `経済指標と要人発言（${wire.length}本）` }),
+      h('div', { class: 'fold__body' }, foldable((n) => h('div', { class: 'feed' }, wire.slice(0, n).map((x) => macroNews(x, tag[x.kind], upd))),
+        wire.length, 12, '全件')),
+    ]));
+  }
+  const arts = pr.macro_articles || [];
+  if (arts.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: `材料を読む（予定・FF金利の織り込み・指標の一覧など ${arts.length}本）` }),
+      h('div', { class: 'fold__body' }, h('div', { class: 'feed' }, arts.map((x) => macroNews(x, null, upd)))),
+    ]));
+  }
+  const th = (mv && mv.rules && mv.rules.trend) || {};
+  const note = (ai
+    ? '見立ては生成AIによる分析です。表の数字と報道・公的機関・株探の記事をもとに書いていますが、誤りを含む可能性があります。'
+    : '見立ては表の数字と見出しの本数だけで組み立てた文章です（同じ数字からは同じ文章）。') +
+    `「20日で上昇」などは20営業日の変化が目安（米金利 ${th.us10y ?? 20}bp・日本10年 ${th.jp10y ?? 10}bp・ドル円 ${th.usdjpy ?? 2}%・原油 ${th.wti ?? 8}%・金 ${th.gold ?? 5}%）を超えたもの。` +
+    '「最高・最低」は取れている約3年の日足（CNBC）で比べたもの。1年の位置は左端が1年の最低、右端が最高。予測ではありません。売買を推奨するものではありません。';
+  const el = card('マクロ環境', h('span', { class: 'badge badge--accent', text: ai ? (ai.method || 'AI分析') : 'ルールベース' }), kids, note, false, 'sec-macro');
+  el.classList.add('macro');
+  return el;
 }
 
 /* ==================== 市況: 前場・大引 ==================== */
@@ -892,7 +1010,7 @@ function rankingCard(d) {
   ]);
 }
 
-function renderSession(d, slot) {
+function renderSession(d, slot, upd) {
   const out = [summaryCard(d, slot)];
   const nk = (d.indices || {}).nikkei;
   let verdict = null, tone = 'neutral';
@@ -909,6 +1027,7 @@ function renderSession(d, slot) {
     d.divergence ? h('div', { class: 'card__note', text: d.divergence.comment }) : null,
     verdict ? h('div', { class: 'hero__verdict is-' + tone, text: verdict }) : null,
   ], null, false, 'sec-index'));
+  out.push(macroCard(d, upd));
   out.push(sectorsTodayCard(d));
   out.push(themeCard(d.theme_flow));
   out.push(rankingCard(d));
@@ -4038,9 +4157,9 @@ function bindSheet() {
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
   trade: [['sw-orders', '注文'], ['sw-pos', '保有銘柄'], ['sw-watch', '監視']],
-  preopen: [['sec-summary', '要点'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', '為替金利'], ['sec-risk', 'リスク'],
+  preopen: [['sec-summary', '要点'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
-  session: [['sec-summary', '要点'], ['sec-index', '指数'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
+  session: [['sec-summary', '要点'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
@@ -4083,7 +4202,8 @@ function renderMarket() {
   if (activeSlot === 'trend') return renderTrend();
   const entry = (DATA.slots || {})[activeSlot];
   if (!entry) return [noData(activeSlot)];
-  return activeSlot === 'preopen' ? renderPreopen(entry.data || {}) : renderSession(entry.data || {}, activeSlot);
+  return activeSlot === 'preopen' ? renderPreopen(entry.data || {}, entry.updated_at)
+    : renderSession(entry.data || {}, activeSlot, entry.updated_at);
 }
 const RENDER = { trade: renderTrade, market: renderMarket, sectors: renderSectors, news: renderNews, verify: renderVerify };
 

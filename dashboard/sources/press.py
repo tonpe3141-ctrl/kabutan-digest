@@ -7,6 +7,10 @@
              （NHK 以外は Google ニュース RSS 経由。本文なし）と、Yahoo!ファイナンスに本文付きで
              配信される 時事通信・トレーダーズ・ウェブ（DZH）・ウエルスアドバイザー の記事
   overseas … 海外報道。CNBC の Markets / Economy / Earnings（英語。見出しと要約）
+  wire     … トレーダーズ・ウェブ（DZH）の短信の表題。経済指標の結果（【指標】）・発表予定・要人発言。
+             表題そのものが事実なので表題だけを持つ
+  macro_articles … マクロの材料になる本文（1日のイベント予定・FF 金利の織り込み度・国内外の指標の一覧・
+             市場のまとめ）。論調（温度計の見出しの論調）には数えない
 
 信頼性は絶対条件なので、配信元は取得時に必ず照合する:
   - Google ニュースは各記事の配信元ドメイン（<source url>）が config の hosts にあるものだけを採る
@@ -25,7 +29,8 @@ from urllib.parse import urlparse
 
 from ..config import (
     PRESS_ARTICLE_LIMIT, PRESS_ARTICLE_PRIORITY, PRESS_BODY_MAX, PRESS_EXCLUDE, PRESS_FEEDS,
-    PRESS_WINDOW_HOURS, PRESS_YAHOO_CATEGORIES, PRESS_YAHOO_PROVIDERS,
+    PRESS_MACRO_ARTICLES, PRESS_WINDOW_HOURS, PRESS_WIRE_KINDS, PRESS_WIRE_LIMIT, PRESS_YAHOO_CATEGORIES,
+    PRESS_YAHOO_PAGES, PRESS_YAHOO_PROVIDERS,
 )
 from ..http import get, get_text
 from .kabutan_news import _list_yahoo, parse_yahoo_article
@@ -203,33 +208,45 @@ def pick_articles(rows: list[dict], limit: int) -> list[dict]:
     return out
 
 
-def fetch_articles(limit: int = PRESS_ARTICLE_LIMIT) -> tuple[list[dict], dict]:
+def list_rows() -> list[dict]:
+    """Yahoo!ファイナンスのニュース一覧から、許可リストの配信元の行を集める（新しい順、URL で重複を落とす）。"""
     providers = tuple(PRESS_YAHOO_PROVIDERS)
     found, seen = [], set()
     for cat in PRESS_YAHOO_CATEGORIES:
-        for page in (1, 2):
+        for page in range(1, PRESS_YAHOO_PAGES.get(cat, 2) + 1):
             rows = _list_yahoo(cat, page, providers)
             for r in rows:
                 if r["url"] in seen:
                     continue
                 seen.add(r["url"])
                 found.append(r)
+    return found
+
+
+def _read_article(r: dict) -> dict | None:
+    html = get_text(r["url"], timeout=20)
+    if not html:
+        return None
+    art = parse_yahoo_article(html, r["url"], provider=r["provider"],
+                              source=PRESS_YAHOO_PROVIDERS.get(r["provider"]))
+    if not art:
+        return None
+    if len(art["body"]) > PRESS_BODY_MAX:
+        art["body"] = art["body"][:PRESS_BODY_MAX] + "…"
+        art["partial"] = True
+    if not art.get("timestamp") and r.get("time"):
+        art["timestamp"] = r["time"]
+    art["provider"] = r["provider"]
+    art["headline"] = _clean_title(art["headline"])
+    return art
+
+
+def fetch_articles(found: list[dict], limit: int = PRESS_ARTICLE_LIMIT) -> tuple[list[dict], dict]:
     articles = []
     for r in pick_articles(found, limit):
-        html = get_text(r["url"], timeout=20)
-        if not html:
-            continue
-        art = parse_yahoo_article(html, r["url"], provider=r["provider"],
-                                  source=PRESS_YAHOO_PROVIDERS.get(r["provider"]))
+        art = _read_article(r)
         if not art:
             continue
-        if len(art["body"]) > PRESS_BODY_MAX:
-            art["body"] = art["body"][:PRESS_BODY_MAX] + "…"
-            art["partial"] = True
-        if not art.get("timestamp") and r.get("time"):
-            art["timestamp"] = r["time"]
-        art["provider"] = r["provider"]
-        art["headline"] = _clean_title(art["headline"])
         if any(_norm(x["headline"]) == _norm(art["headline"]) for x in articles):
             continue   # 差替で同じ記事が2本載ることがある
         articles.append(art)
@@ -238,6 +255,60 @@ def fetch_articles(limit: int = PRESS_ARTICLE_LIMIT) -> tuple[list[dict], dict]:
         counts[r["provider"]] = counts.get(r["provider"], 0) + 1
     print(f"    {'✅' if articles else '⚠️ '} 他社配信記事(Yahoo): 一覧 {len(found)} 件 {counts} / 本文 {len(articles)} 件")
     return articles, counts
+
+
+def list_time(txt: str | None, now: datetime) -> str | None:
+    """一覧の時刻（当日は「19:50」、前日以前は「9/29」）を ISO にする。未来の時刻は前日とみなす。"""
+    if not txt:
+        return None
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", txt)
+    if m:
+        t = now.replace(hour=int(m.group(1)), minute=int(m.group(2)), second=0, microsecond=0)
+        if t > now + timedelta(minutes=10):
+            t -= timedelta(days=1)
+        return t.isoformat(timespec="minutes")
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})", txt)
+    if m:
+        try:
+            d = now.replace(month=int(m.group(1)), day=int(m.group(2)), hour=0, minute=0, second=0, microsecond=0)
+        except ValueError:
+            return None
+        if d > now:
+            d = d.replace(year=d.year - 1)
+        return d.date().isoformat()
+    return None
+
+
+def pick_wire(found: list[dict], now: datetime, limit: int = PRESS_WIRE_LIMIT) -> list[dict]:
+    """トレーダーズ・ウェブの短信（指標の結果・発表予定・要人発言）の表題を、新しい順に返す。"""
+    kinds = [(k, re.compile(p)) for k, p in PRESS_WIRE_KINDS]
+    cutoff = (now - timedelta(hours=window_hours("press", now))).isoformat(timespec="minutes")
+    out = []
+    for r in found:
+        if not r["provider"].startswith("トレーダーズ"):
+            continue
+        kind = next((k for k, p in kinds if p.search(r["title"])), None)
+        pub = list_time(r.get("time"), now)
+        if not kind or not pub or pub < cutoff[: len(pub)]:
+            continue
+        out.append({"title": r["title"], "kind": kind, "published": pub, "url": r["url"],
+                    "source": "トレーダーズ・ウェブ"})
+    out.sort(key=lambda x: x["published"], reverse=True)
+    return out[:limit]
+
+
+def fetch_macro_articles(found: list[dict]) -> list[dict]:
+    """マクロの材料になる本文を、型ごとに最新の1本ずつ読む（一覧は新しい順）。"""
+    out = []
+    for pat in PRESS_MACRO_ARTICLES:
+        r = next((x for x in found if x["provider"].startswith("トレーダーズ") and re.search(pat, x["title"])), None)
+        if not r or any(a["url"] == r["url"] for a in out):
+            continue
+        art = _read_article(r)
+        if art:
+            out.append(art)
+    print(f"    {'✅' if out else '⚠️ '} マクロの材料(トレーダーズ・ウェブ): 本文 {len(out)} 件")
+    return out
 
 
 # ==================== まとめ ====================
@@ -259,14 +330,22 @@ def fetch_all(now: datetime | None = None) -> dict:
     for k in groups:
         groups[k] = _dedupe(sorted(groups[k], key=lambda r: r["published"], reverse=True))
 
-    articles, counts = fetch_articles()
+    found = list_rows()
+    articles, counts = fetch_articles(found)
     status.append({"key": "yahoo_press", "label": "他社配信記事（Yahoo!ファイナンス）", "kind": "press",
                    "ok": bool(articles), "fetched": sum(counts.values()), "kept": len(articles)})
+    wire = pick_wire(found, now)
+    macro_articles = fetch_macro_articles(found)
+    print(f"    {'✅' if wire else '⚠️ '} 短信(指標・予定・要人発言): {len(wire)} 件")
+    status.append({"key": "wire", "label": "短信・マクロの材料（トレーダーズ・ウェブ）", "kind": "press",
+                   "ok": bool(wire or macro_articles), "fetched": len(wire), "kept": len(macro_articles)})
     return {
         "official": groups["official"],
         "headlines": groups["press"],
         "overseas": groups["overseas"],
         "articles": articles,
+        "wire": wire,
+        "macro_articles": macro_articles,
         "status": status,
         "ok": any(s["ok"] for s in status),
     }
