@@ -178,6 +178,12 @@ def parse_yahoo_article(html: str, url: str, provider: str = PROVIDER,
         if len(l) >= 30 or "。" in l:
             start = i
             break
+    # 株探以外（トレーダーズ・ウェブの指標の一覧・FF 金利の織り込み度・要人発言など）は短い行の表が本文なので、
+    # 「現在値」ブロックが無ければ「配信」の次の行から読む（長い行まで飛ばすと表の頭と発言者が欠ける）
+    if provider != PROVIDER:
+        sent = next((i for i, l in enumerate(lines[1:5], start=1) if l == "配信"), None)
+        if sent is not None and "現在値" not in lines[sent + 1: sent + 3]:
+            start = sent + 1
     body_lines = []
     partial = False
     for l in lines[start:]:
@@ -190,6 +196,9 @@ def parse_yahoo_article(html: str, url: str, provider: str = PROVIDER,
     # 末尾の定型（"[2026年9月17日]" / "株探ニュース（minkabu PRESS）" / "提供：〇〇社" / 配信元名）を落とす
     while body_lines and (body_lines[-1].startswith((provider, "提供：", "提供:"))
                           or _DATE_LINE.match(body_lines[-1])):
+        body_lines.pop()
+    # トレーダーズ・ウェブは末尾に担当者の名字だけの行（「越後」「岩間」）が付く
+    if provider.startswith("トレーダーズ") and len(body_lines) > 1 and re.fullmatch(r"[一-鿿]{1,4}", body_lines[-1]):
         body_lines.pop()
     body = "\n".join(body_lines).strip()
     if not body:

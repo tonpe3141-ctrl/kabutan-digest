@@ -14,7 +14,7 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, commentary, ledger as ledger_mod, names, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, ledger as ledger_mod, macro as macro_mod, names, store, themes as themes_mod, thermo_run, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
@@ -99,7 +99,8 @@ def _fetch_watchlist(tables: dict, disclosures: list[dict],
     return enriched
 
 
-_PRESS_EMPTY = {"official": [], "headlines": [], "overseas": [], "articles": [], "status": [], "ok": False}
+_PRESS_EMPTY = {"official": [], "headlines": [], "overseas": [], "articles": [], "wire": [], "macro_articles": [],
+                "status": [], "ok": False}
 
 
 def _fetch_press() -> dict:
@@ -176,13 +177,12 @@ def build_preopen(target_date: date) -> dict:
     payload["index_trend"] = trend.index_trend(sessions, None)
     payload["commentary"] = commentary.preopen_commentary(payload)
     # バックアップ実行（07:35 等）で上書きされても、Routine が既に書いた
-    # ai_commentary を消さないよう同日分があれば引き継ぐ
+    # ai_commentary・ai_macro を消さないよう同日分があれば引き継ぐ
     latest = store.load_latest()
-    if latest.get("date") == target_date.isoformat():
-        payload["ai_commentary"] = ((latest.get("slots", {}).get("preopen") or {})
-                                    .get("data") or {}).get("ai_commentary")
-    else:
-        payload["ai_commentary"] = None
+    before = (((latest.get("slots", {}).get("preopen") or {}).get("data") or {})
+              if latest.get("date") == target_date.isoformat() else {})
+    payload["ai_commentary"] = before.get("ai_commentary")
+    payload["ai_macro"] = before.get("ai_macro")
     return payload
 
 
@@ -343,8 +343,9 @@ def build_session(target_date: date, slot: str) -> dict:
 
     carry_over(payload, (slots.get(slot) or {}).get("data"))
     payload["commentary"] = commentary.session_commentary(payload, slot)
-    # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary を消さない
+    # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary / ai_macro を消さない
     payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
+    payload["ai_macro"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_macro")
     payload["_after_hours"] = split["after"]
     return payload
 
@@ -379,12 +380,12 @@ def carry_over(payload: dict, before: dict | None) -> list[str]:
     pr, opr = payload.get("press"), before.get("press") or {}
     if pr is not None:
         for key, name in (("official", "title"), ("headlines", "title"), ("overseas", "title"),
-                          ("articles", "headline")):
+                          ("wire", "title"), ("articles", "headline"), ("macro_articles", "headline")):
             have = {x.get(name) for x in pr.get(key) or []}
             lost = [x for x in opr.get(key) or [] if x.get(name) not in have]
             if lost:
                 pr[key] = list(pr.get(key) or []) + lost
-                if key != "articles":
+                if key not in ("articles", "macro_articles"):
                     pr[key].sort(key=lambda x: x.get("published") or "", reverse=True)
                 kept.append(f"press.{key}+{len(lost)}")
     if kept:
@@ -504,6 +505,13 @@ def run(slot: str, target_date: date | None = None) -> dict:
         payload["commentary"].setdefault("sections", []).append(sec)
     if th and th.get("history"):
         hist_patch[slot].update(th["history"])
+
+    # マクロ環境（金利・為替・商品の流れと、報道で多かった話題）。温度計が更新した日足キャッシュを読む
+    print("  [マクロ] 金利・為替・商品の流れと、報道の話題をまとめ中...")
+    payload["macro_view"] = _safe("マクロ環境", lambda: macro_mod.build(
+        bars_mod.load().get("macro"), payload.get("macro"), payload.get("press"), payload.get("kabutan")))
+    if payload["macro_view"]:
+        hist_patch[slot]["macro_headline"] = payload["macro_view"]["headline"]
 
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)

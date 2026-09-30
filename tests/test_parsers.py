@@ -1173,6 +1173,108 @@ def test_hold():
     check("研究の値は前半・後半の2つずつ", all(len(r["avg"]) == 2 for r in blk["exits"]["rows"]), True)
 
 
+# ==================== マクロ環境 ====================
+TW_TABLE_HTML = """<html><body><article>
+<h1>FF金利織り込み度＝日本時間30日現在（10月、12月開催分）</h1>
+<time>13:15</time><span>配信</span>
+<p>FF金利誘導目標レンジ 3.75－4.00％</p>
+<p>■FOMC FF金利公表予定日 2026年10月28日</p>
+<p>現在　1週間前　1カ月前</p>
+<p>3.75-4.00%織り込み度　49.6　 44.6%　 52.7%</p>
+<p>※数字は四捨五入をしているため、若干のずれが生じる場合がございます。</p>
+<p>越後</p>
+<div>関連ニュース</div>
+</article></body></html>"""
+
+
+def test_macro():
+    print("\nマクロ環境")
+    from dashboard import macro as M, build as B
+
+    days = [f"2025-{m:02d}-{d:02d}" for m in range(1, 13) for d in range(1, 29)][:300]
+    rate = {"d": days, "c": [4.0 + i * 0.002 for i in range(300)]}              # じり高（最後が最高）
+    yen = {"d": days, "c": [150.0] * 299 + [151.5]}
+    bm = {"us10y": rate, "usdjpy": yen}
+
+    xs = M.series(bm, "us10y", {"us10y": {"last": 5.0, "asof": days[-1]}})
+    check("クォートは同じ日付なら置き換える", (len(xs), xs[-1][1]), (300, 5.0))
+    xs = M.series(bm, "us10y", {"us10y": {"last": 5.0, "asof": "2026-01-05"}})
+    check("クォートの日付が新しければ足す", (len(xs), xs[-1]), (301, ("2026-01-05", 5.0)))
+
+    spec = next(s for s in M.MACRO_VIEW if s["key"] == "us10y")
+    r = M.view_row(spec, M.series(bm, "us10y"))
+    check("金利の変化は bp（20日 +4bp）", (r["d1"], r["d20"]), (0, 4))
+    check("約3年の最高は1年以上の系列だけ・最後が最高なら high", r["record"], "high")
+    check("20日 +4bp は閾値 20bp に届かない（局面にしない）", r["trend"], None)
+    short = M.view_row(spec, list(zip(days[:30], rate["c"][:30])))
+    check("1年に満たない系列では最高と言わない", short["record"], None)
+    fx = M.view_row(next(s for s in M.MACRO_VIEW if s["key"] == "usdjpy"), M.series(bm, "usdjpy"))
+    check("為替は %（前日 +1.0%）", fx["d1"], 1.0)
+
+    steep = {"us2y": {"d": days, "c": [3.5] * 279 + [3.5 + i * 0.03 for i in range(21)]},
+             "us10y": {"d": days, "c": [4.0] * 279 + [4.0 + i * 0.01 for i in range(21)]}}
+    rows = [M.view_row(s, M.series(steep, s["key"])) for s in M.MACRO_VIEW if s["key"] in steep]
+    by = {x["key"]: x for x in rows}
+    check("2年 +60bp・10年 +20bp", (by["us2y"]["d20"], by["us10y"]["d20"]), (60, 20))
+    check("2年主導の上昇はベア・フラット化と読む", "ベア・フラット" in (M._curve_read(60, 20) or ""), True)
+    check("差が小さければ曲線の読みを書かない", M._curve_read(30, 25), None)
+    check("見出しは流れの大きい順（米金利上昇）", M.headline(rows).startswith("米金利上昇"), True)
+    sp = {x["key"]: x for x in M.spreads(steep, None)}
+    check("長短差の20日の変化（bp）", sp["us_curve"]["d20"], -40)
+
+    press = {"official": [{"title": "外国為替平衡操作の実施状況", "source": "財務省", "published": "2026-09-30T19:00+09:00"},
+                          {"title": "[JPX総研]J-LENS の機能追加", "source": "日本取引所グループ", "published": "2026-09-30T18:00+09:00"}],
+             "headlines": [{"title": "円相場、反発 米長期金利が低下", "source": "日本経済新聞", "published": "2026-09-30T17:00+09:00"},
+                           {"title": "ＮＹ外為市場＝ドル上昇、介入警戒", "source": "ロイター", "published": "2026-09-30T06:00+09:00"},
+                           {"title": "日銀、利上げ観測", "source": "ブルームバーグ", "published": "2026-09-30T08:00+09:00"}],
+             "wire": [{"title": "【指標】8月南アフリカPPI（前月比） -0.4％、予想 +0.2％ほか", "kind": "result", "published": "2026-09-30T18:30"},
+                      {"title": "【指標】9月中国製造業PMI 50.1、予想 50.1", "kind": "result", "published": "2026-09-30T10:31"}]}
+    items = M.source_items(press, {"headlines": [{"title": "円相場、反発 米長期金利が低下", "source": "株探"}]})
+    check("同じ見出しは1本に数える（公的機関2・報道3・短信2、株探の重複1本は落とす）", len(items), 7)
+    tps = {t["key"]: t for t in M.topics(items)}
+    check("全角の「ＮＹ外為」も半角にそろえて為替に数える", tps["fx"]["n"], 3)
+    check("「米長期金利」は国内金利（日銀）に数えない", [x["title"] for x in tps["boj"]["_all"]], ["日銀、利上げ観測"])
+    check("公的機関の発表を先頭に", tps["fx"]["items"][0]["source"], "財務省")
+    news = M._news_section(M.topics(items), press)
+    check("公的機関の発表はマクロの話題に当たるものだけ（取引所の案内は挙げない）", "J-LENS" in "".join(news), False)
+    check("指標は日米・中国・欧州を先に（新興国は後ろ）、末尾の「ほか」を重ねない",
+          [x for x in news if x.startswith("発表された")][0],
+          "発表された経済指標（トレーダーズ・ウェブの短信）は 9月中国製造業PMI 50.1、予想 50.1、8月南アフリカPPI（前月比） -0.4％、予想 +0.2％")
+
+    view = M.build(steep, None, press, None)
+    check("文章は金利・ニュースの論点（為替・商品の系列が無ければその節を出さない）",
+          [x["title"] for x in view["commentary"]["sections"]], ["金利", "ニュースの論点"])
+    check("話題の内部用の全件は出力に入れない", any("_all" in t for t in view["topics"]), False)
+
+    jst = timezone(timedelta(hours=9))
+    now = datetime(2026, 9, 30, 19, 55, tzinfo=jst)
+    check("一覧の時刻: 当日の時:分", press_mod.list_time("19:50", now), "2026-09-30T19:50+09:00")
+    check("一覧の時刻: いまより先の時:分は前日", press_mod.list_time("23:30", now), "2026-09-29T23:30+09:00")
+    check("一覧の時刻: 月/日", press_mod.list_time("9/29", now), "2026-09-29")
+    found = [{"title": "【指標】9月中国製造業PMI 50.1、予想 50.1", "provider": "トレーダーズ・ウェブ", "time": "10:31", "url": "a"},
+             {"title": "【要人発言】経済財政相「認識の齟齬はない」", "provider": "トレーダーズ・ウェブ", "time": "18:53", "url": "b"},
+             {"title": "【指標発表予定】20:00　米MBA住宅ローン申請指数", "provider": "トレーダーズ・ウェブ", "time": "19:45", "url": "c"},
+             {"title": "【指標】古い指標", "provider": "トレーダーズ・ウェブ", "time": "9/20", "url": "d"},
+             {"title": "〔東京外為〕ドル、156円台後半", "provider": "時事通信", "time": "17:11", "url": "e"}]
+    wire = press_mod.pick_wire(found, now)
+    check("短信: 型を分け、新しい順、鮮度の窓の外と他社・短信以外を落とす",
+          [(w["kind"], w["url"]) for w in wire], [("schedule", "c"), ("remarks", "b"), ("result", "a")])
+
+    art = parse_yahoo_article(TW_TABLE_HTML, "u", provider="トレーダーズ・ウェブ")
+    check("トレーダーズ・ウェブの表は「配信」の次の行から読む（表の頭を落とさない）",
+          art["body"].split("\n")[0], "FF金利誘導目標レンジ 3.75－4.00％")
+    check("末尾の担当者の名字の行を落とす", art["body"].endswith("場合がございます。"), True)
+    art = parse_yahoo_article(KABUTAN_ARTICLE_HTML, "u")
+    check("株探の記事は従来どおり（現在値の引用ブロックを飛ばす）", art["body"].startswith("Cyntecを割当先"), True)
+
+    before = {"press": {"wire": [{"title": "【指標】A", "published": "2026-09-30T10:00"}],
+                        "macro_articles": [{"headline": "30日の欧米イベントスケジュール", "body": "…"}]}}
+    now_p = {"press": {"wire": [], "macro_articles": []}}
+    kept = B.carry_over(now_p, before)
+    check("取り直しで短信とマクロの本文を減らさない", (len(now_p["press"]["wire"]), len(now_p["press"]["macro_articles"]),
+                                              sorted(kept)), (1, 1, ["press.macro_articles+1", "press.wire+1"]))
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1190,6 +1292,7 @@ if __name__ == "__main__":
     test_ohlc_cache()
     test_ledger_stats()
     test_press()
+    test_macro()
     test_sectors()
     print()
     if failures:

@@ -9,7 +9,7 @@
 
 | 役者 | 担当 | 動く場所 |
 |---|---|---|
-| **Claude Routine**（時計・分析） | 時刻どおりに発火し、収集の合図を push → main の更新を待つ → 記事と数字を読んで見立て・台帳の理由づけ・テーマ辞書の追記を書く → push → PushNotification | claude.ai の Routine（`dashboard/AI_ANALYSIS_TASK.md` が手順書） |
+| **Claude Routine**（時計・分析） | 時刻どおりに発火し、収集の合図を push → main の更新を待つ → 記事と数字を読んで見立て（市況 `ai_commentary`・マクロ `ai_macro`）・台帳の理由づけ・テーマ辞書の追記を書く → push → PushNotification | claude.ai の Routine（`dashboard/AI_ANALYSIS_TASK.md` が手順書） |
 | **GitHub Actions**（収集） | 合図の push で即時起動。CNBC / Yahoo!ファイナンス / TDnet / 日経 / 株探の配信先 / 報道各社・公的機関から取得し、分析値を付けて `docs/data/` に書く | `.github/workflows/dashboard.yml` |
 | **GitHub Pages**（表示） | `docs/` をそのまま公開 | `docs/index.html app.js style.css sw.js` |
 
@@ -21,7 +21,8 @@ dashboard/config.py       定数・米→日セクター連想マップ・取得
 dashboard/http.py         リトライ／レート制御。例外を投げず None を返す
 dashboard/sources/        cnbc.py（相場）, yahoojp.py（ランキング）, tdnet.py（開示）,
                           news.py（Yahoo 市況記事）, kabutan_news.py（株探の配信先）, nikkei225.py,
-                          press.py（株探以外の報道・公的機関。許可リストは config.PRESS_FEEDS）
+                          press.py（株探以外の報道・公的機関。許可リストは config.PRESS_FEEDS。トレーダーズ・ウェブの
+                          短信＝指標の結果・予定・要人発言と、イベント予定・FF 金利の織り込みの本文も）
 dashboard/analyze.py      想定オープン・リスク環境・セクター連想・上げの中身・差分
 dashboard/themes.py       銘柄→テーマ辞書でランキングを束ねる（辞書は docs/data/themes.json）
 dashboard/ledger.py       発掘台帳: 入口は機械、理由は LLM、成績は週報（docs/data/ledger.json）
@@ -37,6 +38,8 @@ dashboard/names.py        銘柄コード → 日本語の社名（CNBC の社�
 dashboard/thermo.py       相場温度計（逆張りガード）: 8軸・温度・バックテスト・業種の分類・銘柄の注意書き・出尽くし・成績
 dashboard/sectors.py      業種の強弱（業種タブ）: 強さ（市場との差60/120日・200日線・50日線より上の割合の順位）・勢い・4象限・検証
 dashboard/thermo_run.py   温度計と押し目買いと業種の強弱の実行。docs/data/thermo.json / thermo_track.json / swing_track.json を書く
+dashboard/macro.py        マクロ環境: 米日の金利（2・10・30年）・ドル円・原油・金・銅の 前日／5日／20日／60日・1年の位置・約3年の最高、
+                          金利差、報道の話題を何媒体が報じたか、ルールベースの文章（市況タブの「マクロ環境」。DESIGN.md 20章）
 dashboard/commentary.py   ルールベースの見立て（LLM 分析が無い時の土台）
 dashboard/store.py        latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py        スロット単位の実行エントリ

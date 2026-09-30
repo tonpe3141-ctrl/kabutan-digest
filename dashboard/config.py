@@ -179,7 +179,76 @@ MACRO_BAR_SYMBOLS = [
     {"key": "usdjpy", "symbol": "JPY=",   "label": "ドル/円",    "foreign": True},
     {"key": "us10y",  "symbol": "US10Y",  "label": "米10年債",   "foreign": True},
     {"key": "wti",    "symbol": "@CL.1",  "label": "WTI原油",    "foreign": True},
+    # 以下はマクロ環境（dashboard/macro.py）の時間軸と「約3年で最高」の判定に使う。温度計の軸には入れない
+    {"key": "us2y",   "symbol": "US2Y",   "label": "米2年債",    "foreign": True},
+    {"key": "us30y",  "symbol": "US30Y",  "label": "米30年債",   "foreign": True},
+    {"key": "jp2y",   "symbol": "JP2Y",   "label": "日本2年債",  "foreign": True},
+    {"key": "jp30y",  "symbol": "JP30Y",  "label": "日本30年債", "foreign": True},
+    {"key": "gold",   "symbol": "@GC.1",  "label": "金",         "foreign": True},
+    {"key": "copper", "symbol": "@HG.1",  "label": "銅",         "foreign": True},
 ]
+
+# ==================== マクロ環境（dashboard/macro.py、DESIGN.md 20章） ====================
+# 市況タブの「マクロ環境」に並べる系列。change は金利が bp、ほかは %。
+# trend は「20営業日でこれだけ動いたら局面とみなす」公開の閾値（予測ではなく、いまの流れの大きさの目安）。
+MACRO_VIEW = [
+    {"key": "us10y",  "label": "米10年",   "group": "rate",  "unit": "%",  "digits": 3, "trend": 20, "family": "us_rate"},
+    {"key": "us2y",   "label": "米2年",    "group": "rate",  "unit": "%",  "digits": 3, "trend": 20, "family": "us_rate"},
+    {"key": "us30y",  "label": "米30年",   "group": "rate",  "unit": "%",  "digits": 3, "trend": 20, "family": "us_rate"},
+    {"key": "jp10y",  "label": "日本10年", "group": "rate",  "unit": "%",  "digits": 3, "trend": 10, "family": "jp_rate"},
+    {"key": "jp2y",   "label": "日本2年",  "group": "rate",  "unit": "%",  "digits": 3, "trend": 10, "family": "jp_rate"},
+    {"key": "jp30y",  "label": "日本30年", "group": "rate",  "unit": "%",  "digits": 3, "trend": 15, "family": "jp_rate"},
+    {"key": "usdjpy", "label": "ドル円",   "group": "fx",    "unit": "円", "digits": 2, "trend": 2.0, "family": "fx"},
+    {"key": "wti",    "label": "WTI原油",  "group": "commo", "unit": "ドル", "digits": 2, "trend": 8.0, "family": "oil"},
+    {"key": "gold",   "label": "金",       "group": "commo", "unit": "ドル", "digits": 1, "trend": 5.0, "family": "gold"},
+    {"key": "copper", "label": "銅",       "group": "commo", "unit": "ドル", "digits": 3, "trend": 6.0, "family": "copper"},
+]
+MACRO_RANGE_DAYS = 250        # 「1年のレンジの位置」に使う営業日
+MACRO_SPARK_DAYS = 60         # 画面の小さな折れ線
+
+# ニュースの論点: 信頼できる情報源（press.* と株探の見出し）を、マクロの話題ごとに数える。
+# 見出しは NFKC で半角にそろえてから照合する。1本の見出しが複数の話題に入ってよい。
+# AI 生成の要約（news[]）は数えない（信頼性の基準に合わない）。
+MACRO_TOPICS = [
+    {"key": "boj",      "label": "日銀・国内金利",
+     "pattern": r"日銀|日本銀行|植田|氷見野|審議委員|決定会合|短観|展望リポート|展望レポート|(?<!米)長期金利|(?<!米)国債|JGB|"
+                r"新発10年|BOJ|Bank of Japan"},
+    {"key": "fed",      "label": "FRB・米金利",
+     "pattern": r"FRB|FOMC|パウエル|米連銀|連銀総裁|米金融政策|米(長期)?金利|米国債|米\d+年債|米利上げ|米利下げ|利下げ観測|"
+                r"利上げ観測|FF金利|\bFed\b|Treasury|Treasuries|yields?\b|Powell|rate cut|rate hike"},
+    {"key": "fx",       "label": "為替・介入",
+     "pattern": r"円相場|円安|円高|ドル円|ドル・円|円買い|円売り|外為|為替|介入|外国為替平衡|\byen\b|dollar"},
+    {"key": "energy",   "label": "原油・資源",
+     "pattern": r"原油|WTI|OPEC|石油|ガソリン|LNG|天然ガス|銅価格|銅相場|金価格|金相場|金先物|貴金属|\boil\b|crude|gold\b|copper"},
+    {"key": "geo",      "label": "中東・地政学",
+     "pattern": r"イラン|イスラエル|中東|ガザ|ウクライナ|ロシア|台湾有事|北朝鮮|地政学|ホルムズ|サウジ|フーシ|"
+                r"Iran|Israel|Ukraine|Russia|Middle East|Gaza"},
+    {"key": "trade",    "label": "通商・関税",
+     "pattern": r"関税|通商|貿易交渉|貿易休戦|輸出規制|制裁|tariff|trade (war|deal|truce)|sanction"},
+    {"key": "policy",   "label": "財政・政治",
+     "pattern": r"財政|補正予算|予算|税収|減税|給付|政権|首相|総裁選|選挙|内閣|国会|財務相|財務大臣|経済財政|諮問会議|経済対策|"
+                r"トランプ|ホワイトハウス|米議会|Trump|White House|Congress|shutdown|debt ceiling"},
+    {"key": "data",     "label": "景気・物価指標",
+     "pattern": r"雇用統計|雇用者数|雇用報告|失業率|求人|JOLTS|CPI|消費者物価|物価|インフレ|PCE|GDP|PMI|景況|景気|小売売上|"
+                r"鉱工業|機械受注|賃金|貿易統計|国際収支|消費者信頼感|ISM|ADP|値上げ|payrolls?|jobs report|inflation|"
+                r"consumer confidence|retail sales|unemployment"},
+    {"key": "china",    "label": "中国",
+     "pattern": r"中国|人民元|上海|香港|本土市場|\bChina\b|Chinese|Beijing|yuan"},
+    {"key": "flow",     "label": "需給（投資主体・先物・空売り）",
+     "pattern": r"投資部門別|海外投資家|外国人投資家|海外勢|空売り|信用残|信用買い残|裁定残|先物主導|ETF売買|手口|CFTC"},
+]
+
+# トレーダーズ・ウェブ（DZH）の短信。表題そのものが事実（経済指標の結果・発表予定・要人の発言）なので、表題を材料にする。
+# 本文を読む記事は、1日の予定・FF 金利の織り込み・国内外の指標の一覧・市場のまとめ（1つの型につき最新の1本）。
+PRESS_WIRE_KINDS = [
+    ("result",   r"^【指標】"),
+    ("schedule", r"^【指標発表予定】"),
+    ("remarks",  r"^【要人発言】|^【日銀議事要旨】|^【日銀】|の主な要人発言"),
+]
+PRESS_WIRE_LIMIT = 40
+PRESS_MACRO_ARTICLES = [r"イベントスケジュール", r"FF金利織り込み", r"主な経済指標", r"マーケットダイジェスト",
+                        r"の主な要人発言", r"NY為替見通し|ロンドン為替見通し"]
+PRESS_YAHOO_PAGES = {"fx": 3}    # 為替のカテゴリは短信が多いので3ページ目まで見る（既定は2ページ）
 
 # 業種（日経225の業種区分）ごとのマクロ感応度。−1〜+1。
 # 「この20日のマクロの動きが、その業種に追い風か向かい風か」を出すための公開係数。
