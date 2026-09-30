@@ -777,6 +777,105 @@ def test_swing():
     check("検証: 業種の上げに沿った押しは注文に数えず、見送りの成績に", (vg["all"].get("n", 0), vg["skipped"]["n"]), (0, 1))
 
 
+def _mid_bars(post=()):
+    """1年上げた（+0.4%/日×250）あと、15日で −14% 調整し、8日戻して、2日続けて押した日足（最後が中期の押しの日）。"""
+    return _swing_bars(n=0, dips=tuple([0.4] * 250 + [-1.0] * 15 + [0.5] * 8 + [-2.0, -2.0] + list(post)))
+
+
+def test_mid():
+    from dashboard import swing as W
+    from dashboard import thermo_run as TR
+
+    print("\n[中期の押し目（大きなトレンドの中の1〜3か月の調整）]")
+    bars = _mid_bars()
+    ind = W.indicators(bars)
+    i = len(bars) - 1
+    st = W.mid_state(ind, i)
+    c = ind["c"]
+    check("形の材料: 60日高値・高値からの営業日数・下げ・調整の安値・12か月の強さ",
+          (st["hi"], st["age"], round(st["dd"], 1), st["low"], round(st["mom"], 1), st["up"]),
+          (c[249], 25, round((c[i] / c[249] - 1) * 100, 1), min(c[249:]), round((c[i - 20] / c[i - 250] - 1) * 100, 1), True))
+    check("250営業日に満たなければ材料を出さない", W.mid_state(ind, 240), None)
+    check("強さの順位（0 = 最も弱い、1 = 最も強い）", W.mid_ranks({"A": 80.0, "B": 5.0, "C": -3.0, "D": None}),
+          {"C": 0.0, "B": 0.5, "A": 1.0})
+    check("中期の形: 強さ上位1/3・上昇トレンド・高値から20〜59営業日・−10%以下", W.is_mid_shape(st, 0.9), True)
+    check("強さが上位1/3に入らなければ形にしない", W.is_mid_shape(st, 0.5), False)
+    check("高値から20営業日に満たない（調整が短い）なら形にしない", W.is_mid_shape({**st, "age": 19}, 0.9), False)
+    check("高値から60営業日を超えたら形にしない", W.is_mid_shape({**st, "age": 60}, 0.9), False)
+    check("高値から −10% まで下げていなければ形にしない", W.is_mid_shape({**st, "dd": -9.0}, 0.9), False)
+    check("200日線の下（大きなトレンドが崩れた）なら形にしない", W.is_mid_shape({**st, "up": False}, 0.9), False)
+    check("中期の形で 2日RSI<10 まで押した日が入口", (ind["rsi"][i] < 10, W.is_mid_signal(ind, i, st, 0.9)), (True, True))
+    check("押していない日は入口にしない", W.is_mid_signal(ind, i - 2, W.mid_state(ind, i - 2), 0.9), False)
+
+    o = W.mid_order_of(ind, st)
+    atr = ind["atr"][i]
+    check("注文: 指値は短期と同じ（終値−0.5ATR）、損切りは min(調整の安値, 指値) − 1ATR",
+          (o["limit"], o["stop"], o["hold"]), (W.tick_down(c[i] - 0.5 * atr), W.tick_down(min(st["low"], o["limit"]) - atr), 60))
+
+    # 約定と手仕舞い: 売り指値は置かず、損切りか60営業日目の引け
+    lim = c[i] - 0.5 * atr
+    nd = _bdays(70, "2026-06-01")
+
+    def after(*bs):
+        return W.indicators(bars + [(nd[k], *b, 2_000_000) for k, b in enumerate(bs)])
+    stop = min(st["low"], lim) - atr
+    r = W.simulate_mid(after((lim, lim + 1, lim - 1, lim), *[(lim * 1.1, lim * 1.12, lim * 1.09, lim * 1.11)] * 3), i, st["low"])
+    check("大きく上げても売り指値では売らない（まだ結果が出ていない）", (r["filled"], r.get("open"), round(r["stop"], 2)),
+          (True, True, round(stop, 2)))
+    r = W.simulate_mid(after((lim, lim + 1, lim - 1, lim), (stop - 5, stop - 2, stop - 9, stop - 3)), i, st["low"])
+    check("寄りで損切りを割っていれば寄りで売る", (r["why"], r["exit"]), ("stop", round(stop - 5, 2)))
+    r = W.simulate_mid(after((lim, lim + 1, lim - 1, lim), (lim, lim + 2, stop - 1, lim)), i, st["low"])
+    check("場中に損切りを割ったら損切りの価格で", (r["why"], r["exit"]), ("stop", round(stop, 2)))
+    flat = [(lim, lim * 1.01, lim * 0.995, lim * 1.005)] * 62
+    r = W.simulate_mid(after(*flat), i, st["low"])
+    check("60営業日たったら引けで売る", (r["why"], r["days"], r["exit"]), ("time", 61, round(lim * 1.005, 2)))
+    check("中期の注文で翌日の安値が指値に届かなければ約定しない",
+          W.simulate_mid(after((c[i], c[i] * 1.01, lim + 1, c[i])), i, st["low"])["filled"], False)
+    check("押し待ちの価格でも大きなトレンドが保たれるか", (W.mid_holds_at(ind, i, c[i] * 0.99), W.mid_holds_at(ind, i, 1.0)),
+          (True, False))
+
+    # 口座: 中期は短期より先に、中期の保有と置いた注文が6件になるまで。業種の上限は短期だけで数える
+    ad = _bdays(6, "2026-07-01")
+    flat_res = {"filled": True, "entry": 100.0, "out": ad[4], "ret": 0.0}
+    mid_on = {ad[0]: [{"code": f"M{k}", "res": flat_res} for k in range(8)]}
+    a = W.account(ad, {ad[0]: [{"code": "M0", "res": flat_res}]}, lambda c_, d: 100.0, mid_on=mid_on)
+    check("口座: 中期は6件まで・同じ銘柄に短期の注文を重ねない", (a["mid_n"], a["n"]), (6, 0))
+    a = W.account(ad, {ad[0]: [{"code": "S1", "res": flat_res}, {"code": "S2", "res": flat_res}, {"code": "S3", "res": flat_res}]},
+                  lambda c_, d: 100.0, {"M0": "電力", "M1": "電力", "S1": "電力", "S2": "電力", "S3": "電力"},
+                  mid_on={ad[0]: [{"code": "M0", "res": flat_res}, {"code": "M1", "res": flat_res}]})
+    check("口座: 業種の上限（2銘柄）は短期の保有だけで数える", (a["mid_n"], a["n"]), (2, 2))
+
+    # 注文の実績: 調整の安値を覚えておき、同じ simulate_mid で測る
+    done = after((lim, lim + 1, lim - 1, lim), (stop - 5, stop - 2, stop - 9, stop - 3))
+    mo = [{"asof": bars[i][0], "code": "7777", "name": "M", "limit": W.tick_down(lim), "stop": 1, "low": st["low"]}]
+    tr = W.paper_update({}, nd[1], mo, lambda code: done, mid=True)
+    check("中期の注文の実績: 損切りまで済んだ1件", (tr["stats"]["n"], tr["orders"][0]["why"], tr["orders"][0]["low"]),
+          (1, "stop", st["low"]))
+
+    # 検証: 中期の形の押しは中期で数え、短期の成績と注文には入れない。比べる相手と、以前の置き方の口座も出す
+    post = [-1.5] + [0.3] * 70                       # 翌日に指値まで下げて約定し、そのあと60営業日持つ
+    strong = _mid_bars(post)
+    weak = {k: _swing_bars(n=len(strong), drift=0.0) for k in ("8001", "8002")}
+    v = W.verify({"7777": strong, **weak})
+    sig_day = strong[i][0]
+    check("検証: 中期の押しを中期の成績に数える（60営業日で手仕舞い）", (v["mid"]["all"]["n"], v["mid"]["all"]["times"]), (1, 100))
+    check("検証: 比べる相手（調整の条件なしの強い銘柄の押し）も同じ出口で", v["mid"]["base"]["all"]["n"] >= 1, True)
+    check("検証: 口座は短期と中期を合わせ、以前の置き方（短期だけ）も並べる",
+          (v["account"]["mid_n"], v["account_prev"]["mid_n"], v["account_prev"]["n"] >= 1), (1, 0, True))
+
+    # 売買タブの注文: 中期の形の押しは中期の注文にだけ出し、短期の注文・もうすぐには出さない
+    rows = {}
+    inds = {"7777": ind, **{k: W.indicators(b[:len(bars)]) for k, b in weak.items()}}
+    for k, x in inds.items():
+        rows[k] = W.today_row(x)
+    blk = TR.swing_block({"dates": [b[0] for b in bars], "stocks": {}}, rows, lambda code: inds.get(code),
+                         {"7777": "中期株"}, {})
+    check("売買タブ: 中期の注文に出し、短期の注文には出さない",
+          ([o["code"] for o in blk["mid"]["orders"]], [o["code"] for o in blk["orders"]], blk["mid"]["orders"][0]["asof"]),
+          (["7777"], [], sig_day))
+    check("銘柄ごとの位置に中期の形を書き足す", (rows["7777"]["mid"]["st"], rows["7777"]["mid"]["age"]), ("signal", 25))
+
+
 def test_ohlc_cache():
     from datetime import date as _date
     from dashboard import bars as B
@@ -1288,6 +1387,7 @@ if __name__ == "__main__":
     test_themes_ledger_trend()
     test_thermo()
     test_swing()
+    test_mid()
     test_hold()
     test_ohlc_cache()
     test_ledger_stats()

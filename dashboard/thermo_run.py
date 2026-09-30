@@ -365,16 +365,19 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
 
     # 出した注文の記録と結果（大引のみ。休場日は進めない）。結果は四本値で swing.simulate と同じ規則で測る
     sw_track = _read(SWING_TRACK_PATH, {})
-    if slot == "taibike" and not stale and swing.get("orders"):
-        sw_track = W.paper_update(sw_track, today, swing["orders"], ind_of)
-        _write(SWING_TRACK_PATH, sw_track, indent=0)
-    elif slot == "taibike" and not stale and sw_track.get("orders"):
-        sw_track = W.paper_update(sw_track, today, [], ind_of)
-        _write(SWING_TRACK_PATH, sw_track, indent=0)
-    elif slot == "preopen" and swing.get("orders") and next_weekday(swing["asof"]) >= today:
-        # 大引の時点で当日の日足が無かった日は、寄り前に初めて注文が出る。その注文（今日有効）も実績に記録する
-        sw_track = W.paper_update(sw_track, today, swing["orders"], ind_of)
-        _write(SWING_TRACK_PATH, sw_track, indent=0)
+    # 中期の押し目は、枠（6銘柄）の数まで上から記録する（短期は注文の5件）
+    mid_orders = ((swing.get("mid") or {}).get("orders") or [])[:W.MID_SLOTS]
+    # 大引の時点で当日の日足が無かった日は、寄り前に初めて注文が出る。その注文（今日有効）も実績に記録する
+    fresh = slot == "preopen" and swing.get("asof") and next_weekday(swing["asof"]) >= today \
+        and (swing.get("orders") or mid_orders)
+    if (slot == "taibike" and not stale) or fresh:
+        mid_prev = sw_track.get("mid") or {}
+        new = W.paper_update(sw_track, today, swing.get("orders") or [], ind_of)
+        if mid_orders or mid_prev.get("orders"):
+            new["mid"] = W.paper_update(mid_prev, today, mid_orders, ind_of, mid=True)
+        if new.get("orders") or new.get("mid"):
+            sw_track = new
+            _write(SWING_TRACK_PATH, sw_track, indent=0)
     close_maps: dict[str, dict] = {}
 
     def close_of(code, d):
@@ -383,12 +386,16 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             close_maps[code] = dict(zip(ind["d"], ind["c"])) if ind else {}
         return close_maps[code].get(d)
     try:
-        paper_acct = W.paper_account(sw_track, ohlc.get("dates") or [], close_of, sector_of)
+        paper_acct = W.paper_account(sw_track, ohlc.get("dates") or [], close_of, sector_of,
+                                     mid_track=sw_track.get("mid"))
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  注文の実績（口座）で例外: {e}")
         paper_acct = None
     swing["paper"] = {**(sw_track.get("stats") or {}),
                       "recent": [o for o in (sw_track.get("orders") or [])][-40:], "account": paper_acct}
+    mt = sw_track.get("mid") or {}
+    if swing.get("mid") is not None and mt.get("orders"):
+        swing["mid"]["paper"] = {**(mt.get("stats") or {}), "recent": mt["orders"][-40:]}
 
     # ---- 5. 提案の記録（大引のみ。休場日は記録しない＝営業日として数えない） ----
     track = _read(THERMO_TRACK_PATH, {})
@@ -469,6 +476,10 @@ def _sw_brief(row: dict | None) -> dict | None:
     if pc:
         # 業種の中での位置（g: 比べるグループ、g20: 業種の20日騰落、rel: 業種との差、pc: 押しの形）
         out.update({"g": pc["g"], "g20": pc["g20"], "rel": pc["rel20"], "pc": pc["cls"]})
+    if row.get("mid"):
+        # 中期の押し目の形（st: signal=注文対象／setup=調整中・押し待ち、rank: 12か月の強さの順位%、hi: 60日高値、
+        # age: 高値からの営業日数、dd: 高値からの下げ%、low: 調整の安値、trig/to/ok: 押し待ちの価格）
+        out["md"] = row["mid"]
     return out
 
 
@@ -516,9 +527,12 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, th
     ctx = W.peer_context(rets, groups)
     for c, r in rows.items():
         r["peer"] = ctx.get(c)
+    mid = mid_block(rows, ind_of, names, sector_of, asof)
+    mid_codes = {o["code"] for o in mid["orders"]}
     sig = []
     for code, r in rows.items():
-        if r["state"] != "signal" or r["asof"] != asof:
+        # 中期の形の押しは中期の計画で出す（1銘柄に1つの計画）
+        if r["state"] != "signal" or r["asof"] != asof or code in mid_codes:
             continue
         o = W.order_of(ind_of(code))
         if o:
@@ -531,7 +545,7 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, th
              "peer": r.get("peer")}
             for c, r in rows.items() if r["state"] == "wait" and r.get("trig_ok") and r.get("to_trig") is not None
             and r["to_trig"] >= NEAR_PCT and r["asof"] == asof
-            and (r.get("peer") or {}).get("cls") not in W.PEER_SKIP]
+            and (r.get("peer") or {}).get("cls") not in W.PEER_SKIP and not r.get("mid")]
     near.sort(key=lambda x: (-x["to"], x["code"]))
     board = W.peer_board(ctx, rets, groups)
     for g in board:
@@ -550,9 +564,55 @@ def swing_block(ohlc: dict, rows: dict, ind_of, names: dict, sector_of: dict, th
               f"{asof} の引けから")
     else:
         print(f"    ✅ 短期の押し目買い: 注文なし（見送り {len(skip)}）、もうすぐ {len(near)}、{asof} の引けから")
+    print(f"    ✅ 中期の押し目: 注文 {len(mid['orders'])}、調整中の候補 {mid['n_shape']}（押し待ち {len(mid['near'])}）")
+    # cal は保有中の営業日を数えるのに使う（中期は60営業日持つ）
     return {"asof": asof, "rules": W.RULES, "classes": W.PEER_CLASSES, "orders": orders, "more": more[:10],
             "skip": skip[:10], "near": near[:12], "peers": board[:12], "groups": len(set(groups.values())),
-            "verify": verify, "cal": (ohlc.get("dates") or [])[-40:]}
+            "mid": mid, "verify": verify, "cal": (ohlc.get("dates") or [])[-(W.MID_HOLD + 20):]}
+
+
+def mid_block(rows: dict, ind_of, names: dict, sector_of: dict, asof: str | None) -> dict:
+    """中期の押し目（DESIGN.md 21章）: 大きなトレンドの中で1〜3か月調整している銘柄と、今日の引けで出る注文。
+
+    12か月の強さの順位は、asof の日足がそろった銘柄のうち売買代金・株価の条件を満たすものの中で決める。
+    rows の各行に mid（形の材料と、注文対象か・押し待ちか）を書き足す（銘柄ごとの sw.md になる）。"""
+    states, moms = {}, {}
+    for c, r in rows.items():
+        ind = ind_of(c)
+        if r["asof"] != asof or not ind:
+            continue
+        i = len(ind["c"]) - 1
+        st = W.mid_state(ind, i)
+        if st:
+            states[c] = st
+            if W.mid_liquid(ind, i):
+                moms[c] = st["mom"]
+    ranks = W.mid_ranks(moms)
+    orders, near = [], []
+    for c, st in states.items():
+        rk = ranks.get(c)
+        if not W.is_mid_shape(st, rk):
+            continue
+        ind = ind_of(c)
+        i = len(ind["c"]) - 1
+        r = rows[c]
+        info = {"rank": round(rk * 100), "hi": st["hi"], "age": st["age"], "dd": W.r1(st["dd"]), "low": st["low"],
+                "mom": W.r1(st["mom"]), "st": "setup"}
+        r["mid"] = info
+        base = {"code": c, "name": names.get(c) or c, "sector": sector_of.get(c), "rank": info["rank"],
+                "rsi2": r.get("rsi2"), "dev25": r.get("dev25"), "peer": r.get("peer")}
+        if W.is_mid_signal(ind, i, st, rk):
+            info["st"] = "signal"
+            orders.append({**base, **W.mid_order_of(ind, st), "key": W.r2(W.mid_key(ind, i))})
+            continue
+        trig = W.trigger_price(ind, i)
+        if trig is not None and trig < r["price"]:
+            info.update({"trig": W.r1(trig), "to": W.r1((trig / r["price"] - 1) * 100), "ok": W.mid_holds_at(ind, i, trig)})
+        near.append({**base, "price": r["price"], "hi": st["hi"], "age": st["age"], "dd": info["dd"], "low": st["low"],
+                     "trig": info.get("trig"), "to": info.get("to"), "ok": info.get("ok")})
+    orders.sort(key=lambda o: (o["key"], o["code"]))
+    near.sort(key=lambda x: (-(x["to"] if x["to"] is not None else -99), x["code"]))
+    return {"orders": orders[:10], "near": near[:20], "n_shape": len(orders) + len(near), "slots": W.MID_SLOTS}
 
 
 def strength_block(ohlc: dict, groups: dict, sector_of: dict, names: dict, events: list[dict]) -> dict | None:
@@ -605,6 +665,8 @@ def watch_guard(watch: list[str], rows: dict, sector_d1: dict, nk_d1, events: li
         if sw.get("st") == "signal" and sw.get("pc") in W.PEER_SKIP:
             notes.append({"tone": "info", "text": f"押した形だが、業種（{sw.get('g')} {sw.get('g20'):+.1f}%）の上げに沿った押しなので"
                                                   "注文は見送り（検証で勝率が低かった形）"})
+        elif (sw.get("md") or {}).get("st") == "signal":
+            notes.append({"tone": "chance", "text": "中期の押し目の注文対象（大きなトレンドの中の調整で押した日。売買タブの中期の押し目を参照）"})
         elif sw.get("st") == "signal":
             notes.append({"tone": "chance", "text": "短期の押し目買いの注文対象（売買タブの注文を参照）"})
         if "高値掴み注意" in r["cls"]:
@@ -678,9 +740,27 @@ def summary(th: dict) -> dict | None:
             if ver else None,
             "paper": {**pick(paper), "account": acct(paper.get("account"))} if paper.get("n") else None,
             "slot_pct": W.SLOT_PCT,
+            # 中期の押し目（大きなトレンドの中の1〜3か月の調整で押した日）。短期の注文とは別の計画（1銘柄に1つ）
+            "mid": _mid_brief(sw.get("mid"), ver, pick, acct),
         },
         # 業種の強弱（強い順の上位と下位。先行＝強い・勢いあり、一服、出遅れ、改善＝弱い業種の戻り）
         "strength": _strength_brief(th.get("strength")),
+    }
+
+
+def _mid_brief(mid: dict | None, ver: dict, pick, acct) -> dict | None:
+    if mid is None:
+        return None
+    mv = ver.get("mid") or {}
+    paper = mid.get("paper") or {}
+    return {
+        "orders": [{k: o.get(k) for k in ("code", "name", "sector", "close", "limit", "to_limit", "stop", "stop_pct",
+                                          "hi", "to_hi", "age", "dd", "rank", "hold")} for o in mid.get("orders") or []],
+        "slots": mid.get("slots"), "n_shape": mid.get("n_shape"),
+        "near": [{k: x.get(k) for k in ("code", "name", "trig", "to", "dd", "age")} for x in (mid.get("near") or [])[:5]],
+        "verify": {"all": pick(mv.get("all")), "base": pick((mv.get("base") or {}).get("all")),
+                   "account": acct(ver.get("account")), "account_prev": acct(ver.get("account_prev"))} if mv else None,
+        "paper": pick(paper) if paper.get("n") else None,
     }
 
 
