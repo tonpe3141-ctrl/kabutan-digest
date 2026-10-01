@@ -56,9 +56,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 3528.39,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3560.0
+"last": 3555.0
 },
 {
 "asof": "2026-09-28",
@@ -70,9 +70,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2709.5
+"last": 2647.5
 },
 {
 "asof": "2026-09-28",
@@ -80,13 +80,15 @@
 "name": "Appier Group",
 "limit": 1374,
 "stop": 1177.0,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-09-29",
 "entry": 1374.14,
-"days": 2,
-"open": true,
-"last": 1396.0
+"days": 3,
+"out": "2026-10-01",
+"exit": 1415.25,
+"why": "sell",
+"ret": 2.89
 },
 {
 "asof": "2026-09-28",
@@ -94,13 +96,15 @@
 "name": "日本マクドナルドホールディングス",
 "limit": 7510,
 "stop": 7090.0,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-09-29",
 "entry": 7510.0,
-"days": 2,
-"open": true,
-"last": 7550.0
+"days": 3,
+"out": "2026-10-01",
+"exit": 7550.0,
+"why": "sell",
+"ret": 0.43
 },
 {
 "asof": "2026-09-28",
@@ -139,9 +143,9 @@
 "filled": true,
 "in": "2026-09-30",
 "entry": 2661.98,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2709.5
+"last": 2647.5
 },
 {
 "asof": "2026-09-29",
@@ -167,7 +171,8 @@
 "name": "フリー",
 "limit": 3480,
 "stop": 3015,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-30",
@@ -175,15 +180,22 @@
 "name": "Sansan",
 "limit": 1975,
 "stop": 1761,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-30",
 "code": "9502",
 "name": "中部電",
 "limit": 2662,
-"stop": 2382,
-"done": false
+"stop": 2383.88,
+"done": false,
+"filled": true,
+"in": "2026-10-01",
+"entry": 2662.98,
+"days": 1,
+"open": true,
+"last": 2647.5
 },
 {
 "asof": "2026-09-30",
@@ -191,22 +203,114 @@
 "name": "セコム",
 "limit": 6140,
 "stop": 5820,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-09-30",
 "code": "2269",
 "name": "明治ＨＤ",
 "limit": 4110,
-"stop": 3850,
+"stop": 3855.5,
+"done": false,
+"filled": true,
+"in": "2026-10-01",
+"entry": 4113.07,
+"days": 1,
+"open": true,
+"last": 4171.0
+},
+{
+"asof": "2026-10-01",
+"code": "4478",
+"name": "フリー",
+"limit": 3475,
+"stop": 3020,
+"done": false
+},
+{
+"asof": "2026-10-01",
+"code": "7309",
+"name": "シマノ",
+"limit": 17600,
+"stop": 16610,
+"done": false
+},
+{
+"asof": "2026-10-01",
+"code": "3086",
+"name": "Ｊフロント",
+"limit": 2603,
+"stop": 2440,
+"done": false
+},
+{
+"asof": "2026-10-01",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 499,
+"stop": 452,
+"done": false
+},
+{
+"asof": "2026-10-01",
+"code": "9684",
+"name": "スクウェア・エニックス・ホールディングス",
+"limit": 2854,
+"stop": 2657,
 "done": false
 }
 ],
 "stats": {
-"n": 0,
-"fill": 33,
+"n": 2,
+"win": 100,
+"avg": 1.66,
+"med": 1.66,
+"pf": null,
+"avg_win": 1.66,
+"avg_loss": null,
+"worst": 0.43,
+"days": 3,
+"d2": 0,
+"per_day": 0.55,
+"stops": 0,
+"sells": 100,
+"times": 0,
+"small": 50,
+"big_loss": 0,
+"fill": 35,
 "open": 5,
-"issued": 20,
+"issued": 25,
 "since": "2026-09-25"
+},
+"mid": {
+"updated_at": "2026-10-01",
+"orders": [
+{
+"asof": "2026-10-01",
+"code": "8233",
+"name": "高島屋",
+"limit": 2062,
+"stop": 2020,
+"done": false,
+"low": 2083.5
+},
+{
+"asof": "2026-10-01",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 9140,
+"stop": 7900,
+"done": false,
+"low": 8635.0
+}
+],
+"stats": {
+"n": 0,
+"fill": null,
+"open": 0,
+"issued": 2,
+"since": "2026-10-01"
+}
 }
 }
