@@ -52,13 +52,15 @@
 "name": "フリー",
 "limit": 3525,
 "stop": 2978.75,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-09-29",
 "entry": 3528.39,
-"days": 3,
-"open": true,
-"last": 3555.0
+"days": 4,
+"out": "2026-10-02",
+"exit": 3600.0,
+"why": "sell",
+"ret": 1.93
 },
 {
 "asof": "2026-09-28",
@@ -70,9 +72,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 2647.5
+"last": 2635.0
 },
 {
 "asof": "2026-09-28",
@@ -143,9 +145,9 @@
 "filled": true,
 "in": "2026-09-30",
 "entry": 2661.98,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2647.5
+"last": 2635.0
 },
 {
 "asof": "2026-09-29",
@@ -193,9 +195,9 @@
 "filled": true,
 "in": "2026-10-01",
 "entry": 2662.98,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2647.5
+"last": 2635.0
 },
 {
 "asof": "2026-09-30",
@@ -216,41 +218,65 @@
 "filled": true,
 "in": "2026-10-01",
 "entry": 4113.07,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4171.0
+"last": 4059.0
 },
 {
 "asof": "2026-10-01",
 "code": "4478",
 "name": "フリー",
 "limit": 3475,
-"stop": 3020,
-"done": false
+"stop": 3028.75,
+"done": false,
+"filled": true,
+"in": "2026-10-02",
+"entry": 3479.82,
+"days": 1,
+"open": true,
+"last": 3460.0
 },
 {
 "asof": "2026-10-01",
 "code": "7309",
 "name": "シマノ",
 "limit": 17600,
-"stop": 16610,
-"done": false
+"stop": 16622.5,
+"done": false,
+"filled": true,
+"in": "2026-10-02",
+"entry": 17606.07,
+"days": 1,
+"open": true,
+"last": 17485.0
 },
 {
 "asof": "2026-10-01",
 "code": "3086",
 "name": "Ｊフロント",
 "limit": 2603,
-"stop": 2440,
-"done": false
+"stop": 2424.39,
+"done": false,
+"filled": true,
+"in": "2026-10-02",
+"entry": 2586.5,
+"days": 1,
+"open": true,
+"last": 2559.0
 },
 {
 "asof": "2026-10-01",
 "code": "4689",
 "name": "ラインヤフー",
 "limit": 499,
-"stop": 452,
-"done": false
+"stop": 452.23,
+"done": false,
+"filled": true,
+"in": "2026-10-02",
+"entry": 499.09,
+"days": 1,
+"open": true,
+"last": 497.9
 },
 {
 "asof": "2026-10-01",
@@ -258,29 +284,70 @@
 "name": "スクウェア・エニックス・ホールディングス",
 "limit": 2854,
 "stop": 2657,
+"done": true,
+"filled": false
+},
+{
+"asof": "2026-10-02",
+"code": "4478",
+"name": "フリー",
+"limit": 3385,
+"stop": 2935,
+"done": false
+},
+{
+"asof": "2026-10-02",
+"code": "7309",
+"name": "シマノ",
+"limit": 17310,
+"stop": 16310,
+"done": false
+},
+{
+"asof": "2026-10-02",
+"code": "7951",
+"name": "ヤマハ",
+"limit": 1188,
+"stop": 1106,
+"done": false
+},
+{
+"asof": "2026-10-02",
+"code": "2269",
+"name": "明治ＨＤ",
+"limit": 4010,
+"stop": 3740,
+"done": false
+},
+{
+"asof": "2026-10-02",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 490,
+"stop": 443,
 "done": false
 }
 ],
 "stats": {
-"n": 2,
+"n": 3,
 "win": 100,
-"avg": 1.66,
-"med": 1.66,
+"avg": 1.75,
+"med": 1.93,
 "pf": null,
-"avg_win": 1.66,
+"avg_win": 1.75,
 "avg_loss": null,
 "worst": 0.43,
-"days": 3,
+"days": 3.3,
 "d2": 0,
-"per_day": 0.55,
+"per_day": 0.53,
 "stops": 0,
 "sells": 100,
 "times": 0,
-"small": 50,
+"small": 33,
 "big_loss": 0,
-"fill": 35,
-"open": 5,
-"issued": 25,
+"fill": 44,
+"open": 8,
+"issued": 30,
 "since": "2026-09-25"
 },
 "mid": {
@@ -291,25 +358,64 @@
 "code": "8233",
 "name": "高島屋",
 "limit": 2062,
-"stop": 2020,
+"stop": 2021.62,
 "done": false,
-"low": 2083.5
+"low": 2083.5,
+"filled": true,
+"in": "2026-10-02",
+"entry": 2062.88,
+"days": 1,
+"open": true,
+"last": 2042.5
 },
 {
 "asof": "2026-10-01",
 "code": "278A",
 "name": "Terra Drone",
 "limit": 9140,
-"stop": 7900,
+"stop": 7901.07,
+"done": false,
+"low": 8635.0,
+"filled": true,
+"in": "2026-10-02",
+"entry": 9143.04,
+"days": 1,
+"open": true,
+"last": 9080.0
+},
+{
+"asof": "2026-10-02",
+"code": "4911",
+"name": "資生堂",
+"limit": 3200,
+"stop": 3085,
+"done": false,
+"low": 3261.0
+},
+{
+"asof": "2026-10-02",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 8720,
+"stop": 7920,
 "done": false,
 "low": 8635.0
+},
+{
+"asof": "2026-10-02",
+"code": "7272",
+"name": "ヤマハ発",
+"limit": 1732,
+"stop": 1689,
+"done": false,
+"low": 1731.5
 }
 ],
 "stats": {
 "n": 0,
-"fill": null,
-"open": 0,
-"issued": 2,
+"fill": 100,
+"open": 2,
+"issued": 5,
 "since": "2026-10-01"
 }
 }
