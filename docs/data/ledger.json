@@ -1127,8 +1127,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "売買代金18位に新規ランクインし+8.71%で、東証プライムの値上がり率1位。株探は米キャピタル・リサーチらの買い増しを巡る思惑を材料に挙げている(買い増しそのものは記事で確認できない)。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/cef4118d2ab782d110c0c41fb88058bda95d4903",
    "tracked_by": "日足"
   },
   {
@@ -1161,8 +1161,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "売買代金26位に新規ランクインし+3.61%。株探・ウエルスアドバイザーは、古河電工・フジクラ・住友電とともに非鉄金属(業種首位、+2.99%)の上昇の一角として挙げているが、三井金属個別の材料は記事で確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/4bdcd011599d7a30f115b77432f21324aee95184",
    "tracked_by": "日足"
   },
   {
@@ -1194,7 +1194,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "売買代金30位に新規ランクインし+3.34%で、半導体材料のテーマ初動として引っかかった。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -1223,7 +1223,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "15:00に中間配当と期末配当予想の修正(増配)を開示し引っかかった。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -1252,8 +1252,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に配当予想の修正(増配)を開示し引っかかった。同時刻に新株式の発行と株式の売出しも開示している(日経会社情報DIGITAL)。",
+   "note_url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE4zUDJMRXhtLVpaYlJmLVRiT2pyQnBwNS0wdm5nQ1ZVLUYxU2RGbmNuUXhZQUhPSVh3Zkw2M0MzQVFJRmJXZzVKbTFwY19kU08tZ3BpLWk3YzRQV3pMNUVJdFZna25VekdkZnc?oc=5",
    "tracked_by": "日足"
   }
  ],
