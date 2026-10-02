@@ -326,6 +326,14 @@
 "limit": 490,
 "stop": 443,
 "done": false
+},
+{
+"asof": "2026-10-02",
+"code": "4661",
+"name": "ＯＬＣ",
+"limit": 2776,
+"stop": 2537,
+"done": false
 }
 ],
 "stats": {
@@ -347,7 +355,7 @@
 "big_loss": 0,
 "fill": 44,
 "open": 8,
-"issued": 30,
+"issued": 31,
 "since": "2026-09-25"
 },
 "mid": {
