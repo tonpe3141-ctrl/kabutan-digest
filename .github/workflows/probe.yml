@@ -31,3 +31,6 @@ jobs:
       - name: 相場温度計の試運転（実データ・コミットしない）
         run: python tools/probe_thermo.py
         if: always()
+      - name: 決算から読む の材料（TDnet の PDF・銘柄ページの決算速報）
+        run: python tools/probe_earnings.py
+        if: always()

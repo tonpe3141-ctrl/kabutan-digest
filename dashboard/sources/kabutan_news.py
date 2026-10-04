@@ -114,7 +114,8 @@ _PAYWALL = ("続きをお読みいただくには", "この記事は有料会員
 # 本文を読む価値の高い記事の型（上ほど優先）。ランキング羅列系は後回し
 ARTICLE_PRIORITY = [r"日経平均 大引け", r"マ[－ー]ケット日報", r"東京株式（大引け）", r"東京株式（前引け）",
                     r"日経平均 前引け", r"【業種】騰落ランキング", r"明日の株式相場", r"ストップ高／ストップ安",
-                    r"投資部門別", r"上方修正|増額修正", r"決算速報", r"増資・売り出し", r"信用規制", r"PTS"]
+                    r"投資部門別", r"上方修正|増額修正", r"決算速報", r"サプライズ決算|好悪材料|決算発表予定",
+                    r"増資・売り出し", r"信用規制", r"PTS"]
 
 
 def parse_yahoo_list(html: str, providers=(PROVIDER,)) -> list[dict]:
@@ -212,7 +213,7 @@ def parse_yahoo_article(html: str, url: str, provider: str = PROVIDER,
 
 
 def fetch_articles(categories=("market", "stocks"), max_pages: int = 3,
-                   limit: int = 12) -> list[dict]:
+                   limit: int = 15) -> list[dict]:
     """Yahoo!ファイナンスに配信された株探ニュースの本文を新しい順に返す。"""
     found: list[dict] = []
     seen = set()
@@ -326,3 +327,75 @@ def sectors33_from_articles(articles: list[dict], session: str | None = None) ->
             parsed["timestamp"] = a.get("timestamp")
             return parsed
     return None
+
+
+# ==================== 4. 銘柄ごとのニュース欄（決算から読む） ====================
+# Yahoo!ファイナンスの銘柄ページのニュース欄には、その銘柄の株探【決算速報】（数字の要約と「よく比較される銘柄」）、
+# 時事通信（DZH 個別株情報＝なぜ動いたか）、ウエルスアドバイザーの記事が新しい順に並ぶ。ページには東証33業種も載る。
+STOCK_NEWS_URL = "https://finance.yahoo.co.jp/quote/{code}.T/news"
+_INDUSTRY_RE = re.compile(r'industryName\\?"\s*:\s*\\?"([^"\\]{2,20})')
+_PEERS_RE = re.compile(r"とよく比較される銘柄[：:](.+?)(?:※|\n|$)")
+_PEER_TAG = re.compile(r"([^<、\s]{1,20})<([0-9]{3}[0-9A-Z])>")
+_SCHED_DATE = re.compile(r"(\d{1,2})月\s*(\d{1,2})日\s*(?:[―─－-]{2,}|の決算発表)")
+_SCHED_CODE = re.compile(r"<([0-9]{3}[0-9A-Z])>\s*([^\s<\[［　]{1,20})")
+_SCHED_END = re.compile(r"合計\s*\d+\s*社|●「株探」")
+
+
+def parse_stock_news(html: str, providers) -> dict:
+    """銘柄ページのニュース欄から、業種と、許可リストの配信元の記事一覧を返す。"""
+    m = _INDUSTRY_RE.search(html or "")
+    return {"industry": m.group(1) if m else None,
+            "items": parse_yahoo_list(html or "", tuple(providers))}
+
+
+def fetch_stock_news(code: str, providers) -> dict | None:
+    html = get_text(STOCK_NEWS_URL.format(code=code), timeout=20)
+    return parse_stock_news(html, providers) if html else None
+
+
+def fetch_article(url: str, provider: str = PROVIDER, source: str | None = None) -> dict | None:
+    html = get_text(url, timeout=20)
+    return parse_yahoo_article(html, url, provider, source) if html else None
+
+
+def parse_peers(body: str) -> list[dict]:
+    """株探【決算速報】の末尾「〇〇とよく比較される銘柄：Ａ<1234>、Ｂ<5678>…」を読む。"""
+    m = _PEERS_RE.search(body or "")
+    if not m:
+        return []
+    return [{"name": n.strip("　 、"), "code": c} for n, c in _PEER_TAG.findall(m.group(1))]
+
+
+def flash_body(body: str) -> str:
+    """【決算速報】の本文から、数字の段落だけを残す（配信元の定型・比較銘柄・注意書きを落とす）。"""
+    keep = []
+    for line in (body or "").split("\n"):
+        if line.startswith(("株探ニュース", "※")) or "とよく比較される銘柄" in line:
+            break
+        keep.append(line)
+    return "\n".join(keep).strip()
+
+
+def parse_schedule(body: str, today) -> dict[str, dict]:
+    """株探の決算発表予定（「来週の決算発表予定」「サプライズ決算」の後半）から {コード: {date, name}} を読む。
+
+    日付の見出し（「●10月 5日―――」「10月5日の決算発表銘柄（予定）」）の後ろに並ぶ <コード>銘柄名 を、その日の予定とする。
+    日付の見出しより前（その日に発表済みの銘柄）は読まない。年は今日から決める（年末に翌年1月の予定が来れば翌年）。
+    """
+    out: dict[str, dict] = {}
+    text = body or ""
+    end = _SCHED_END.search(text)
+    if end:
+        text = text[:end.start()]
+    marks = list(_SCHED_DATE.finditer(text))
+    for i, m in enumerate(marks):
+        month, day = int(m.group(1)), int(m.group(2))
+        year = today.year + (1 if month < today.month - 6 else 0)
+        try:
+            d = today.replace(year=year, month=month, day=day).isoformat()
+        except ValueError:
+            continue
+        seg = text[m.end(): marks[i + 1].start() if i + 1 < len(marks) else len(text)]
+        for code, name in _SCHED_CODE.findall(seg):
+            out[code] = {"date": d, "name": name}
+    return out
