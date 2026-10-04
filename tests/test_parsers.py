@@ -1374,6 +1374,190 @@ def test_macro():
                                               sorted(kept)), (1, 1, ["press.macro_articles+1", "press.wire+1"]))
 
 
+# ==================== 決算から読む ====================
+# IDEC の業績予想の修正（2026-10-02）の PDF を pypdf で読んだ形。日本語の字の間に空白が入り、行は途中で折り返す
+REVISION_PDF = """業績予想の修正に関するお知らせ
+1.2027 年3 月期 通期連結業績予想数値の修正（2026 年4 月1 日～2027 年3 月 31 日）
+ 売上高  営 業 利 益  経常利益
+前 回 発 表 予 想 (A)  75,500 7,200 6,750 6,000 203.25
+今 回 修 正 予 想 (B)  85,000 9,400 8,950 8,600 290.46
+増  減  額 （ B - A ） +9,500 +2,200 +2,200 +2,600 -
+増 減 率 （ ％ ）  +12.6% +30.6% +32.6% +43.3% -
+修正の理由
+当期における世界経済は、先行き不透明な状況が続いている一方で、AIやデジタル関連分野を中心とした設備投
+資需要が拡大しております。
+このような事業環境のもと、半導体、ロボット、工作機械関連等の需要が堅調に推移し、売上高は当初想定を上回る見
+込みとなりました。
+2.2027 年3 月期仕向地別売上高
+国内売上高 25,400 30,100
+（注）本資料に記載されている業績見通し等は、当社が現時点で入手している情報に基づいております。
+以 上"""
+
+# 決算短信: 1ページ目の要約 → 目次 → 定性的情報（概況・業績予想の説明）
+TANSHIN_PDF = """2026年11月期 第３四半期決算短信〔日本基準〕（非連結）
+（１）経営成績(累計) (％表示は、対前年同四半期増減率)
+○添付資料の目次
+１．経営成績等の概況 ……………………………………２
+（１）当四半期累計期間の経営成績の概況 ……………………２
+（３）業績予想などの将来予測情報に関する説明 ……………２
+北恵株式会社(9872) 2026年11月期 第３四半期決算短信
+2
+１．経営成績等の概況
+（１）当四半期累計期間の経営成績の概況
+住宅関連業界におきましては、新設着工戸数は前年同期を上回りつつあります。しかしながら、住宅ローン金利は日銀の利上げを背景に上昇基
+調にあり、住宅取得マインドに与える影響も大きく、引き続き注視していく必要があります。
+売上高 百万円 44,311
+（２）当四半期累計期間の財政状態の概況
+総資産は前期末に比べて増加しました。
+（３）業績予想などの将来予測情報に関する説明
+2025年12月26日発表の通期の業績予想に変更はありません。
+２．四半期財務諸表及び主な注記"""
+
+KABUTAN_FLASH_BODY = """ＩＤＥＣ<6652>[東証Ｐ] が10月2日大引け後(16:30)に業績修正を発表。27年3月期の連結経常利益を従来予想の67.5億円→89.5億円(前期は65.6億円)に32.6％上方修正した。
+株探ニュース（minkabu PRESS）
+ＩＤＥＣとよく比較される銘柄：富士電機<6504>、山洋電<6516>、ダイヘン<6622>、オムロン<6645>、ミネベア<6479>※この記事は企業が公開した数値データを基に作成しています。"""
+
+WEEKLY_SCHEDULE = """●10月 5日――――――――――――　 14銘柄　発表予定<1376>カネコ種 [東Ｓ]<2753>あみやき [東Ｐ]
+●10月 6日――――――――――――　 2銘柄　発表予定<1377>サカタタネ [東Ｐ]<9861>吉野家ＨＤ [東Ｐ]"""
+SURPRISE_BODY = """ＩＤＥＣ<6652>[東証Ｐ] 　　 今期経常を33％上方修正
+◆四半期(3ヵ月)【大幅増益】で着地した銘柄（サプライズ順）
+北恵<9872>[東証Ｓ] 　　　　 12-8月期(3Q累計)経常が3％増益で着地
+２）10月5日の決算発表銘柄（予定）　★は注目決算
+◆本決算：
+★<3498>霞ヶ関Ｃ [東Ｐ] 　　(前回15:30)
+◆第1四半期決算：<1376>カネコ種 [東Ｓ] 　　(前回13:00)
+合計14社
+●「株探」では、株価、PER、決算ポイントを併記した<9999>ダミー"""
+
+
+def test_earnings():
+    import json
+    import tempfile
+    from datetime import date as _date
+    from dashboard import earnings as E
+    from dashboard.sources import kabutan_news as kn, tdnet as td
+    print("\n決算から読む")
+
+    ex = td.extract_explanations(REVISION_PDF)
+    check("修正の理由: 折り返しをつないで文で読む", ex.get("reason", "").startswith(
+        "当期における世界経済は、先行き不透明な状況が続いている一方で、AIやデジタル関連分野を中心とした設備投資需要が拡大しております。"), True)
+    check("修正の理由: 次の節（2.）・注記・以上の手前で切る", ("仕向地" in ex["reason"], "以上" in ex["reason"]), (False, False))
+    check("修正の向き: 増減率の利益の列が＋なら上向き", ex.get("dir"), "up")
+    check("修正の向き: △は下向き", td.revision_dir("増減率（％）△3.1% △20.5% △18.2% △30.0%"), "down")
+    check("修正の向き: 読めなければ None", td.revision_dir("増減率（％）－ － －"), None)
+    sub = td.extract_explanations("増減率（％）△3.0 - △5.6\n修正の理由\n１. 連結業績\n春夏プロパー商戦が低迷し、利益面で予想を下回る見込\nみとなりました。\n２. 個別業績\n連結と同様です。\n以上")
+    check("修正の理由: 直後の小見出し（１. 連結業績）は飛ばし、次の小見出しで切る",
+          sub.get("reason"), "春夏プロパー商戦が低迷し、利益面で予想を下回る見込みとなりました。")
+    check("修正の向き: 列が欠けた増減率（△3.0 - △5.6）", sub.get("dir"), "down")
+    for head in ("（３）修正の理由", "２．業績予想の修正理由", "２. 業績予想修正の理由", "Ⅱ．修正の理由", "３．理由", "１.配当予想の修正理由"):
+        got = td.extract_explanations(f"{head}\n需要が想定を上回りました。\n（４）その他")
+        check(f"修正の理由の見出しの書き方: {head}", got.get("reason"), "需要が想定を上回りました。")
+    check("本文の中の「〜の理由」は見出しにしない",
+          td.extract_explanations("１．決算短信の開示が期末後50日を超過した理由及び今後の決算開示につきまして\n監査が遅れました。").get("reason"), None)
+    check("字の間の空白を詰める", td.clean_pdf_text("営 業 利 益\n2026 年10 月2 日"), "営業利益\n2026年10月2日")
+
+    ex = td.extract_explanations(TANSHIN_PDF)
+    check("決算短信: 目次を飛ばして経営成績の概況を読む", ex.get("overview", "").startswith("住宅関連業界におきましては"), True)
+    check("決算短信: 表の行（文でない行）は落とす", "44,311" in ex.get("overview", ""), False)
+    check("決算短信: 業績予想の説明", ex.get("outlook"), "2025年12月26日発表の通期の業績予想に変更はありません。")
+
+    for text, want in [("ＩＤＥＣ、今期経常を33％上方修正", "up"),
+                       ("ヤマトインタ、前期経常を一転赤字に下方修正", "down"),
+                       ("福島印刷、今期経常は42％減益、前期配当増額も今期減配", "down"),
+                       ("瑞光、上期経常が赤字転落で着地・6-8月期は93％減益", "down"),
+                       ("オプトエレ、6-8月期(3Q)最終は黒字浮上", "up"),
+                       ("ＫＴＫ、今期経常は3％増で3期連続最高益、1円増配へ", "up"),
+                       ("上期経常は赤字縮小で着地", "up"),
+                       ("2026年8月期 決算短信〔日本基準〕(連結)", None),
+                       ("配当予想の修正（増配）に関するお知らせ", "up")]:
+        check(f"見出しの向き: {text}", E.headline_dir(text), want)
+
+    check("よく比較される銘柄", kn.parse_peers(KABUTAN_FLASH_BODY)[:2],
+          [{"name": "富士電機", "code": "6504"}, {"name": "山洋電", "code": "6516"}])
+    check("決算速報の本文は数字の段落だけ", kn.flash_body(KABUTAN_FLASH_BODY).endswith("32.6％上方修正した。"), True)
+    today = _date(2026, 10, 2)
+    sched = kn.parse_schedule(WEEKLY_SCHEDULE, today)
+    check("来週の決算予定: 日付ごとに読む", (sched["2753"]["date"], sched["9861"]["date"], len(sched)),
+          ("2026-10-05", "2026-10-06", 4))
+    sched = kn.parse_schedule(SURPRISE_BODY, today)
+    check("サプライズ決算の後半: 日付の見出しより前（発表済み）と合計の後ろは読まない",
+          sorted(sched), ["1376", "3498"])
+    check("年をまたぐ予定は翌年", kn.parse_schedule("●1月 8日――――　<1301>極洋 [東Ｐ]", _date(2026, 12, 20))["1301"]["date"],
+          "2027-01-08")
+    html = 'x,\\"industry\\":{\\"industryName\\":\\"電気機器\\",\\"industryLink\\":\\"/search/qi/?ids=3650\\"}'
+    check("銘柄ページの業種", kn.parse_stock_news(html, ("株探ニュース",))["industry"], "電気機器")
+    check("一覧の時刻: 当日は時:分", E._same_day("16:35", "2026-10-02", "2026-10-02"), True)
+    check("一覧の時刻: 前日以前は月/日（寄り前に前日の分を読む）", E._same_day("10/2", "2026-10-02", "2026-10-05"), True)
+    check("一覧の時刻: 別の日は読まない", E._same_day("9/30", "2026-10-02", "2026-10-02"), False)
+
+    rows = [
+        {"code": "7777", "name": "テスト短信", "title": "2026年8月期 決算短信", "time": "15:30", "category": "決算短信", "pdf": "p3"},
+        {"code": "6652", "name": "ＩＤＥＣ", "title": "業績予想の修正に関するお知らせ", "time": "16:30", "category": "業績予想の修正", "pdf": "p1"},
+        {"code": "6652", "name": "ＩＤＥＣ", "title": "配当予想の修正（増配）に関するお知らせ", "time": "16:30", "category": "配当予想の修正", "pdf": "p2"},
+        {"code": "8888", "name": "自社株", "title": "自己株式の取得状況", "time": "15:00", "category": "自己株式取得"},
+        {"code": "6501", "name": "日立", "title": "2027年3月期 第2四半期決算短信", "time": "15:00", "category": "決算短信", "pdf": "p4"},
+        {"code": "6594", "name": "ニデック", "title": "（訂正）2026年3月期 決算短信の一部訂正について", "time": "15:00", "category": "決算短信"},
+    ]
+    groups = E.prioritize(E.group_rows(rows), {"6501"})
+    check("会社ごとにまとめ、修正 → 追っている銘柄の短信 → ほかの短信の順（訂正は読まない）", [g["code"] for g in groups], ["6652", "6501", "7777"])
+    check("同じ会社の開示はまとめる", groups[0]["kinds"], ["業績予想の修正", "配当予想の修正"])
+
+    news = {"6652": {"industry": "電気機器", "items": [
+        {"url": "u1", "title": "【決算速報】ＩＤＥＣ、今期経常を33％上方修正", "time": "16:35", "provider": "株探ニュース"},
+        {"url": "u2", "title": "ＩＤＥＣ、２７年３月期の連結純利益予想を８６億円に上方修正", "time": "16:40", "provider": "ウエルスアドバイザー"},
+        {"url": "u3", "title": "採れたて株価材料　ファストリ", "time": "16:41", "provider": "時事通信"},
+        {"url": "u4", "title": "【決算速報】ＩＤＥＣ、古い決算", "time": "9/30", "provider": "株探ニュース"}]}}
+    themes = {"stocks": {"6652": {"name": "ＩＤＥＣ", "themes": ["ロボット"]},
+                         "6506": {"name": "安川電", "themes": ["ロボット"]}}}
+    members = {"6506": {"sector": "電気機器", "name": "安川電"}, "6501": {"sector": "電気機器", "name": "日立"}}
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "earnings.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"log": [{"date": "2026-09-30", "code": "6504", "name": "富士電機", "industry": "電気機器",
+                                "themes": [], "dir": "up", "head": "富士電機、上期を上方修正"},
+                               {"date": "2026-09-30", "code": "6506", "name": "安川電", "industry": "電気機器",
+                                "themes": ["ロボット"], "dir": "up", "head": "安川電、上方修正"}],
+                       "schedule": {"6645": {"date": "2026-10-08", "name": "オムロン"},
+                                    "6516": {"date": "2026-09-01", "name": "山洋電"}}}, f)
+        out = E.build(
+            "taibike", today, rows, "2026-10-02", "今日の開示", focus={"6501"}, themes=themes, members=members,
+            articles=[{"headline": "来週の決算発表予定", "body": WEEKLY_SCHEDULE}],
+            quotes_of=lambda codes: {c: {"change_pct": 1.0, "last": 100.0} for c in codes},
+            closes_of=lambda code: {f"2026-09-{i:02d}": 100.0 + i for i in range(1, 30)} if code == "6504" else {},
+            fetch_news=lambda c: news.get(c),
+            fetch_article=lambda u: {"body": KABUTAN_FLASH_BODY} if u == "u1" else None,
+            fetch_pdf=lambda u: {"p1": REVISION_PDF, "p4": TANSHIN_PDF}.get(u),
+            extract=td.extract_explanations, names_of=lambda: {}, path=path)
+        idec = out["items"][0]
+        check("1社の材料: 決算速報（当日の分だけ）", idec["flash"]["headline"], "ＩＤＥＣ、今期経常を33％上方修正")
+        check("1社の材料: 修正の理由と出所の PDF", (idec["reason"][:8], idec["reason_pdf"]), ("当期における世界", "p1"))
+        check("1社の材料: 業種と向き", (idec["industry"], idec["dir"]), ("電気機器", "up"))
+        check("1社の材料: 他社の見出し（まとめ記事は除く）", [x["url"] for x in idec["press"]], ["u2"])
+        peers = idec["peers"]
+        check("類似銘柄: 株探の比較銘柄 → テーマ → 225の同じ業種、で6銘柄まで",
+              [(p["code"], p["src"][:4]) for p in peers],
+              [("6504", "株探の比"), ("6516", "株探の比"), ("6622", "株探の比"), ("6645", "株探の比"), ("6479", "株探の比"),
+               ("6506", "テーマ:")])
+        check("類似銘柄: 最近の決算の向き（記録から）", peers[0].get("last", {}).get("dir"), "up")
+        check("類似銘柄: 20日の騰落（日足キャッシュ）", peers[0].get("r20"), round((129 / 109 - 1) * 100, 1))
+        check("類似銘柄: 次の決算予定（過ぎた予定は出さない）", (peers[3].get("next"), peers[1].get("next")), ("2026-10-08", None))
+        hitachi = out["items"][1]
+        check("決算短信: 概況と業績予想の説明", (hitachi["overview"][:6], hitachi["outlook"][:4]), ("住宅関連業界", "2025"))
+        check("決算速報が無い会社は表題から向き", hitachi["dir"], None)
+        check("読んだ数と全体", (out["n_read"], out["n_total"]), (3, 3))
+        ind = {r["key"]: r for r in out["wind"]["industries"]}
+        check("風向き: 業種ごとに読んだ開示の向きを数える（記録の分も）", (ind["電気機器"]["up"], ind["電気機器"]["lean"]), (3, "up"))
+        check("風向き: 件数が少ない業種は出さない", "その他" in ind, False)
+        with open(path, encoding="utf-8") as f:
+            st = json.load(f)
+        check("記録: 今日の分を足す", sorted(e["code"] for e in st["log"] if e["date"] == "2026-10-02"), ["6501", "6652", "7777"])
+        check("記録: 決算予定を足し、過ぎた予定を捨てる", ("2753" in st["schedule"], "6516" in st["schedule"]), (True, False))
+        out2 = E.build("taibike", today, [], "2026-10-02", "今日の開示", focus=set(), themes=themes, members=members,
+                       articles=[], quotes_of=lambda c: {}, closes_of=lambda c: {}, fetch_news=lambda c: None,
+                       fetch_article=lambda u: None, fetch_pdf=lambda u: None, extract=td.extract_explanations, path=path)
+        check("開示が無ければ None（画面は出さない）", out2, None)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1394,6 +1578,7 @@ if __name__ == "__main__":
     test_press()
     test_macro()
     test_sectors()
+    test_earnings()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

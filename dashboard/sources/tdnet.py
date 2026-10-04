@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from ..http import get
 
 LIST_URL = "https://www.release.tdnet.info/inbs/I_list_{page:03d}_{date}.html"
+PDF_BASE = "https://www.release.tdnet.info/inbs/"
 
 # ETF・ETN・投資信託の開示は個別株の物色と関係がないので落とす。
 # （収益分配金や決算短信が毎日まとめて出るため、これを混ぜると個別の材料が埋もれる）
@@ -114,6 +115,7 @@ def fetch_disclosures(target_date: date, max_pages: int = 4,
             code = _normalize_code(tds[1].get_text(strip=True))
             name = tds[2].get_text(strip=True)
             title = tds[3].get_text(strip=True)
+            link = tds[3].find("a", href=True)
             if not code or not title:
                 continue
             page_rows += 1
@@ -127,6 +129,7 @@ def fetch_disclosures(target_date: date, max_pages: int = 4,
                 "code": code, "name": name, "title": title,
                 "time": time_txt, "category": category,
                 "change_pct": None, "price": None,
+                "pdf": (PDF_BASE + link["href"]) if link and link["href"].endswith(".pdf") else None,
             })
         if page_rows == 0:
             break
@@ -151,3 +154,134 @@ def split_by_session(rows: list[dict]) -> dict:
         minutes = int(m.group(1)) * 60 + int(m.group(2)) if m else 0
         (after if minutes >= 15 * 60 + 30 else intraday).append(r)
     return {"intraday": intraday, "after": after}
+
+
+# ==================== 開示の PDF（会社自身の説明） ====================
+# 決算短信の「経営成績の概況」と「業績予想の説明」、業績・配当の修正の「修正の理由」は、
+# 会社が自分の言葉で事業環境（どの需要が強いか・何が重いか）を書いた一次情報。
+# 業界の風向きと類似銘柄への連想は、ここを土台に読む（dashboard/earnings.py）。
+PDF_MAX_BYTES = 6_000_000
+PDF_PAGES = 6            # 決算短信の定性的情報は2〜4ページ目にある
+
+_NOISE_LINE = re.compile(r"^(\d{1,3}|[-－―ー]\s*\d+\s*[-－―ー]|.{0,40}決算短信.{0,30}|.{0,30}株式会社\s*[(（]\d{3}[0-9A-Z][)）].{0,30})$")
+_TOC = re.compile(r"…|・・・|\.{4,}")
+_HEAD_LINE = re.compile(r"^([①-⑳]|[（(][0-9０-９一二三四五六七八九十ａ-ｚa-z]{1,2}[)）]|[0-9０-９]{1,2}[．.]|[・■●◆○※])")
+
+_OVERVIEW_HEAD = re.compile(r"^[（(][1１][)）].{0,25}経営成績(等)?(の概況|に関する(説明|分析))")
+_OUTLOOK_HEAD = re.compile(r"^[（(][2-6２-６][)）].{0,25}(将来予測情報に関する説明|今後の見通し|業績予想に関する説明)")
+_REASON_HEAD = re.compile(r"^(?:[0-9０-９ⅠⅡⅢⅣⅤ]{1,2}[．.]\s*|[（(][0-9０-９]{1,2}[)）]\s*|[【＜<])?"
+                          r"(?:.{0,14}?(?:修正|変更|差異|乖離)の?)?理由[)）】＞>]?\s*$")
+_SUB_STOP = re.compile(r"^[（(][0-9０-９][)）]|^[0-9０-９][．.]")
+_REASON_STOP = re.compile(r"^以\s*上\s*$|^[（(]\s*注|^※|^[0-9０-９ⅠⅡⅢⅣⅤ]{1,2}[．.]|^[（(][0-9０-９]{1,2}[)）]")
+_RATE_LINE = re.compile(r"^増減率")
+_RATE_NUM = re.compile(r"([△▲\-−－+＋])?\s*(\d[\d,]*(?:\.\d+)?)")
+
+
+def clean_pdf_text(text: str) -> str:
+    """pypdf の出力を読める形にする。日本語の字の間に入る空白（「営 業 利 益」）を詰め、空行を落とす。"""
+    t = (text or "").replace("　", " ").replace("\xa0", " ")
+    t = re.sub(r"(?<=[^\x00-\x7f]) +(?=[^\x00-\x7f])", "", t)
+    t = re.sub(r"(?<=[0-9]) +(?=[^\x00-\x7f])|(?<=[^\x00-\x7f]) +(?=[0-9])", "", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    return "\n".join(l.strip() for l in t.split("\n") if l.strip())
+
+
+def _join_prose(lines: list[str]) -> str:
+    """PDF の行の折り返しをつなぐ。文の終わり（。）と見出し・箇条の頭でだけ改行する。"""
+    out = ""
+    for l in lines:
+        if not out:
+            out = l
+        elif out.endswith("。") or _HEAD_LINE.match(l):
+            out += "\n" + l
+        else:
+            out += l
+    return out
+
+
+def _cut(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    end = head.rfind("。")
+    return head[:end + 1] if end >= limit // 2 else head + "…"
+
+
+def _section(lines: list[str], head: re.Pattern, stop: re.Pattern, limit: int) -> str | None:
+    """見出しの次の行から、次の見出しまでの文章。目次の行と、文章（。）の無い節は飛ばす。"""
+    for i, l in enumerate(lines):
+        if len(l) > 40 or not head.search(l) or _TOC.search(l):
+            continue
+        body, size = [], 0
+        for x in lines[i + 1:]:
+            if stop.search(x):
+                if body:
+                    break
+                continue        # 見出しの直後の小見出し（「１. 連結業績」）は節の中身。飛ばして読み続ける
+            if _NOISE_LINE.match(x) or _TOC.search(x):
+                continue
+            body.append(x)
+            size += len(x)
+            if size > limit * 3:
+                break
+        # 表の行（数字と見出しの羅列）は文にならないので、文（。）を含む段落だけ残す
+        prose = "\n".join(p for p in _join_prose(body).split("\n") if "。" in p)
+        if prose:
+            return _cut(prose, limit)
+    return None
+
+
+def revision_dir(text: str) -> str | None:
+    """業績予想の修正の表の「増減率」の行から向きを読む（利益の列の符号の多数決）。読めなければ None。"""
+    rows = [l for l in (text or "").split("\n") if _RATE_LINE.match(l)]
+    for row in reversed(rows):
+        nums = []
+        for sign, num in _RATE_NUM.findall(row[3:]):
+            try:
+                v = float(num.replace(",", ""))
+            except ValueError:
+                continue
+            nums.append(-v if sign in ("△", "▲", "-", "−", "－") else v)
+        if not nums:
+            continue
+        profit = nums[1:4] if len(nums) >= 3 else nums
+        pos, neg = sum(v > 0 for v in profit), sum(v < 0 for v in profit)
+        if pos > neg:
+            return "up"
+        if neg > pos:
+            return "down"
+        return None
+    return None
+
+
+def extract_explanations(text: str, limits: dict | None = None) -> dict:
+    """PDF の本文から、会社の説明（修正の理由・経営成績の概況・業績予想の説明）と修正の向きを取り出す。"""
+    lim = {"reason": 600, "overview": 900, "outlook": 400, **(limits or {})}
+    lines = clean_pdf_text(text).split("\n")
+    out = {
+        "reason": _section(lines, _REASON_HEAD, _REASON_STOP, lim["reason"]),
+        "overview": _section(lines, _OVERVIEW_HEAD, _SUB_STOP, lim["overview"]),
+        "outlook": _section(lines, _OUTLOOK_HEAD, _SUB_STOP, lim["outlook"]),
+        "dir": revision_dir("\n".join(lines)),
+    }
+    return {k: v for k, v in out.items() if v}
+
+
+def fetch_pdf_text(url: str, pages: int = PDF_PAGES) -> str | None:
+    """開示の PDF の先頭数ページの文字。取れなければ None（pypdf が無い環境でも落ちない）。"""
+    if not url:
+        return None
+    try:
+        import io
+
+        from pypdf import PdfReader
+    except ImportError:
+        return None
+    res = get(url, timeout=30)
+    if res is None or not res.content or len(res.content) > PDF_MAX_BYTES:
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(res.content))
+        return "\n".join((p.extract_text() or "") for p in reader.pages[:pages])
+    except Exception:                       # noqa: BLE001  壊れた PDF・暗号化は欠損として扱う
+        return None

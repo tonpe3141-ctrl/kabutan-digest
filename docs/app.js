@@ -425,6 +425,13 @@ function summaryCard(d, slot) {
     }
   }
 
+  const ea = d.earnings;
+  if (ea && (ea.items || []).length) {
+    const top = ((ea.wind || {}).industries || []).find((r) => r.lean);
+    const et = (d.ai_earnings && d.ai_earnings.headline)
+      || (top ? `${top.key}の決算が${EARN_DIR[top.lean][0]}（上${top.up}・下${top.down}）` : `${ea.n_read}社を読む`);
+    chips.push(h('button', { class: 'badge badge--btn', type: 'button', text: '決算: ' + et + ' ›', onclick: () => selectView('news', 'nw-earn') }));
+  }
   const mh = (d.ai_macro && d.ai_macro.headline) || (d.macro_view && d.macro_view.headline);
   if (mh) {
     chips.push(h('button', { class: 'badge badge--btn', type: 'button', text: 'マクロ: ' + mh.split('。')[0] + ' ›',
@@ -732,6 +739,201 @@ function disclosureCard(feed) {
   ]);
 }
 
+/* ==================== 決算から読む（DESIGN.md 22章） ====================
+   決算・修正の開示ごとに、会社の説明（TDnet の PDF）・株探の決算速報・類似銘柄の値動きと決算予定を機械が集め（data.earnings）、
+   何が分かったか・業界の風向き・類似銘柄への連想・次に確かめること を Claude が書く（data.ai_earnings）。
+   類似銘柄は連想の材料で、買う候補ではない（買う候補は売買タブの2つのルールだけ）。 */
+const EARN_DIR = { up: ['上向き', 'up'], down: ['下向き', 'down'], mixed: ['強弱まちまち', 'warn'] };
+
+/* 決算の材料がある区分。大引があれば前場は出さない（大引は前場までの開示も読んでいる） */
+function earnSources() {
+  const slots = (DATA && DATA.slots) || {};
+  const out = [];
+  ['taibike', 'zenba', 'preopen'].forEach((s) => {
+    const d = (slots[s] || {}).data || {};
+    if (d.earnings && (d.earnings.items || []).length) out.push({ slot: s, e: d.earnings, ai: d.ai_earnings || null });
+  });
+  return out.filter((x, i, a) => !(x.slot === 'zenba' && a.some((y) => y.slot === 'taibike')));
+}
+
+/* 銘柄シート用: その銘柄の決算と、その銘柄を類似銘柄に挙げた決算 */
+function earnFor(code) {
+  const self = [], peerOf = [];
+  earnSources().forEach((src) => (src.e.items || []).forEach((it) => {
+    const ai = ((src.ai && src.ai.items) || []).find((x) => String(x.code) === String(it.code)) || null;
+    if (String(it.code) === code) self.push({ src, it, ai });
+    const p = (it.peers || []).find((x) => String(x.code) === code);
+    if (p) peerOf.push({ src, it, ai, why: ((ai && ai.peers) || []).find((x) => String(x.code) === code) });
+  }));
+  return { self, peerOf };
+}
+
+/* 銘柄シートから「決算から読む」へ。シートは履歴を戻して閉じる（非同期）ので、閉じ終わってから跳ぶ
+   （先に跳ぶと、戻ったときのスクロールの復元で位置が上書きされる） */
+function earnJump() {
+  const go = () => selectView('news', 'nw-earn');
+  if ($('stockSheet').open && history.state && history.state.sheet) {
+    window.addEventListener('popstate', () => setTimeout(go, 60), { once: true });
+    closeSheet();
+  } else go();
+}
+
+function earnDirBadge(dir) {
+  const x = EARN_DIR[dir];
+  return x ? h('span', { class: 'badge badge--' + x[1], text: x[0] }) : null;
+}
+
+function earnPeerChip(p) {
+  const tail = [];
+  if (p.today) tail.push('同じ日に発表' + (EARN_DIR[p.today] ? `（${EARN_DIR[p.today][0]}）` : ''));
+  else if (p.last) tail.push(`${md(p.last.date)}の決算` + (EARN_DIR[p.last.dir] ? `（${EARN_DIR[p.last.dir][0]}）` : ''));
+  if (p.next) tail.push(`${md(p.next)} 決算予定`);
+  if (isNum(p.r20)) tail.push(`20日 ${fmtPct(p.r20, 1)}`);
+  return h('button', { class: 'peer', type: 'button', title: p.src || '', onclick: () => openStock(p.code) }, [
+    h('span', { class: 'peer__top' }, [
+      h('span', { class: 'peer__name', text: cleanName(p.name) || p.code }),
+      isNum(p.pct) ? h('span', { class: 'peer__pct num ' + cls(p.pct), text: fmtPct(p.pct, 1) }) : null,
+    ]),
+    tail.length ? h('span', { class: 'peer__meta', text: tail.join('・') }) : null,
+  ]);
+}
+
+function earnText(label, text, url, linkLabel) {
+  return h('div', { class: 'earn__src' }, [
+    h('div', { class: 'earn__lh', text: label }),
+    h('div', { class: 'earn__body', text }),
+    url ? h('a', { href: url, target: '_blank', rel: 'noopener', text: (linkLabel || '元を開く') + ' →' }) : null,
+  ]);
+}
+
+function earnItem(it, ai, moveLabel) {
+  const flash = it.flash || {};
+  const pdfs = it.pdfs || {};
+  const mv = (it.move || {}).pct;
+  const kids = [
+    h('button', { class: 'earn__head', type: 'button', onclick: () => openStock(it.code) }, [
+      h('span', { class: 'earn__time num', text: (it.time || '').slice(0, 5) }),
+      h('span', { class: 'earn__name', text: cleanName(it.name) || it.code }),
+      h('span', { class: 'earn__code', text: it.code }),
+      it.industry ? h('span', { class: 'kind', text: it.industry }) : null,
+      earnDirBadge(it.dir),
+      isNum(mv) ? h('span', { class: 'earn__move num ' + cls(mv), title: moveLabel, text: fmtPct(mv, 1) }) : null,
+    ]),
+    h('div', { class: 'earn__flash', text: flash.headline || (it.titles || [])[0] || '' }),
+  ];
+  if (ai && ai.read) kids.push(h('div', { class: 'earn__read', text: ai.read }));
+  if (ai && ai.wind) kids.push(h('div', { class: 'earn__line' }, [h('b', { text: '風向き ' }), document.createTextNode(ai.wind)]));
+  const peers = it.peers || [];
+  if (peers.length) {
+    const why = new Map(((ai && ai.peers) || []).map((p) => [String(p.code), p.why]));
+    kids.push(h('div', { class: 'earn__lh', text: '類似銘柄（押すと銘柄シート）' }));
+    kids.push(h('div', { class: 'peers' }, peers.map(earnPeerChip)));
+    const whys = peers.filter((p) => why.get(String(p.code))).map((p) =>
+      h('li', {}, [h('b', { text: (cleanName(p.name) || p.code) + ' ' }), document.createTextNode(why.get(String(p.code)))]));
+    if (whys.length) kids.push(h('ul', { class: 'earn__whys' }, whys));
+  }
+  if (ai && ai.next) kids.push(h('div', { class: 'earn__line earn__next' }, [h('b', { text: '次に確かめる ' }), document.createTextNode(ai.next)]));
+  const mat = [];
+  if (flash.body) mat.push(earnText('株探の決算速報（数字の要約）', flash.body, flash.url, '記事を開く'));
+  if (it.reason) mat.push(earnText('会社の説明: 修正の理由', it.reason, it.reason_pdf, 'PDF（TDnet）'));
+  if (it.overview) mat.push(earnText('会社の説明: 経営成績の概況', it.overview, pdfs['決算短信'], 'PDF（TDnet）'));
+  if (it.outlook) mat.push(earnText('会社の説明: 業績予想', it.outlook, null));
+  if ((it.press || []).length) {
+    mat.push(h('div', { class: 'earn__src' }, [h('div', { class: 'earn__lh', text: 'ほかの報道' })].concat(it.press.map((x) =>
+      h('a', { class: 'earn__press', href: x.url, target: '_blank', rel: 'noopener', text: `📰 ${x.title}（${x.provider}）` })))));
+  }
+  const rest = Object.entries(pdfs).filter(([k, u]) => u !== it.reason_pdf && !(k === '決算短信' && it.overview));
+  if (rest.length) {
+    mat.push(h('div', { class: 'earn__src' }, rest.map(([k, u]) => h('a', { href: u, target: '_blank', rel: 'noopener', text: `${k}の PDF（TDnet） →` }))));
+  }
+  if (mat.length) {
+    kids.push(h('details', { class: 'fold earn__mat' }, [
+      h('summary', { text: '材料を読む（会社の説明・決算速報' + ((it.press || []).length ? '・報道' : '') + '）' }),
+      h('div', { class: 'fold__body' }, mat),
+    ]));
+  }
+  return h('div', { class: 'earn', id: 'earn-' + it.code }, kids);
+}
+
+/* 業種の風向き: 直近の営業日に読んだ開示の向きを業種ごとに数えたもの（機械）。全開示ではない */
+function earnWind(w) {
+  const rows = (w.industries || []).slice(0, 6);
+  if (!rows.length) return null;
+  return h('div', { class: 'earn__windbox' }, [
+    h('div', { class: 'earn__lh', text: `業種の風向き（${w.days > 1 ? `直近${w.days}営業日` : 'この日'}に読んだ開示 ${w.n}件の向き。${w.min_n}件以上の業種）` }),
+    h('div', { class: 'rows' }, rows.map((r) => h('div', { class: 'row wind' }, [
+      h('div', { class: 'row__main' }, [
+        h('div', { class: 'row__name' }, [document.createTextNode(r.key + ' '), earnDirBadge(r.lean)]),
+        h('div', { class: 'row__meta wind__names' }, (r.names || []).slice(0, 5).map((x) => h('button', {
+          class: 'wind__name ' + (x.dir === 'up' ? 'up' : x.dir === 'down' ? 'down' : ''), type: 'button',
+          text: (cleanName(x.name) || x.code) + (x.dir === 'up' ? '↑' : x.dir === 'down' ? '↓' : ''), onclick: () => openStock(x.code) }))),
+      ]),
+      h('div', { class: 'row__right wind__n' }, [
+        h('span', { class: 'num up', text: `上 ${r.up}` }), h('span', { class: 'num down', text: `下 ${r.down}` }),
+      ]),
+    ]))),
+  ]);
+}
+
+function earnCard() {
+  const srcs = earnSources();
+  if (!srcs.length) return null;               // 決算・修正の開示が無い日は出さない
+  const body = h('div', { class: 'card__pad' });
+  const note = h('div', { class: 'card__note' });
+  const badge = h('span', { class: 'badge badge--accent' });
+  const draw = (slot) => {
+    body.textContent = '';
+    const { e, ai } = srcs.find((x) => x.slot === slot);
+    const aiItems = new Map(((ai && ai.items) || []).map((x, i) => [String(x.code), { ...x, i }]));
+    badge.textContent = ai ? (ai.method || 'AI分析') : '材料のみ';
+    if (ai && ai.headline) body.appendChild(h('p', { class: 'analysis__headline', text: ai.headline }));
+    if (ai && (ai.winds || []).length) {
+      body.appendChild(h('div', { class: 'macro__analysis' }, ai.winds.map((w) => h('div', { class: 'analysis__sec' }, [
+        h('div', { class: 'analysis__t', text: w.title }),
+        h('div', { class: 'analysis__b', text: w.body }),
+        (w.codes || []).length ? h('div', { class: 'chips' }, w.codes.map((c) => {
+          const it = (e.items || []).find((x) => String(x.code) === String(c));
+          const nm = it ? it.name : (jaName(String(c), '') || String(c));
+          return h('button', { class: 'badge badge--btn', type: 'button', text: cleanName(nm) + ' ›', onclick: () => openStock(String(c)) });
+        })) : null,
+      ]))));
+    }
+    const wt = earnWind(e.wind || {});
+    if (wt) body.appendChild(wt);
+    const items = (e.items || []).map((it, i) => ({ it, i, a: aiItems.get(String(it.code)) }))
+      .sort((x, y) => (x.a ? x.a.i : 999 + x.i) - (y.a ? y.a.i : 999 + y.i));
+    const moveLabel = slot === 'preopen' ? '開示の日の値動き（引け後の開示は、まだ反応していない）' : 'きょうの値動き';
+    body.appendChild(h('div', { class: 'earn__lh earn__lh--list', text: `${e.n_read}社の決算（${slot === 'preopen' ? '右の％は開示の日の値動き。引け後の開示への反応はこれから' : '右の％はきょうの値動き'}）` }));
+    body.appendChild(foldable((n) => h('div', { class: 'earns' }, items.slice(0, n).map((x) => earnItem(x.it, x.a, moveLabel))), items.length, 6, '全社'));
+    const more = e.more || [];
+    if (more.length) {
+      body.appendChild(h('p', { class: 'hint', text: `読んでいない開示 ${e.n_total - e.n_read}社（1回に読むのは修正を先に最大${e.n_read}社）: ` +
+        more.slice(0, 15).map((x) => cleanName(x.name) || x.code).join('、') + (more.length > 15 ? ' ほか' : '') + '。開示の一覧は下のカード。' }));
+    }
+    if (ai && Array.isArray(ai.sources) && ai.sources.length) {
+      body.appendChild(h('div', { class: 'analysis__srcs' }, ai.sources.map((s) =>
+        h('a', { href: s.url, target: '_blank', rel: 'noopener', text: '📰 ' + s.title }))));
+    }
+    note.textContent = (ai ? '読み（何が分かったか・風向き・類似銘柄の理由・次に確かめる）は生成AIによる分析で、誤りを含む可能性があります。'
+      : 'AI の読みはまだありません（Routine の分析が終わると出ます）。下は機械が集めた材料です。') +
+      '会社の説明は TDnet の PDF（一次情報）、数字の要約と「よく比較される銘柄」は株探の決算速報、業種は Yahoo!ファイナンスから集めたもの。' +
+      '類似銘柄は 株探の比較銘柄 → テーマ辞書の同じテーマ → 日経225の同じ業種 の順。風向きは読んだ開示の向きの数で、全開示の集計ではない。' +
+      '類似銘柄は連想の材料で、買う候補ではありません（買う候補は売買タブの2つのルールだけ）。予測ではなく、売買を推奨するものでもありません。';
+  };
+  const label = (x) => (x.slot === 'preopen' ? `${md(x.e.asof)} 引け後` : `${md(x.e.asof)} ${x.slot === 'zenba' ? '前場まで' : '今日'}`) + ` ${x.e.n_read}社`;
+  const kids = [h('div', { class: 'card__head' }, [h('h2', { class: 'card__title', text: '決算から読む' }), badge])];
+  if (srcs.length > 1) {
+    const seg = segmented(srcs.map((x) => [x.slot, label(x)]), draw, srcs[0].slot);
+    seg.classList.add('seg--scroll');
+    kids.push(h('div', { class: 'card__seg' }, seg));
+  } else {
+    kids.push(h('div', { class: 'card__pad hint', text: label(srcs[0]) + `（${srcs[0].e.scope}）` }));
+  }
+  draw(srcs[0].slot);
+  kids.push(body, note);
+  return h('section', { class: 'card card--flush earncard', id: 'nw-earn' }, kids);
+}
+
 function newsFeedCard(feed) {
   const items = feed.items;
   const count = (k) => (k === 'all' ? items.length : items.filter((x) => x.kind === k).length);
@@ -758,7 +960,7 @@ function newsFeedCard(feed) {
 function renderNews() {
   if (!DATA || !Object.keys(DATA.slots || {}).length) return [card('ニュース', null, h('div', { class: 'empty', text: '今日のデータはまだありません' }))];
   const feed = gatherNews();
-  return [myNewsCard(feed, myStocks()), disclosureCard(feed), newsFeedCard(feed)];
+  return [myNewsCard(feed, myStocks()), earnCard(), disclosureCard(feed), newsFeedCard(feed)];
 }
 
 /* ==================== 市況: 寄り前 ==================== */
@@ -4143,6 +4345,20 @@ function stockMaterials(code, name, s) {
       document.createTextNode([(le.signals || []).join('・'), (le.why || []).join('／')].filter(Boolean).join('：'))]));
     if (le.notes) lines.push(h('div', { class: 'sd__line sd__line--dim', text: le.notes }));
   }
+  const er = earnFor(code);
+  er.self.forEach(({ src, it, ai }) => {
+    lines.push(h('button', { class: 'sd__line sd__line--btn', type: 'button', onclick: earnJump }, [
+      h('b', { text: `決算（${md(src.e.asof)}）${EARN_DIR[it.dir] ? EARN_DIR[it.dir][0] : ''} ` }),
+      document.createTextNode(((it.flash || {}).headline || (it.titles || [])[0] || '') + (ai && ai.read ? `　${ai.read.split('。')[0]}。` : '') + ' ›'),
+    ]));
+  });
+  er.peerOf.slice(0, 3).forEach(({ src, it, why }) => {
+    lines.push(h('button', { class: 'sd__line sd__line--btn', type: 'button', onclick: earnJump }, [
+      h('b', { text: `類似銘柄の決算（${md(src.e.asof)}） ` }),
+      document.createTextNode(`${cleanName(it.name)}${EARN_DIR[it.dir] ? '（' + EARN_DIR[it.dir][0] + '）' : ''}: ` +
+        ((it.flash || {}).headline || (it.titles || [])[0] || '') + (why && why.why ? `　${why.why}` : '') + ' ›'),
+    ]));
+  });
   const news = feed.items.filter((x) => titleHas(x.title, name, code)).slice(0, 6);
   const kids = [];
   if (disc.length) kids.push(disclosureRows(disc, 10));
@@ -4453,7 +4669,7 @@ const JUMPS = {
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
-  news: [['nw-mine', '自分の銘柄'], ['nw-disc', '開示'], ['nw-feed', 'ニュース']],
+  news: [['nw-mine', '自分の銘柄'], ['nw-earn', '決算から読む'], ['nw-disc', '開示'], ['nw-feed', 'ニュース']],
   verify: [['v-swing', '成績'], ['v-mid', '中期'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-thermo', '温度計'], ['v-track', '警告'],
     ['v-sector', '業種'], ['v-ledger', '発掘'], ['v-mine', '自分の記録']],
 };

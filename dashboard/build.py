@@ -14,7 +14,7 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, bars as bars_mod, commentary, ledger as ledger_mod, macro as macro_mod, names, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, store, themes as themes_mod, thermo_run, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
     US_INDICES, US_SECTOR_ETFS,
@@ -158,6 +158,17 @@ def build_preopen(target_date: date) -> dict:
             after_hours = (hist.get("taibike") or {}).get("after_hours") or []
             break
 
+    # 前営業日の引け後の開示は、大引（16:45）の時点の分しか履歴に無い。決算の多くは 15:30〜17:00 に出るので、
+    # 寄り前に TDnet を取り直して全部そろえる（取れなければ履歴の分のまま）
+    prev_disc = []
+    if prev_summary and prev_summary.get("date"):
+        prev_day = date.fromisoformat(prev_summary["date"])
+        print(f"  [TDnet] 前営業日（{prev_day}）の適時開示を取り直し中...")
+        got = _safe("前営業日の適時開示", lambda: tdnet.fetch_disclosures(prev_day), {}) or {}
+        prev_disc = tdnet.split_by_session(got.get("rows") or [])["after"]
+        if len(prev_disc) > len(after_hours):
+            after_hours = prev_disc
+
     spx = us.get("spx") or {}
     payload = {
         "us": us,
@@ -166,7 +177,7 @@ def build_preopen(target_date: date) -> dict:
         "implied_open": analyze.implied_open(drivers, prev_close, None),
         "risk": analyze.risk_regime(us, macro),
         "sector_outlook": analyze.sector_outlook(drivers),
-        "carryover": {"prev_session": prev_summary, "after_hours_kessan": after_hours[:20]},
+        "carryover": {"prev_session": prev_summary, "after_hours_kessan": after_hours[:80]},
         "watchlist": _fetch_watchlist({}, after_hours),
         "freshness": {"us_asof": spx.get("asof"),
                       "market_status": spx.get("market_status")},
@@ -183,6 +194,8 @@ def build_preopen(target_date: date) -> dict:
               if latest.get("date") == target_date.isoformat() else {})
     payload["ai_commentary"] = before.get("ai_commentary")
     payload["ai_macro"] = before.get("ai_macro")
+    payload["ai_earnings"] = before.get("ai_earnings")
+    payload["_earn_rows"] = after_hours
     return payload
 
 
@@ -346,6 +359,8 @@ def build_session(target_date: date, slot: str) -> dict:
     # バックアップ実行で上書きされても、Routine が既に書いた ai_commentary / ai_macro を消さない
     payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
     payload["ai_macro"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_macro")
+    payload["ai_earnings"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_earnings")
+    payload["_earn_rows"] = disc.get("rows") or []
     payload["_after_hours"] = split["after"]
     return payload
 
@@ -513,6 +528,16 @@ def run(slot: str, target_date: date | None = None) -> dict:
     if payload["macro_view"]:
         hist_patch[slot]["macro_headline"] = payload["macro_view"]["headline"]
 
+    # 決算から読む（会社の説明・決算速報・類似銘柄・業種の風向き）。理由づけは Routine が ai_earnings に書く
+    print("  [決算] 決算・修正の開示を読んでいます...")
+    earn_rows = payload.pop("_earn_rows", None) or []
+    payload["earnings"] = _safe("決算から読む", lambda: _build_earnings(slot, target_date, payload, earn_rows))
+    if not payload["earnings"]:
+        # 取り直しで情報を減らさない（同じ日・同じ区分で前回読めていれば引き継ぐ）
+        latest = store.load_latest()
+        if latest.get("date") == target_date.isoformat():
+            payload["earnings"] = (((latest.get("slots") or {}).get(slot) or {}).get("data") or {}).get("earnings")
+
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)
     removed = store.prune_history()
@@ -521,6 +546,28 @@ def run(slot: str, target_date: date | None = None) -> dict:
 
     print(f"\n✅ {slot} を更新しました → {store.latest_path()}")
     return payload
+
+
+def _build_earnings(slot: str, target_date: date, payload: dict, rows: list[dict]) -> dict | None:
+    """寄り前は前営業日の引け後の開示を、前場・大引はその日の開示を読む。"""
+    if slot == "preopen":
+        asof = ((payload.get("carryover") or {}).get("prev_session") or {}).get("date")
+        scope = "前営業日の引け後"
+    else:
+        asof, scope = target_date.isoformat(), ("今日の開示（前場まで）" if slot == "zenba" else "今日の開示")
+    if not asof or not rows:
+        return None
+    members = {c["code"]: {"sector": c.get("sector"), "name": c.get("name")} for c in nikkei225._load_cache()}
+    themes = themes_mod.load_themes()
+    focus = set(members) | set((themes.get("stocks") or {}).keys()) | set(store.load_watchlist().get("codes", []))
+    focus |= {e["code"] for e in ledger_mod.load_ledger().get("entries") or [] if e.get("status") == "watching"}
+    bars = bars_mod.load()
+    return earnings_mod.build(
+        slot, target_date, rows, asof, scope, focus=focus, themes=themes, members=members,
+        articles=(payload.get("kabutan") or {}).get("articles") or [],
+        quotes_of=lambda codes: _safe("類似銘柄の株価", lambda: cnbc.fetch_jp_stocks(codes), {}) or {},
+        closes_of=lambda code: bars_mod.stock_map(bars, code),
+        names_of=names.known)
 
 
 def refresh_watchlist() -> dict:

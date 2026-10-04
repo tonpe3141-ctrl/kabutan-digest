@@ -869,3 +869,51 @@ table.bt--macro td:last-child { width: 56px; }
 .topic__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13.5px; }
 .topic__n { font-size: 11.5px; color: var(--text-dim); font-weight: 650; white-space: nowrap; }
 .topic__media { font-size: 11px; color: var(--text-faint); margin-top: 2px; line-height: 1.5; }
+
+/* ==================== 決算から読む（DESIGN.md 22章） ==================== */
+.earncard .card__pad { padding: 0 14px; }
+.earncard .card__pad.hint { margin: -4px 0 8px; }
+.earn__lh { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin: 10px 0 5px; }
+.earn__lh--list { margin-top: 14px; }
+.earn__windbox { margin-top: 12px; }
+.earn__windbox .row.wind { grid-template-columns: 1fr auto; padding-left: 0; padding-right: 0; }
+.wind__names { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.wind__name { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; color: var(--text-dim); cursor: pointer; }
+.wind__name.up { color: var(--up); }
+.wind__name.down { color: var(--down); }
+.wind__n { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12px; font-weight: 700; }
+.earns { display: flex; flex-direction: column; }
+.earn { padding: 12px 0; border-top: 1px solid var(--border); }
+.earns > .earn:first-child { border-top: 0; padding-top: 4px; }
+.earn__head {
+  appearance: none; border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; width: 100%;
+}
+.earn__head .kind { margin-left: 0; vertical-align: 0; }
+.earn__time { font-size: 11px; color: var(--text-faint); }
+.earn__name { font-size: 15px; font-weight: 750; }
+.earn__code { font-size: 11px; color: var(--text-faint); }
+.earn__move { margin-left: auto; font-size: 13px; font-weight: 700; }
+.earn__flash { font-size: 13px; font-weight: 650; margin-top: 4px; line-height: 1.5; }
+.earn__read { font-size: 13.5px; line-height: 1.75; margin-top: 6px; white-space: pre-wrap; }
+.earn__line { font-size: 13px; line-height: 1.7; margin-top: 6px; color: var(--text); }
+.earn__line > b { color: var(--accent); font-size: 11.5px; }
+.earn__next > b { color: var(--warn); }
+.earn__whys { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.65; color: var(--text-dim); }
+.earn__whys b { color: var(--text); font-weight: 700; }
+.peers { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.peer {
+  appearance: none; border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; padding: 6px 8px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.peer__top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.peer__name { font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peer__pct { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.peer__meta { font-size: 10.5px; color: var(--text-dim); line-height: 1.45; }
+.earn__mat .fold__body { display: flex; flex-direction: column; gap: 10px; }
+.earn__src .earn__lh { margin-top: 0; }
+.earn__body { font-size: 12.5px; line-height: 1.75; white-space: pre-wrap; color: var(--text); }
+.earn__src a { display: inline-block; font-size: 12px; color: var(--accent); text-decoration: none; margin-top: 4px; }
+.earn__src a.earn__press { display: block; }
+.sd__line--btn { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; display: block; width: 100%; }
+.sd__line--btn:hover { color: var(--accent); }
