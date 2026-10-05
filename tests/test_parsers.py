@@ -1683,6 +1683,194 @@ def test_picks():
     check("書き残すのは1回だけ", P.tag_track(track, "2026-10-02", {}), False)
 
 
+FLASH_NACHI = """不二越<6474>[東証Ｐ] が10月5日大引け後(15:30)に決算を発表。26年11月期第3四半期累計(25年12月-26年8月)の連結経常利益は前年同期比2.1倍の108億円に急拡大し、通期計画の133億円に対する進捗率は81.8％に達し、5年平均の69.0％も上回った。
+会社側が発表した第3四半期累計の実績と据え置いた通期計画に基づいて、当社が試算した9-11月期(4Q)の連結経常利益は前年同期比24.8％減の24.2億円に減る計算になる。
+直近3ヵ月の実績である6-8月期(3Q)の連結経常利益は前年同期比2.2倍の47.4億円に急拡大し、売上営業利益率は前年同期の4.1％→6.9％に改善した。"""
+FLASH_KANEKO = """カネコ種苗<1376>[東証Ｓ] が10月5日後場(13:00)に決算を発表。27年5月期第1四半期(6-8月)の連結経常利益は前年同期比12.3％増の4.9億円に伸び、通期計画の21億円に対する進捗率は5年平均の18.3％を上回る23.5％に達した。"""
+FLASH_KARURA = """カルラ<2789>[東証Ｓ] が10月5日大引け後(15:30)に決算を発表。27年2月期第2四半期累計(3-8月)の連結最終利益は前年同期比66.1％減の8300万円に大きく落ち込み、従来予想の1億6600万円を下回って着地。
+併せて、通期の同利益を従来予想の1億5400万円→6600万円(前期は2億3900万円)に57.1％下方修正し、減益率が35.6％減→72.4％減に拡大する見通しとなった。
+会社側が発表した上期実績と通期計画に基づいて、当社が試算した9-2月期(下期)の連結最終損益は1700万円の赤字(前年同期は600万円の赤字)に赤字幅が拡大する計算になる。
+直近3ヵ月の実績である6-8月期(2Q)の連結最終利益は前年同期比59.4％減の6700万円に大きく落ち込み、売上営業利益率は前年同期の8.3％→5.8％に悪化した。"""
+
+
+def test_flash_metrics():
+    from dashboard import earnings as E
+    print("\n[決算速報の数字と印]")
+    m = E.flash_metrics(FLASH_NACHI)
+    check("累計の前年比（2.1倍 → +110%）・進捗率と5年平均・据え置き",
+          (m.get("y"), m.get("pg"), m.get("pa"), m.get("pn"), m.get("kp")), (110.0, 81.8, 69.0, 5, True))
+    check("残りの期間の試算と直近3か月・利益率", (m.get("rest"), m.get("q"), m.get("om")), (-24.8, 120.0, [4.1, 6.9]))
+    keys = [n["k"] for n in E.flash_notes(m)]
+    check("印: 進捗が平均を上回る・残りは減益の計画・加速・利益率の改善", keys, ["prog_hi", "rest_down", "accel", "opm"])
+    m = E.flash_metrics(FLASH_KANEKO)
+    check("進捗率が「5年平均の18.3％を上回る23.5％」の語順でも読む", (m.get("pg"), m.get("pa")), (23.5, 18.3))
+    m = E.flash_metrics(FLASH_KARURA)
+    check("修正率は下方なら負・残りの期間が赤字の試算", (m.get("rv"), m.get("rest_loss"), m.get("y"), m.get("q")), (-57.1, True, -66.1, -59.4))
+    notes = {n["k"]: n["t"] for n in E.flash_notes(m)}
+    check("減益どうしの比べ方: 直近3か月 −59.4%（累計 −66.1%）は「減益幅が縮小」とは言わない（差が10pt未満なら印なし）", "decel" in notes or "accel" in notes, False)
+    check("利益率の悪化", notes.get("opm"), "利益率 8.3%→5.8% に悪化")
+    q = E.flash_notes({"y": 4.2, "q": -66.4})
+    check("累計は増益で直近3か月が減益 → 「減益に転じた」", q[0]["t"], "直近3か月 -66.4%（累計 +4.2%）で減益に転じた")
+    check("数字が無い本文は空", E.flash_metrics("ＨＥＮＮＧＥ<4475>[東証Ｇ] が配当修正を発表。年間配当を6円→11円に増額修正した。"), {})
+    check("決算速報の本文がこの会社のものか（先頭の社名<コード>）",
+          (E._is_own_flash("クリエイトＳＤホールディングス<3148>[東証Ｐ] が…", "7679"), E._is_own_flash(FLASH_NACHI, "6474"), E._is_own_flash("古い型", "1111")),
+          (False, True, True))
+
+
+def test_reactions():
+    from dashboard import earnings as E
+    print("\n[決算への株価の反応]")
+    store = {"log": [
+        {"date": "2026-10-02", "time": "15:30", "code": "1111", "dir": "up", "head": "上方修正", "peers": ["2222", "3333"]},
+        {"date": "2026-10-02", "time": "13:00", "code": "4444", "dir": "down", "peers": []},
+        {"date": "2026-10-05", "time": "09:00", "code": "5555", "dir": "down", "head": "下方修正", "peers": ["2222"]},
+        {"date": "2026-10-05", "time": "16:00", "code": "6666", "dir": "up", "peers": []},
+    ]}
+    check("反応の日: 前営業日の引け後と今日の場中だけ（前営業日の場中・今日の引け後は対象外）",
+          sorted(E.due_codes(store, "2026-10-05", "2026-10-02")), ["1111", "2222", "3333", "5555"])
+    quotes = {"1111": {"change_pct": -3.0, "asof": "2026-10-05"}, "2222": {"change_pct": 2.0}, "3333": {"change_pct": 0.0},
+              "5555": {"change_pct": 1.5, "asof": "2026-10-04"}}
+    done = E.record_reactions(store, "2026-10-05", "2026-10-02", quotes, 1.0)
+    check("前日比・市場との差・類似銘柄の平均（市場との差）を書く。古い気配の銘柄は書かない",
+          ([e["code"] for e in done], store["log"][0]["rx"]), (["1111"], {"d": "2026-10-05", "r": -3.0, "ex": -4.0, "m": 1.0, "p": 0.0, "pn": 2}))
+    check("反応の分類", (E.react_class("up", -4.0), E.react_class("down", 2.5), E.react_class("up", 1.0), E.react_class(None, 3.0)),
+          ("good_down", "bad_up", "flat", "up"))
+    check("市場の値が無い日（休場）は書かない", E.record_reactions({"log": [dict(store["log"][2])]}, "2026-10-05", "2026-10-02", quotes, None), [])
+    rows = E.reaction_rows(store["log"], "2026-10-05")
+    check("今日の反応の行", (rows[0]["code"], rows[0]["cls"]), ("1111", "good_down"))
+    st = E.react_stats(store["log"])
+    check("向きごとの集計（自社と類似銘柄）", (st["up"]["n"], st["up"]["self"]["avg"], st["up"]["peers"]["avg"], "down" in st), (1, -4.0, 0.0, False))
+    s2 = {"log": [dict(store["log"][0])]}
+    E.update_log(s2, [{"code": "1111", "name": "A", "time": "15:30", "dir": "up", "metrics": {"pg": 80.0, "pa": 70.0, "om": [1, 2]}}],
+                 "2026-10-02", __import__("datetime").date(2026, 10, 5))
+    check("同じ日の読み直しで反応を消さない・数字の要約を残す（画面用の項目は残さない）",
+          (s2["log"][0].get("rx", {}).get("ex"), s2["log"][0].get("m"), s2["log"][0].get("time")), (-4.0, {"pg": 80.0, "pa": 70.0}, "15:30"))
+
+
+def test_newsflow():
+    from dashboard import newsflow as N
+    print("\n[ニュースから読む（値動きと材料の突き合わせ）]")
+    t = N.norm
+    check("カタカナの社名の後ろにカタカナ・英字が続けば別の語", (N.has_word(t("フリーランス特集"), t("フリー")),
+          N.has_word(t("クリエイトＳＤホールディングス"), t("クリエイト")), N.has_word(t("フリーが急伸"), t("フリー"))), (False, False, True))
+    check("カタカナの社名の後ろの漢字は「株」などだけ許す", (N.has_word(t("トヨタ株が上昇"), t("トヨタ")), N.has_word(t("フリー素材"), t("フリー"))), (True, False))
+    check("英字の社名は前後が英字なら当てない", (N.has_word(t("IHIが反発"), t("IHI")), N.has_word(t("XIHIZ"), t("IHI"))), (True, False))
+    check("社名の照合用の表記（(株)・ホールディングス・Ｇ－ を外す。3文字未満は捨てる）",
+          (N.aliases("キオクシアホールディングス"), N.aliases("Ｇ－ＨＥＮＮＧＥ"), N.aliases("日立")),
+          (["キオクシアホールディングス", "キオクシア"], ["G-HENNGE", "HENNGE"], []))
+    idx = N.name_index({"5408": "中山製鋼所", "6146": "ディスコ"})
+    check("見出しのコード表記（[5408]）と社名", (N.codes_in("中山製鋼所[5408]：臨時報告書", idx, {"5408"}), N.codes_in("ディスコが高い", idx, {"6146"})),
+          (["5408"], ["6146"]))
+    items = [{"title": "Ａ社が急伸、新製品", "media": "株探", "url": "u1", "t": "15:00"},
+             {"title": "Ａ社、新製品を発表", "media": "ロイター", "url": "u2", "t": "14:00"},
+             {"title": "本日のランキング【値上がり率】", "media": "株探", "url": "u3", "t": "15:10"},
+             {"title": "話題株ピックアップ：Ａ社、Ｂ社", "media": "株探", "url": "u4", "t": "15:20"}]
+    idx = N.name_index({"1111": "Ａ社です", "2222": "Ｂ社です", "3333": "Ｃ社です", "4444": "Ｄ社です"})
+    idx += [("A社", "1111"), ("B社", "2222")]
+    by = N.match_all(items, idx, {"1111", "2222", "3333", "4444"})
+    check("一覧・ランキングの見出しは数えない", (by.get("1111"), by.get("2222")), ([0, 1, 3], [3]))
+    cands = N.pick_movers({"value": {"rows": [{"code": "1111", "name": "Ａ社", "change_pct": 5.0}, {"code": "9999", "name": "ＮＥＸＴ　ＦＵＮＤＳ 日経平均", "change_pct": 5.0},
+                                              {"code": "5555", "name": "小動き", "change_pct": 2.5}]},
+                           "gainer": {"rows": [{"code": "7777", "name": "低位", "change_pct": 30.0, "price": 40, "market": "東証GRT"},
+                                               {"code": "8888", "name": "名証", "change_pct": 20.0, "price": 500, "market": "名証NXT"}]}},
+                          [{"code": "2222", "name": "Ｂ社", "change_pct": 4.5, "sector": "機械"}, {"code": "3333", "name": "Ｃ社", "change_pct": 6.0, "sector": "機械"},
+                           {"code": "4444", "name": "Ｄ社", "change_pct": -4.0, "sector": "銀行"}], [], mkt=1.0)
+    check("市場との差で選ぶ（+2.5% は市場+1%なら選ばない）・ETF・低位株・東証以外は除く",
+          [c["code"] for c in cands], ["1111", "3333", "4444", "2222"])
+    arts = [{"title": "大引け概況", "media": "トレーダーズ・ウェブ", "url": "a1",
+             "body": "△Ｄ社です<4444>[東証Ｐ]\n不正会計の疑いが報じられたＤ社です<4444>が急落。\nＡ社です<1111>、Ｂ社です<2222>、Ｃ社です<3333>などが上昇。"}]
+    disc = [{"code": "1111", "title": "新製品に関するお知らせ", "category": None, "time": "13:00", "when": "今日"},
+            {"code": "3333", "title": "自己株式の取得状況に関するお知らせ", "category": "自己株式取得", "time": "15:00"}]
+    pct_of = {"1111": 5.0, "2222": 4.5, "3333": 6.0, "4444": -4.0, "6666": 4.0, "7777": 3.5}
+    group_of = {"2222": "機械（業種）", "3333": "機械（業種）", "6666": "機械（業種）", "7777": "機械（業種）", "4444": "銀行（業種）"}
+    mv = N.movers(cands, items, by, disc, {}, pct_of, group_of, {}, 1.0, arts, {c: [N.norm(n)] for c, n in
+                                                                              (("1111", "Ａ社です"), ("2222", "Ｂ社です"), ("3333", "Ｃ社です"), ("4444", "Ｄ社です"))})
+    kind = {r["code"]: r["kind"] for r in mv["rows"]}
+    check("開示あり／報道あり（記事の理由の文・まとめ記事の見出し）／業種ぐるみ（定例の開示は材料にしない）", kind,
+          {"1111": "disc", "3333": "group", "4444": "news", "2222": "news"})
+    d = next(r for r in mv["rows"] if r["code"] == "4444")
+    check("記事の1文: 同じ記事の中でも、一覧の行より理由を書いた文", (d["said"][0]["text"], d["said"][0]["list"]),
+          ("不正会計の疑いが報じられたＤ社です<4444>が急落。", False))
+    b2 = next(r for r in mv["rows"] if r["code"] == "2222")
+    check("名前が並んだだけの文は理由にしない（list）", [x["list"] for x in b2["said"]], [True])
+    c3 = next(r for r in mv["rows"] if r["code"] == "3333")
+    check("業種ぐるみ: 自分を除いた仲間の平均（市場との差）", (c3["grp"]["g"], c3["grp"]["avg"], c3["grp"]["n"]), ("機械", 3.0, 3))
+    bz = N.buzz(items, by, {"1111": "Ａ社"}, {"1111": 5.0}, {})
+    check("話題の銘柄: 何媒体が報じたか（2媒体以上）", [(b["code"], b["media"]) for b in bz], [("1111", ["株探", "ロイター"])])
+    cnt = N.theme_counts([{"title": "半導体株に買い"}, {"title": "AI関連が高い"}, {"title": "AIRが上場"}], {}, {}, ["半導体", "AI"])
+    check("テーマの語で見出しを数える（「AIR」は AI に数えない）", cnt, {"半導体": 1, "AI": 1})
+    rows = N.theme_rows({"半導体": 8, "AI": 2}, [{"半導体": 2}, {"半導体": 4}, {"半導体": 3}, {}], {"半導体": 3.2})
+    check("過去3日以上あれば平均と倍率", (rows[0]["theme"], rows[0]["avg"], rows[0]["ratio"], rows[0]["move"]), ("半導体", 3.0, 2.7, 3.2))
+    check("市場の値（225採用の中央値）", N.market_move([{"change_pct": x} for x in [1.0] * 30 + [3.0] * 31]), 3.0)
+
+
+def _spill_ohlc(n=80, jump_day=None):
+    import random
+    rnd = random.Random(1)
+    dates = [f"d{i:03d}" for i in range(n)]
+    stocks = {}
+    for code in ("1001", "1002", "1003", "1004", "2001", "2002", "2003"):
+        p, rows = 1000.0, []
+        for t in range(n):
+            r = rnd.uniform(-0.004, 0.004)
+            v = 300000
+            if jump_day is not None and t == jump_day and code == "1001":
+                r, v = 0.09, 1200000
+            p *= 1 + r
+            rows.append([p, p * 1.01, p * 0.99, p, v])
+        stocks[code] = rows
+    return dates, stocks
+
+
+def test_spill():
+    from dashboard import spill as SP
+    print("\n[同業の急騰と動かなかった仲間（連想の検証）]")
+    groups = {"1001": "電線", "1002": "電線", "1003": "電線", "1004": "電線", "2001": "銀行", "2002": "銀行", "2003": "銀行"}
+    names = {c: f"銘柄{c}" for c in groups}
+    dates, stocks = _spill_ohlc(80, jump_day=79)
+    rows = SP.today(dates, stocks, groups, names)
+    check("今日の急騰（市場との差+5%以上・出来高2倍）と、同じグループで動かなかった仲間",
+          (len(rows), rows[0]["kind"], rows[0]["g"], [e["code"] for e in rows[0]["ev"]], sorted(m["code"] for m in rows[0]["mates"])),
+          (1, "up", "電線", ["1001"], ["1002", "1003", "1004"]))
+    dates, stocks = _spill_ohlc(160, jump_day=100)
+    v = SP.verify(dates, stocks, groups)
+    check("検証: 急騰の日の仲間と全銘柄を数える（先読みしない: 結果は t+h の引け）",
+          (v["events"], v["lag"][1][0]["n"], v["ev"][1][0]["n"]), ([0, 1], 3, 1))
+    dates2, stocks2 = _spill_ohlc(160, jump_day=159)
+    check("最終日の急騰は先の値が無いので検証に入らない", SP.verify(dates2, stocks2, groups)["events"], [0, 0])
+    check("売買代金の下限は押し目買いと同じ", SP.LIQ, __import__("dashboard.swing", fromlist=["LIQ_MIN"]).LIQ_MIN)
+
+
+def test_picks_materials():
+    from dashboard import picks as P
+    print("\n[材料の監視（決算・進捗・ニュース・同業の急騰）]")
+    nf = {"movers": {"rows": [
+        {"code": "1111", "kind": "news", "pct": 5.0, "ex": 4.0, "said": [{"text": "新製品が好評", "list": False}], "news": []},
+        {"code": "2222", "kind": "news", "pct": 3.0, "ex": 2.0, "said": [], "news": [{"title": "話題株ピックアップ：Ｂ", "roundup": True}]},
+        {"code": "3333", "kind": "group", "pct": 4.0, "ex": 3.0},
+        {"code": "4444", "kind": "disc", "pct": -5.0, "ex": -6.0, "disc": [{"title": "下方修正"}]}]},
+        "buzz": [{"code": "5555", "media": ["ロイター", "日本経済新聞"], "items": [{"title": "Ｅ社が買収"}]}]}
+    sp = {"today": [{"kind": "up", "g": "電線", "ev": [{"name": "Ｆ社", "d1": 9.0}], "mates": [{"code": "6666", "d1": 0.5}, {"code": "8888", "d1": 0.2}]}],
+          "verify": {"hs": [1, 5, 20], "split": "x", "from": "a", "to": "b", "lag": [[{}, {"avg": 0.4, "n": 100}, {}], [{}, {"avg": 1.1, "n": 120}, {}]],
+                     "base": [[{}, {"avg": 0.5}, {}], [{}, {"avg": 0.6}, {}]]}}
+    m = P.material_reasons(nf, sp)
+    check("今日の開示・報道で市場より上げた銘柄（下げた銘柄・業種ぐるみは材料にしない）", sorted(m), ["1111", "2222", "5555", "6666", "8888"])
+    check("理由の文を使い、まとめ記事だけなら「話題株に挙がった」", (m["1111"][0]["t"], m["2222"][0]["t"]),
+          ("今日 +5.0%・記事: 新製品が好評", "今日 +3.0%・株探の話題株に挙がった"))
+    check("同業の急騰に動かなかった仲間", m["6666"][0]["t"], "同じ電線のＦ社が+9.0%の日に+0.5%")
+    log = [{"date": "2026-10-01", "code": "6666", "dir": None, "m": {"pg": 80.0, "pa": 70.0, "kp": True}, "peers": []}]
+    check("進捗率が過去の平均を5pt以上上回る", P._prog("6666", log, "2026-10-05"), {"date": "2026-10-01", "pg": 80.0, "pa": 70.0, "kp": True})
+    thermo = {"swing": {"asof": "2026-10-05", "orders": [], "more": [], "near": [], "mid": {"orders": [], "near": []}}, "spill": sp,
+              "stocks": {"6666": {"n": "仲間", "price": 1000, "sw": {"st": "wait", "tv": 50, "up": True, "to": -3.0}},
+                         "1111": {"n": "Ａ", "price": 1000, "sw": {"st": "wait", "tv": 50, "up": True, "to": -9.0}},
+                         "7777": {"n": "商い不足", "price": 1000, "sw": {"st": "thin", "tv": 5, "up": True}},
+                         "8888": {"n": "境目", "price": 1000, "sw": {"st": "wait", "tv": 50, "up": True, "to": -2.0, "ok": False}}}}
+    out = P.build(thermo, {"log": log, "schedule": {}}, {"stocks": {}}, "2026-10-05", nf)
+    check("材料の数が多い順（仲間は 同業＋進捗 の2つ）、流動性の低い銘柄・押すとトレンドが割れる銘柄は出さない", [(x["code"], x["kinds"]) for x in out["watch"]],
+          [("6666", ["prog", "spill"]), ("1111", ["news"])])
+    check("当てになるかの材料（同業の急騰の検証の5日後）", out["proof"]["spill"]["lag"], [0.4, 1.1])
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1705,7 +1893,12 @@ if __name__ == "__main__":
     test_macro()
     test_sectors()
     test_earnings()
+    test_flash_metrics()
+    test_reactions()
     test_picks()
+    test_newsflow()
+    test_spill()
+    test_picks_materials()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

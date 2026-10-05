@@ -94,6 +94,7 @@ def fetch_disclosures(target_date: date, max_pages: int = 4,
     """
     date_str = target_date.strftime("%Y%m%d")
     rows: list[dict] = []
+    others: list[dict] = []         # 分類に当たらない開示（提携・受注・採択・M&A など）。動いた銘柄の材料の照合に使う
     skipped_funds = 0
 
     for page in range(1, max_pages + 1):
@@ -124,6 +125,8 @@ def fetch_disclosures(target_date: date, max_pages: int = 4,
                 continue
             category = _classify(title)
             if only_material and category is None:
+                others.append({"code": code, "name": name, "title": title, "time": time_txt, "category": None,
+                               "pdf": (PDF_BASE + link["href"]) if link and link["href"].endswith(".pdf") else None})
                 continue
             rows.append({
                 "code": code, "name": name, "title": title,
@@ -142,7 +145,7 @@ def fetch_disclosures(target_date: date, max_pages: int = 4,
     print(f"    {'✅' if rows else '⚠️ '} TDnet 適時開示: {len(rows)} 件{note}")
     return {"key": "disclosures", "label": "適時開示（決算・業績修正）",
             "url": f"https://www.release.tdnet.info/inbs/I_main_00.html",
-            "rows": rows, "ok": bool(rows)}
+            "rows": rows, "others": others, "ok": bool(rows)}
 
 
 def split_by_session(rows: list[dict]) -> dict:

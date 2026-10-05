@@ -13,8 +13,9 @@ import argparse
 import sys
 import traceback
 from datetime import date, datetime, timedelta
+from statistics import median
 
-from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
     US_INDICES, US_SECTOR_ETFS,
@@ -160,12 +161,13 @@ def build_preopen(target_date: date) -> dict:
 
     # 前営業日の引け後の開示は、大引（16:45）の時点の分しか履歴に無い。決算の多くは 15:30〜17:00 に出るので、
     # 寄り前に TDnet を取り直して全部そろえる（取れなければ履歴の分のまま）
-    prev_disc = []
+    prev_disc, prev_others = [], []
     if prev_summary and prev_summary.get("date"):
         prev_day = date.fromisoformat(prev_summary["date"])
         print(f"  [TDnet] 前営業日（{prev_day}）の適時開示を取り直し中...")
         got = _safe("前営業日の適時開示", lambda: tdnet.fetch_disclosures(prev_day), {}) or {}
         prev_disc = tdnet.split_by_session(got.get("rows") or [])["after"]
+        prev_others = tdnet.split_by_session(got.get("others") or [])["after"]
         if len(prev_disc) > len(after_hours):
             after_hours = prev_disc
 
@@ -196,7 +198,9 @@ def build_preopen(target_date: date) -> dict:
     payload["ai_macro"] = before.get("ai_macro")
     payload["ai_earnings"] = before.get("ai_earnings")
     payload["ai_picks"] = before.get("ai_picks")
+    payload["ai_news"] = before.get("ai_news")
     payload["_earn_rows"] = after_hours
+    payload["_news_disc"] = [dict(r, when="前営業日の引け後") for r in after_hours + prev_others]
     return payload
 
 
@@ -362,8 +366,19 @@ def build_session(target_date: date, slot: str) -> dict:
     payload["ai_macro"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_macro")
     payload["ai_earnings"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_earnings")
     payload["ai_picks"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_picks")
+    payload["ai_news"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_news")
     payload["_earn_rows"] = disc.get("rows") or []
     payload["_after_hours"] = split["after"]
+    # 動いた銘柄の材料の照合に使う開示: 今日の開示（分類に当たらない提携・受注・採択なども）と、前営業日の引け後の開示
+    # （今日の値動きの材料。寄り前に取り直した一覧があればそれを、無ければ履歴の分）
+    pre = ((slots.get("preopen") or {}).get("data") or {})
+    prev_after = (pre.get("carryover") or {}).get("after_hours_kessan") or next(
+        ((h.get("taibike") or {}).get("after_hours") or [] for h in sessions if (h.get("taibike") or {}).get("after_hours")), [])
+    prev_others = next(((h.get("taibike") or {}).get("after_others") or [] for h in sessions[:1]), [])
+    payload["_news_disc"] = ([dict(r, when="今日") for r in (disc.get("rows") or []) + (disc.get("others") or [])]
+                             + [dict(r, when="前営業日の引け後") for r in prev_after + prev_others])
+    payload["_after_others"] = [{k: r.get(k) for k in ("code", "name", "title", "time")}
+                                for r in tdnet.split_by_session(disc.get("others") or [])["after"]][:80]
     return payload
 
 
@@ -490,11 +505,14 @@ def run(slot: str, target_date: date | None = None) -> dict:
     else:
         payload = build_session(target_date, slot)
         after_hours = payload.pop("_after_hours", [])
+        after_others = payload.pop("_after_others", [])
         hist_patch = {slot: {
             "indices": payload.get("indices"),
             "value_rows": _compact_rows((payload.get("tables", {}).get("value") or {}).get("rows", [])),
             "session_shift": payload.get("session_shift"),
             "after_hours": after_hours[:40],
+            # 分類に当たらない引け後の開示（翌営業日の「動いた銘柄の材料」の照合に使う）
+            "after_others": after_others,
             "quotes": {k: v["close"] for k, v in (payload.get("indices") or {}).items()
                        if v.get("close") is not None},
             # 市況の推移（日々の記録）の「その日の大枠」用。大引時点の為替・原油（寄り前の米国時間の値ではない）
@@ -511,6 +529,19 @@ def run(slot: str, target_date: date | None = None) -> dict:
                           for t in ((payload.get("theme_flow") or {}).get("top") or [])],
             "breadth": payload.get("breadth"),
         }}
+
+    # ニュースから読む（動いた銘柄の材料・話題の銘柄・テーマの話題）。照合と数え上げだけで、文章は Routine が ai_news に書く
+    print("  [ニュース] 値動きと開示・見出しを突き合わせ中...")
+    news_disc = payload.pop("_news_disc", None) or []
+    payload["newsflow"] = _safe("ニュースから読む", lambda: newsflow.build(
+        slot, payload, names=names.known(), themes=themes_mod.load_themes(), disclosures=news_disc,
+        history_counts=[((h.get(slot) or {}).get("news_themes") or {})
+                        for h in store.previous_sessions(target_date, count=newsflow.HIST_DAYS)]))
+    if payload["newsflow"]:
+        hist_patch[slot]["news_themes"] = payload["newsflow"].pop("counts", {})
+        mv = payload["newsflow"].get("movers") or {}
+        print(f"    ✅ 見出し {payload['newsflow']['n_items']} 本・動いた銘柄 {mv.get('n', 0)}"
+              f"（開示 {mv.get('disc', 0)}・報道 {mv.get('news', 0)}・業種ぐるみ {mv.get('group', 0)}・見当たらない {mv.get('none', 0)}）")
 
     # 相場温度計（逆張りガード）。日足キャッシュを更新し docs/data/thermo.json を書く
     print("  [温度計] 日足の更新と相場温度の計算...")
@@ -541,7 +572,7 @@ def run(slot: str, target_date: date | None = None) -> dict:
             payload["earnings"] = (((latest.get("slots") or {}).get(slot) or {}).get("data") or {}).get("earnings")
 
     # 売買タブの買う候補に、決算の材料（自社の決算・類似銘柄の決算・次の決算日）を添える。注文は変えない（DESIGN.md 23章）
-    payload["picks"] = _safe("決算の材料（売買）", lambda: _build_picks(target_date))
+    payload["picks"] = _safe("決算の材料（売買）", lambda: _build_picks(target_date, payload.get("newsflow")))
 
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)
@@ -553,25 +584,32 @@ def run(slot: str, target_date: date | None = None) -> dict:
     return payload
 
 
-def _build_picks(target_date: date) -> dict | None:
+def _build_picks(target_date: date, newsflow: dict | None = None) -> dict | None:
     thermo = thermo_run._read(THERMO_PATH, None)
-    out = picks_mod.build(thermo, earnings_mod.load(), themes_mod.load_themes(), target_date.isoformat())
+    out = picks_mod.build(thermo, earnings_mod.load(), themes_mod.load_themes(), target_date.isoformat(), newsflow)
     if out:
         track = thermo_run._read(SWING_TRACK_PATH, None)
         if picks_mod.tag_track(track, out.get("asof"), out["earn"]):
             thermo_run._write(SWING_TRACK_PATH, track, indent=0)
-        print(f"    ✅ 決算の材料: 候補 {len(out['earn'])} 銘柄、決算の連想の監視 {len(out['watch'])} 銘柄")
+        print(f"    ✅ 決算の材料: 候補 {len(out['earn'])} 銘柄、材料の監視 {len(out['watch'])} 銘柄")
     return out
 
 
 def _build_earnings(slot: str, target_date: date, payload: dict, rows: list[dict]) -> dict | None:
     """寄り前は前営業日の引け後の開示を、前場・大引はその日の開示を読む。"""
+    prev_day, mkt = None, None
     if slot == "preopen":
         asof = ((payload.get("carryover") or {}).get("prev_session") or {}).get("date")
         scope = "前営業日の引け後"
     else:
         asof, scope = target_date.isoformat(), ("今日の開示（前場まで）" if slot == "zenba" else "今日の開示")
-    if not asof or not rows:
+        if slot == "taibike" and not ((payload.get("indices") or {}).get("nikkei") or {}).get("stale"):
+            # 決算への株価の反応を記録する（前営業日の引け後の開示と今日の場中の開示）。市場＝225採用銘柄の前日比の中央値
+            pcts = [c["change_pct"] for c in payload.get("constituents") or [] if c.get("change_pct") is not None]
+            mkt = median(pcts) if len(pcts) >= 100 else None
+            prev = store.previous_sessions(target_date, count=1)
+            prev_day = prev[0].get("date") if prev else None
+    if not asof or (not rows and mkt is None):
         return None
     members = {c["code"]: {"sector": c.get("sector"), "name": c.get("name")} for c in nikkei225._load_cache()}
     themes = themes_mod.load_themes()
@@ -583,7 +621,7 @@ def _build_earnings(slot: str, target_date: date, payload: dict, rows: list[dict
         articles=(payload.get("kabutan") or {}).get("articles") or [],
         quotes_of=lambda codes: _safe("類似銘柄の株価", lambda: cnbc.fetch_jp_stocks(codes), {}) or {},
         closes_of=lambda code: bars_mod.stock_map(bars, code),
-        names_of=names.known)
+        names_of=names.known, prev_day=prev_day, mkt=mkt)
 
 
 def refresh_watchlist() -> dict:

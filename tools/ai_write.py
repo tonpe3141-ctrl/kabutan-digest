@@ -10,6 +10,7 @@ Routine は中身だけを1つの JSON に書く。決まった形（method・ge
    "ai_macro":      {同じ形},
    "ai_earnings":   {"headline", "winds": [...], "items": [...], "sources": [...]},
    "ai_picks":      {"items": [{"code": "4478", "why": "..."}]},
+   "ai_news":       {"headline": "...", "topics": [{"title": "...", "body": "...", "codes": ["593A"]}], "sources": ["A2"]},
    "ledger_notes":  {"4004": {"notes": "...", "source": "K2"}},
    "themes_add":    {"5803": {"name": "フジクラ", "themes": ["電線", "データセンター"]}}}
 """
@@ -23,9 +24,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "docs", "data")
 REFS = "/tmp/ai_refs_{slot}.json"
-AI_KEYS = ("ai_commentary", "ai_macro", "ai_earnings", "ai_picks")
+AI_KEYS = ("ai_commentary", "ai_macro", "ai_earnings", "ai_picks", "ai_news")
 METHOD = {"ai_commentary": "Claude による分析", "ai_macro": "Claude による分析",
-          "ai_earnings": "Claude による分析", "ai_picks": "Claude による理由づけ"}
+          "ai_earnings": "Claude による分析", "ai_picks": "Claude による理由づけ", "ai_news": "Claude による分析"}
 
 
 def jst_now() -> str:
@@ -57,6 +58,14 @@ def check(key: str, v: dict) -> list[str]:
                 errs.append(f"{key}: セクションに title と body が要る")
     if key == "ai_earnings" and not (v.get("headline") and (v.get("items") or v.get("winds"))):
         errs.append("ai_earnings: headline と items か winds が要る")
+    if key == "ai_news":
+        if not v.get("headline") or not v.get("topics"):
+            errs.append("ai_news: headline と topics が要る")
+        for t in v.get("topics") or []:
+            if not (t.get("title") and t.get("body")):
+                errs.append("ai_news: topics に title と body が要る")
+            if not isinstance(t.get("codes") or [], list):
+                errs.append("ai_news: codes は銘柄コードの配列")
     if key == "ai_picks":
         for it in v.get("items") or []:
             if not (it.get("code") and it.get("why")):
