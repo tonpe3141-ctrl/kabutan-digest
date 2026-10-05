@@ -15,7 +15,7 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, store, swing as W, thermo as T
+from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, swing as W, thermo as T
 from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
@@ -336,6 +336,16 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         print(f"    ⚠️  混み合いで例外: {e}")
         crowd, crowd_rows = None, {}
 
+    # 同業の急騰・急落と、動かなかった仲間（連想の材料と、その検証。注文には使わない。spill.py）
+    try:
+        spill = SP.block(ohlc.get("dates") or [], ohlc.get("stocks") or {},
+                         W.peer_groups(list(sw_rows), themes.get("stocks") or {}, sector_of), names)
+        if spill:
+            print(f"    ✅ 同業の急騰・急落: 今日 {len(spill['today'])}件")
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  同業の急騰・急落で例外: {e}")
+        spill = None
+
     stock_rows = {}
     for code, mt in metrics.items():
         cls = T.stock_class(mt)
@@ -375,7 +385,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "spill": spill, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -765,7 +775,19 @@ def summary(th: dict) -> dict | None:
         "strength": _strength_brief(th.get("strength")),
         # 急騰して混み合った銘柄の印（明日の振れ幅）と、主役の入れ替わり（今日の資金の移り先）。方向の予測ではない
         "crowd": _crowd_brief(th.get("crowd")),
+        # 同業の急騰・急落と動かなかった仲間（連想の材料）。検証では「動かなかった仲間が追いつく」とは言えなかった
+        "spill": _spill_brief(th.get("spill")),
     }
+
+
+def _spill_brief(sp: dict | None) -> dict | None:
+    if not sp:
+        return None
+    v = sp.get("verify") or {}
+    pick = lambda k: [[x for x in half] for half in v.get(k) or []]     # noqa: E731
+    return {"rule": sp.get("rule"), "today": sp.get("today") or [],
+            "verify": {"from": v.get("from"), "to": v.get("to"), "split": v.get("split"), "hs": v.get("hs"),
+                       "base": pick("base"), "lag": pick("lag"), "ev": pick("ev")} if v else None}
 
 
 def _crowd_brief(cw: dict | None) -> dict | None:

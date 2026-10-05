@@ -1,7 +1,7 @@
 """Routine 用の材料の要約（トークンを減らす。DESIGN.md 23章）。
 
 latest.json の1区分は 15〜20万字あり、そのまま読むとトークンの大半が使われない本文・URL・数値の桁に消える。
-ここで「見立て・マクロ・決算・買う候補の理由づけ」に要る分だけを、短い行に詰めて出す:
+ここで「見立て・マクロ・決算・ニュース・買う候補の理由づけ」に要る分だけを、短い行に詰めて出す:
 
   - 記事の本文は先頭だけ（相場の記事は長め、ほかは短め）。見出しは全部ではなく新しい順に上限まで
   - URL は出さず、[K3] のような参照番号を付ける。番号と URL の対応は /tmp/ai_refs_{SLOT}.json に書き、
@@ -244,8 +244,9 @@ def thermo(b: Brief, d: dict, picks: dict):
               f" 大負け{a.get('big_loss')}%／口座 年率{pct(acc.get('cagr'))}・最大の目減り{pct(acc.get('dd'))}")
     w = (picks or {}).get("watch") or []
     if w:
-        b.add("決算の連想の監視（上向き・上昇トレンド・売買代金の条件を満たす。注文ではない）: "
-              + "、".join(f"{x['name']}({x['code']}) 注文対象まで{pct(x.get('to'))}" for x in w))
+        b.add("材料の監視（上昇トレンド・売買代金の条件を満たし、決算・進捗・ニュース・同業の急騰のどれかがある。注文ではない）: "
+              + "、".join(f"{x['name']}({x['code']}) 注文対象まで{pct(x.get('to'))}［" + "／".join(cut(y.get('t'), 34) for y in x.get("why") or []) + "］"
+                          for x in w))
 
 
 def earnings(b: Brief, d: dict):
@@ -261,6 +262,9 @@ def earnings(b: Brief, d: dict):
               f" テーマ:{'・'.join(it.get('themes') or []) or '—'} 値動き{pct(mv.get('pct'))}")
         if fl.get("headline"):
             b.add(f"  速報: {cut(fl['headline'], 80)}｜{cut(fl.get('body'), 260)}{b.ref('E', fl['headline'], fl.get('url'), '株探')}")
+        nts = it.get("notes") or []
+        if nts:
+            b.add("  印（機械）: " + "／".join(x.get("t", "") for x in nts))
         for key, label, n in (("reason", "修正の理由", 300), ("overview", "概況", 300), ("outlook", "予想の説明", 200)):
             if it.get(key):
                 b.add(f"  {label}: {cut(it[key], n)}")
@@ -281,25 +285,106 @@ def earnings(b: Brief, d: dict):
                 f"{r['key']} 上{r['up']}下{r['down']}まち{r['mixed']}" for r in rows[:8]))
     if e.get("more"):
         b.add("読んでいない会社: " + "、".join(name(x.get("name")) for x in e["more"][:15]))
+    earn_reactions(b, e)
+
+
+def earn_reactions(b: Brief, e: dict):
+    rx = e.get("reactions") or []
+    if rx:
+        b.h("決算への反応（今日。市場＝225採用の前日比の中央値との差。類似は類似銘柄の平均）")
+        for r in rx[:12]:
+            b.add(f"{name(r.get('name'))}({r['code']}) {r.get('date')} {r.get('time') or ''} 向き:{r.get('dir') or '不明'}"
+                  f" 前日比{pct(r.get('r'))} 市場差{pct(r.get('ex'))}" + (f" 類似{pct(r.get('p'))}({r.get('pn')}銘柄)" if r.get("p") is not None else "")
+                  + f"「{cut(r.get('head'), 40)}」")
+    st = e.get("react") or {}
+    if st:
+        b.add(f"反応の記録（{st.get('from')}〜{st.get('to')}・{st.get('days')}日）: " + "、".join(
+            f"{'上向き' if k == 'up' else '下向き'}{v['n']}件 自社{pct((v.get('self') or {}).get('avg'))}"
+            + (f"・類似{pct((v.get('peers') or {}).get('avg'))}" if v.get("peers") else "")
+            for k, v in st.items() if k in ("up", "down")) + "（件数が少ないうちは傾向と言えない）")
+
+
+def newsflow(b: Brief, d: dict):
+    nf = d.get("newsflow") or {}
+    if not nf:
+        return
+    mv = nf.get("movers") or {}
+    if mv.get("rows"):
+        b.h(f"動いた銘柄の材料（機械の照合。市場＝225採用の中央値 {pct(mv.get('mkt'))}。開示{mv.get('disc')}・報道{mv.get('news')}"
+            f"・業種ぐるみ{mv.get('group')}・見当たらない{mv.get('none')}）")
+        grouped, none = [], []
+        for r in mv["rows"]:
+            if r["kind"] == "group":
+                g = r.get("grp") or {}
+                grouped.append(f"{name(r.get('name'))}({r['code']}){pct(r.get('pct'))}［{g.get('g')} 平均{pct(g.get('avg'))}］")
+                continue
+            if r["kind"] == "none":
+                none.append(f"{name(r.get('name'))}({r['code']}){pct(r.get('pct'))}")
+                continue
+            if r["kind"] == "disc":
+                m = "開示: " + "／".join(f"{x.get('when')} {cut(x.get('title'), 50)}" for x in r.get("disc")[:2])
+            elif r["kind"] == "news":
+                said = next((x for x in r.get("said") or [] if not x.get("list")), None)
+                if said:
+                    m = f"記事: {cut(said['text'], 70)}" + b.ref("A", said.get("title"), said.get("url"), said.get("media"))
+                else:
+                    x = r["news"][0]
+                    m = f"見出し: {cut(x['title'], 60)}" + b.ref("P", x.get("title"), x.get("url"), x.get("media"))
+            else:
+                continue
+            b.add(f"{name(r.get('name'))}({r['code']}) {pct(r.get('pct'))}" + (f"（市場差{pct(r.get('ex'))}）" if r.get("ex") is not None else "")
+                  + f" {r.get('src')} {'/'.join(r.get('th') or [])}｜{m}")
+        if grouped:
+            b.add("業種ぐるみ（材料は見当たらないが、同じテーマ・業種の仲間も同じ向き。仲間の平均は市場差）: " + "、".join(grouped))
+        if none:
+            b.add("材料が見当たらない（需給・連想・地合いの可能性。こじつけない）: " + "、".join(none))
+    if nf.get("buzz"):
+        b.add("報道が多かった銘柄: " + "、".join(
+            f"{name(x.get('name'))}({x['code']}) {x['n']}本・{len(x['media'])}媒体{('・' + pct(x['pct'])) if x.get('pct') is not None else ''}"
+            for x in nf["buzz"][:8]))
+    if nf.get("themes"):
+        b.add(f"テーマの話題（見出しの本数。過去{nf.get('hist_days')}営業日の平均）: " + "、".join(
+            f"{x['theme']}{x['n']}本" + (f"(平均{x['avg']})" if x.get("avg") is not None else "") + (f"・値動き{pct(x['move'])}" if x.get("move") is not None else "")
+            for x in nf["themes"][:8]))
+    sp = (d.get("thermo") or {}).get("spill") or {}
+    if sp.get("today"):
+        b.add("同業の急騰・急落（動かなかった仲間）: " + "／".join(
+            f"{'急騰' if r['kind'] == 'up' else '急落'} {r['g']}: " + "・".join(f"{name(x['name'])}{pct(x['d1'])}" for x in r["ev"])
+            + " → 動かず " + ("・".join(f"{name(x['name'])}{pct(x['d1'])}" for x in r["mates"][:4]) or "なし") for r in sp["today"][:6]))
+        v = sp.get("verify") or {}
+        try:
+            j = v["hs"].index(5)
+            b.add(f"  検証（{v['from']}〜{v['to']}、前半／後半）: 動かなかった仲間の5日後の市場差 {v['lag'][0][j].get('avg')}／{v['lag'][1][j].get('avg')}%、"
+                  f"同じ日の全銘柄 {v['base'][0][j].get('avg')}／{v['base'][1][j].get('avg')}%（追いつくとは言えない）")
+        except (KeyError, ValueError, IndexError, TypeError):
+            pass
+
+
+# 一覧・ランキング・テクニカルの見出し（読む価値が無く、トークンだけ使う）
+_SKIP_HEAD = ("本日の【", "本日のランキング", "ETF売買動向", "日経会社情報DIGITAL")
 
 
 def articles(b: Brief, d: dict, slot: str):
     kb = d.get("kabutan") or {}
     b.h("株探（本文。相場の記事は長め）")
+    # 決算の節に載せた決算速報は重ねない（同じ本文を2回読ませない）
+    flashes = {(it.get("flash") or {}).get("headline") for it in (d.get("earnings") or {}).get("items") or []}
     for i, a in enumerate(kb.get("articles") or []):
+        if (a.get("headline") or "").replace("【決算速報】", "") in flashes:
+            continue
         long = any(k in (a.get("headline") or "") for k in ("大引け", "前引け", "マーケット日報", "明日の株式", "注目すべき", "業種"))
         b.add(f"- {a.get('timestamp')} {cut(a.get('headline'), 70)}{b.ref('K', a.get('headline'), a.get('url'), '株探')}"
               f"\n  {cut(a.get('body'), 900 if long else 300)}")
-    hs = kb.get("headlines") or []
+    hs = [x for x in kb.get("headlines") or [] if not any(k in (x.get("title") or "") for k in _SKIP_HEAD)]
     if hs:
-        b.add("株探の見出し: " + "／".join(cut(x.get("title"), 60) + b.ref("H", x.get("title"), x.get("url"), "株探") for x in hs[:25]))
+        b.add("株探の見出し: " + "／".join(cut(x.get("title"), 60) + b.ref("H", x.get("title"), x.get("url"), "株探") for x in hs[:20]))
     p = d.get("press") or {}
     b.h("一次情報・報道")
     for x in (p.get("official") or [])[:12]:
         b.add(f"公式 {x.get('source')}: {cut(x.get('title'), 70)}{b.ref('O', x.get('title'), x.get('url'), x.get('source'))}")
     for x in (p.get("wire") or [])[:20]:
         b.add(f"短信: {cut(x.get('title'), 80)}{b.ref('W', x.get('title'), x.get('url'), 'トレーダーズ・ウェブ')}")
-    for x in (p.get("headlines") or [])[:40]:
+    for x in [x for x in p.get("headlines") or [] if not any(k in (x.get("title") or "") for k in _SKIP_HEAD)][:32]:
         b.add(f"見出し {x.get('source')}: {cut(x.get('title'), 70)}{b.ref('P', x.get('title'), x.get('url'), x.get('source'))}")
     for x in (p.get("articles") or [])[:12]:
         b.add(f"- {x.get('provider')}: {cut(x.get('headline'), 70)}{b.ref('A', x.get('headline'), x.get('url'), x.get('provider'))}"
@@ -349,6 +434,7 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
     macro(b, d)
     thermo(b, d, d.get("picks") or {})
     earnings(b, d)
+    newsflow(b, d)
     articles(b, d, slot)
     extras(b, d, slot, latest.get("date") or "")
     text = "\n".join(b.lines)
