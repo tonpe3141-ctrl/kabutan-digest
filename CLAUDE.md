@@ -9,7 +9,7 @@
 
 | 役者 | 担当 | 動く場所 |
 |---|---|---|
-| **Claude Routine**（時計・分析） | 時刻どおりに発火し、収集の合図を push → main の更新を待つ → 記事と数字を読んで見立て（市況 `ai_commentary`・マクロ `ai_macro`）・台帳の理由づけ・テーマ辞書の追記を書く → push → PushNotification | claude.ai の Routine（`dashboard/AI_ANALYSIS_TASK.md` が手順書） |
+| **Claude Routine**（時計・分析） | 時刻どおりに発火し、収集の合図を push → main の更新を待つ → `tools/ai_brief.py` の要約を読んで見立て（市況 `ai_commentary`・マクロ `ai_macro`・決算 `ai_earnings`・買う候補の理由 `ai_picks`）・台帳の理由づけ・テーマ辞書の追記を書き、`tools/ai_write.py` で差し込む → push → PushNotification | claude.ai の Routine（`dashboard/AI_ANALYSIS_TASK.md` が手順書） |
 | **GitHub Actions**（収集） | 合図の push で即時起動。CNBC / Yahoo!ファイナンス / TDnet / 日経 / 株探の配信先 / 報道各社・公的機関から取得し、分析値を付けて `docs/data/` に書く | `.github/workflows/dashboard.yml` |
 | **GitHub Pages**（表示） | `docs/` をそのまま公開 | `docs/index.html app.js style.css sw.js` |
 
@@ -44,12 +44,16 @@ dashboard/macro.py        マクロ環境: 米日の金利（2・10・30年）�
 dashboard/earnings.py     決算から読む: 決算・修正の開示ごとに会社の説明（TDnet の PDF）・株探の決算速報（数字と「よく比較される銘柄」）・
                           業種・類似銘柄（比較銘柄 → 同じテーマ → 225の同じ業種）の値動きと決算予定を集め、読んだ開示の向きを業種ごとに
                           数える（風向き）。記録と決算予定は docs/data/earnings.json。読みは Routine の ai_earnings（DESIGN.md 22章）
+dashboard/picks.py        買う候補・もうすぐの銘柄に決算の材料（自社の決算・同業や類似銘柄の決算・次の決算日）を添え、「決算の連想」の監視を作る。
+                          候補・並び順は変えない。注文の記録に決算の向きを残す（latest.json の picks。DESIGN.md 23章）
 dashboard/commentary.py   ルールベースの見立て（LLM 分析が無い時の土台）
 dashboard/store.py        latest.json のスロット単位マージ、履歴、ウォッチリスト
 dashboard/build.py        スロット単位の実行エントリ
 dashboard/AI_ANALYSIS_TASK.md  Routine の手順書（合図・待機・分析・通知・週報）
 docs/                     Pages のルート（index.html / app.js / style.css / sw.js / data/）
 tools/probe*.py           データ源の疎通診断（取得が壊れたときの切り分け）
+tools/ai_brief.py         Routine が読む材料の要約（latest.json の1区分 15〜20万字 → 2〜2.5万字。出典は参照番号）
+tools/ai_write.py         Routine が書いた分析（中身だけの JSON）を latest.json・ledger.json・themes.json に差し込む
 tools/verify_ai_merge.py  Routine の push を main に自動マージしてよいかの検査
 tests/test_parsers.py     パーサ・台帳・テーマ・時間軸の回帰テスト（更新の前に必ず走る）
 ```
@@ -80,7 +84,7 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
 - **スロットは他スロットを上書きしない。** `store.save_slot()` は自分の区画だけ差し替える。
 - **1つの情報は1か所だけ。** 同じカードを2つの画面に置かない。ほかの画面には1行の要約とそこへ跳ぶボタンだけを出す
   （以前は注文・保有株・ウォッチリストが2〜3か所、業種のカードが4つの画面に散っていた。DESIGN.md 19章）。
-  銘柄はどの画面でも押すと銘柄シート（`openStock`）が開き、注文・保有の行は売買タブと同じ部品（`orderCard`・`positionRow`・`holdRow`）で描く。
+  銘柄はどの画面でも押すと銘柄シート（`openStock`）が開き、注文・保有の行は売買タブと同じ部品（`pickCard`・`positionRow`・`holdRow`）で描く。
   検証の表は検証タブに集め、各画面には結論の一行（比べる相手・偏りつき。`evidenceLine` など）を置いて検証タブへ跳ばせる。
 - **DOM 生成は `textContent` 経由。** 記事本文はスクレイピング由来なので `innerHTML` は使わない
   （`h()` の `html:` は自前で組み立てた SVG 専用）。
@@ -99,7 +103,8 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
 - **買う候補を出すのは `swing.py` の2つのルールだけ、1銘柄に1つの計画。** 売買タブの注文は短期の押し目買いと中期の押し目
   （1年で強い銘柄の1〜3か月の調整。DESIGN.md 21章）だけが出す。中期の形の押しは中期の計画だけで出し、短期の注文・もうすぐには出さない。
   発掘（台帳）やウォッチリストは「あと何％で注文対象か」の監視に並べ、別の計画を出さない（同じ銘柄に画面ごとに違う計画を出さない）。
-  業種の中での位置（業種ぐるみの押し・出遅れの押し・見送り）も、短期のルールの並べ方と見送りとして入れる。これ以外の入口は作らない
+  業種の中での位置（業種ぐるみの押し・出遅れの押し・見送り）も、短期のルールの並べ方と見送りとして入れる。候補は20日平均の売買代金30億円以上だけ
+  （10億円から引き上げた。前半で決めて後半と1年の窓39本で確かめた。DESIGN.md 23章）。これ以外の入口は作らない
   （出遅れを押していない日に買う・トレンドが崩れた銘柄を業種の急落で買う、は検証で負けた。DESIGN.md 14章。調整の途中で線を回復した日・
   保ち合いの上抜けで買う、も効かなかった。21章）。ルールを足すときは、同じ置き方の口座で前半に決めて後半で確かめ、比べる相手と並べる。
 - **ルールは四本値で、先読みせずに測る。** 検証（`swing.verify`）と注文の実績（`swing.paper_update`）は同じ `simulate()` で、
@@ -123,6 +128,11 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
 - **保有株の判定は引けの形だけで決め、買値を使わない。** 場中（前場・寄りの窓）の形では判定を変えない（4年で向きが一貫しなかった。
   DESIGN.md 18章）。値動きで売る規則（損切り・追いかけ売り）は平均を下げる保険として扱い、撤退ラインは目安を出すだけ。
   押し目買いのルールで買った銘柄には判定を出さない（保有中の計画が優先）。買値・株数は公開リポジトリに書かない（端末の localStorage）。
+- **決算は買う候補に「材料」として添えるが、候補・並び順・条件は変えない。** 売買タブの候補には `picks.py` が決算の材料（自社・同業・類似銘柄の
+  決算の向き、保有中に決算をまたぐか）を、Routine が `ai_picks` で「なぜ押したか」を添える。決算の向きが成績を良くするかは未検証なので、
+  注文の記録（swing_track の `earn`）がたまってから比べ、効くなら前半で決めて後半で確かめてから並べ方に入れる（DESIGN.md 23章）。
+- **Routine のトークンを節約する。** Routine は latest.json を丸ごと読まず `tools/ai_brief.py` の要約を読み、出典は参照番号で書く。
+  要約に要る材料を足したら ai_brief.py にも足す。手順書（AI_ANALYSIS_TASK.md）の字数の上限を守る。
 - **決算から読むは「連想の材料」で、買う候補ではない。** どの開示を読むか（修正を先に）・類似銘柄の選び方（株探の比較銘柄 →
   テーマ辞書 → 225の同じ業種）・風向きの数え方は `earnings.py` が決定的に決め、LLM（`ai_earnings`）は会社の説明と決算速報と報道を
   土台に、何が分かったか・業界の風向き・類似銘柄への連想・次に確かめることを書くだけ。類似銘柄は `data.earnings` に挙がった銘柄から選び、

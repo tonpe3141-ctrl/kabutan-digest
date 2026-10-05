@@ -4,7 +4,7 @@
 判定基準:
   1. main から見て fast-forward できること（履歴が分岐していない）
   2. 変更ファイルが「Routine が書いてよいファイル」だけであること
-       docs/data/latest.json         AI 分析（ai_commentary・ai_macro・ai_earnings）
+       docs/data/latest.json         AI 分析（ai_commentary・ai_macro・ai_earnings・ai_picks）
        docs/data/trigger/*.txt       収集の合図（時刻1行）
        docs/data/themes.json         銘柄→テーマ辞書（未知銘柄の追記）
        docs/data/ledger.json         発掘台帳（候補の理由づけ）

@@ -1085,7 +1085,11 @@ function macroNews(x, tag, upd) {
 }
 function macroCard(d, upd) {
   const mv = d.macro_view;
-  const ai = d.ai_macro && (d.ai_macro.sections || []).length ? d.ai_macro : null;
+  // 前場は Routine がマクロを書かない（トークンを減らす。半日では大きく変わらない）。同じ日の寄り前の見立てを出す
+  const pre = (((DATA && DATA.slots) || {}).preopen || {}).data || {};
+  const own = d.ai_macro && (d.ai_macro.sections || []).length ? d.ai_macro : null;
+  const borrowed = !own && d !== pre && pre.ai_macro && (pre.ai_macro.sections || []).length ? pre.ai_macro : null;
+  const ai = own || borrowed;
   const c = ai || (mv && mv.commentary);
   const pr = d.press || {};
   if (!mv && !c) {
@@ -1108,6 +1112,7 @@ function macroCard(d, upd) {
       secs.push(h('div', { class: 'analysis__srcs' }, ai.sources.map((src) =>
         h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
     }
+    if (borrowed) secs.unshift(h('p', { class: 'hint', style: 'margin:0 0 6px', text: '寄り前の見立て（表の数字は今の区分のもの）' }));
     kids.push(h('div', { class: 'macro__analysis' }, secs));
   }
   const tps = (mv && mv.topics) || [];
@@ -1575,222 +1580,191 @@ function boughtForm(o, day, mid) {
   ]);
 }
 
-function orderCard(o, rank, day, extra, inSheet) {
-  const held = readPos().some((p) => p.code === o.code);
-  const z = sizeText(o.limit, o.stop);
-  const formBox = h('div', {});
-  const acts = h('div', { class: 'order__acts' }, [
-    held ? h('span', { class: 'badge badge--ok', text: '保有銘柄に記録済み' })
-      : h('button', { class: 'btn', type: 'button', text: '買えた', onclick: (ev) => {
-        ev.currentTarget.disabled = true;
-        formBox.appendChild(boughtForm(o, day));
-      } }),
-    inSheet ? null : h('button', { class: 'btn btn--ghost', type: 'button', text: 'チャートと根拠', onclick: () => openStock(o.code) }),
-  ]);
-  const meta = [h('span', { text: o.code }), o.sector ? h('span', { text: o.sector }) : null,
-    h('span', { text: `終値 ${fmtPrice(o.close)}` }),
-    isNum(o.rsi2) ? h('span', { text: `2日RSI ${Math.round(o.rsi2)}` }) : null,
-    isNum(o.r5) ? h('span', { text: `5日 ${fmtPct(o.r5, 1)}` }) : null,
-    isNum(o.dev25) ? h('span', { text: `25日線 ${fmtPct(o.dev25, 1)}` }) : null];
-  const pc = o.peer || null;
-  const title = [h('div', { class: 'row__name', text: cleanName(o.name) || o.code }), h('div', { class: 'row__meta' }, meta)];
-  return h('div', { class: 'order' + (extra ? ' order--more' : '') }, [
-    // 銘柄シートの中では社名と数字はシートの上に出ているので、見出しは付けない
-    inSheet ? null : h('div', { class: 'order__head' }, [
-      rank ? h('span', { class: 'order__rank num', text: String(rank) }) : null,
-      h('button', { class: 'order__title order__title--btn', type: 'button', onclick: () => openStock(o.code) }, title),
-    ]),
-    pc ? h('div', { class: 'order__peer' }, [peerBadge(pc.cls),
-      h('span', { class: 'order__peer-t', text: peerLine(pc.g, pc.g20, pc.rel20) })]) : null,
-    pc && strengthOf(pc.g) ? h('div', { class: 'order__peer' }, [quadBadge(strengthOf(pc.g).quad),
-      h('span', { class: 'order__peer-t', text: strengthLine(pc.g) })]) : null,
-    h('div', { class: 'plan__grid' }, [
-      cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・この日だけ`),
-      cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・逆指値`, 'down'),
-      cell('売りの目安', fmtTick(o.sell), `${fmtPct(o.sell_pct, 1)}・毎朝更新`, 'up'),
-      cell('株数', z && z.shares ? `${z.shares.toLocaleString('ja-JP')}株` : '—', z ? (z.none ? '1件の金額では買えない'
-        : isNum(z.loss) ? `損切りで −${fmtYen(z.loss)}（資金の${z.lossPct.toFixed(1)}%）` : '') : '資金を入れると出ます'),
-    ]),
-    z && z.none ? h('div', { class: 'plan__size plan__size--none', text: z.text }) : null,
-    extra ? h('div', { class: 'hint', style: 'margin:4px 0 0', text: extra }) : acts,
-    formBox,
-  ]);
-}
-
-/* ---- 1b. 中期の押し目（大きなトレンドの中の1〜3か月の調整で押した日。dashboard/swing.py の MID_*、DESIGN.md 21章） ---- */
 function midHeld() { return readPos().filter(isMidPos); }
 
-function midOrderCard(o, rank, day, extra, inSheet) {
+/* ---- 1. 今日の買い候補（短期の押し目買いと中期の押し目を1つの一覧に。DESIGN.md 23章） ----
+   1件に要ることだけを出す: 何を・いくらで買い・どこで損切り・いつ売るか、なぜ（Routine の理由づけ。無ければ規則の言葉）、
+   決算の材料（自社の決算・同業や類似銘柄の決算・保有中に決算をまたぐか）、株数。業種の中の位置・強さ・チャートは銘柄シート。
+   並びは本番の置き方の順（中期の枠が空いていれば中期を先に、次に短期を並べ方の順に）。候補を決めるのは swing.py の2つのルールだけで、
+   決算の材料は並び順も条件も変えない（まだ確かめていないので。記録してあとで比べる）。 */
+function picksData() {
+  const slots = (DATA && DATA.slots) || {};
+  const asof = (SW() || {}).asof;
+  const order = [latestSlot(), 'taibike', 'zenba', 'preopen'].filter((x, i, a) => x && a.indexOf(x) === i);
+  let pk = null, ai = null;
+  order.forEach((x) => {
+    const d = (slots[x] || {}).data || {};
+    if (!pk && d.picks) pk = d.picks;
+    if (!ai && d.ai_picks && (d.ai_picks.items || []).length && (!d.ai_picks.asof || d.ai_picks.asof === asof)) ai = d.ai_picks;
+  });
+  return { earn: (pk && pk.earn) || {}, watch: (pk && pk.watch) || [], ai };
+}
+function aiWhy(code) {
+  const ai = picksData().ai;
+  return ai ? ((ai.items || []).find((x) => String(x.code) === String(code)) || {}).why || null : null;
+}
+/* 平日で数えた営業日（祝日は分からない） */
+function bizDays(from, to) {
+  let n = 0;
+  for (let d = from; d < to; d = nextWeekday(d)) n += 1;
+  return n;
+}
+/* 決算の材料の短いバッジ（売買タブの候補・監視・銘柄シートで同じもの） */
+function earnBadges(code, hold) {
+  const e = picksData().earn[code];
+  if (!e) return [];
+  const out = [];
+  const tone = (d) => (d === 'up' ? 'up' : d === 'down' ? 'down' : d === 'mixed' ? 'warn' : '');
+  if (e.own) {
+    out.push(h('span', { class: 'badge badge--' + (tone(e.own.dir) || 'accent'), title: e.own.head || '',
+      text: `自社の決算 ${md(e.own.date)} ${EARN_DIR[e.own.dir] ? EARN_DIR[e.own.dir][0] : ''}`.trim() }));
+  }
+  if (e.n) {
+    out.push(h('span', { class: 'badge badge--' + (tone(e.up > e.down ? 'up' : e.down > e.up ? 'down' : 'mixed') || 'accent'),
+      title: (e.by || []).map((b) => `${cleanName(b.name)}（${b.via}）${EARN_DIR[b.dir] ? EARN_DIR[b.dir][0] : ''}`).join('・'),
+      text: `同業・類似の決算 上${e.up}・下${e.down}` }));
+  }
+  if (e.next) {
+    const asof = (SW() || {}).asof || isoToday();
+    const within = hold && bizDays(asof, e.next) <= hold;
+    out.push(h('span', { class: 'badge' + (within ? ' badge--warn' : ''), text: `決算 ${md(e.next)}${within ? '（保有中にまたぐ）' : '予定'}` }));
+  }
+  return out;
+}
+/* 決算の材料を1文で（監視の行・銘柄シート用） */
+function earnLine(code) {
+  const e = picksData().earn[code];
+  if (!e) return '';
+  const parts = [];
+  if (e.own) parts.push(`自社の決算（${md(e.own.date)}）${EARN_DIR[e.own.dir] ? EARN_DIR[e.own.dir][0] : ''}${e.own.head ? '：' + e.own.head : ''}`);
+  if (e.n) {
+    parts.push(`直近の同業・類似の決算 上向き${e.up}・下向き${e.down}（` +
+      (e.by || []).map((b) => `${cleanName(b.name)}${EARN_DIR[b.dir] ? ' ' + EARN_DIR[b.dir][0] : ''}`).join('・') + '）');
+  }
+  if (e.next) parts.push(`次の決算 ${md(e.next)}`);
+  return parts.join('。');
+}
+
+/* 規則の言葉での理由（Routine の理由づけが無いとき） */
+function ruleWhy(o, kind) {
+  if (kind === 'mid') {
+    return `1年で強い銘柄（上位${Math.max(1, 100 - (o.rank || 0))}%）が、60日高値から${o.age}営業日・${fmtPct(o.dd, 1)}の調整中に、さらに短く押した日`;
+  }
+  const pc = o.peer || {};
+  const shape = PEER_INFO[pc.cls] && !['plain', 'none'].includes(pc.cls)
+    ? `。${PEER_INFO[pc.cls].label}（${pc.g} ${fmtPct(pc.g20, 1)}・業種より ${fmtPt(pc.rel20)}）` : '';
+  return `上昇トレンドの中で、5日 ${fmtPct(o.r5, 1)}・25日線から ${fmtPct(o.dev25, 1)} まで短く押した日${shape}`;
+}
+
+function pickCard(o, kind, rank, day, inSheet) {
   const r = rules();
+  const mid = kind === 'mid';
   const held = readPos().some((p) => p.code === o.code);
   const z = sizeText(o.limit, o.stop);
+  const sw = swOf(o.code) || {};
+  const why = aiWhy(o.code);
+  const tv = isNum(o.tv) ? o.tv : sw.tv;
+  const group = (o.peer || {}).g || o.sector;
   const formBox = h('div', {});
-  const acts = h('div', { class: 'order__acts' }, [
-    held ? h('span', { class: 'badge badge--ok', text: '保有銘柄に記録済み' })
+  const kids = [];
+  if (!inSheet) {
+    kids.push(h('div', { class: 'pick__head' }, [
+      rank ? h('span', { class: 'order__rank num', text: String(rank) }) : null,
+      h('button', { class: 'pick__title', type: 'button', onclick: () => openStock(o.code) }, [
+        h('span', { class: 'pick__name', text: cleanName(o.name) || o.code }),
+        h('span', { class: 'pick__meta', text: [o.code, group, isNum(tv) ? `売買代金 ${tv >= 100 ? Math.round(tv) : tv.toFixed(0)}億円/日` : null].filter(Boolean).join('・') }),
+      ]),
+      h('span', { class: 'pick__kind pick__kind--' + kind, text: mid ? `中期・${o.hold || r.mid_hold}日` : `短期・最長${r.max_hold}日` }),
+    ]));
+  }
+  kids.push(h('div', { class: 'plan__grid plan__grid--3' }, [
+    cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・その日だけ`),
+    cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・逆指値`, 'down'),
+    mid ? cell('売り', `${o.hold || r.mid_hold}日目`, `の引けで。高値 ${fmtTick(o.hi)}`, 'up')
+      : cell('売り', fmtTick(o.sell), `${fmtPct(o.sell_pct, 1)}・毎朝置き直す`, 'up'),
+  ]));
+  kids.push(h('div', { class: 'pick__why' }, [
+    h('b', { text: why ? 'なぜ（AI）' : 'なぜ' }), h('span', { text: why || ruleWhy(o, kind) })]));
+  const chips = earnBadges(o.code, mid ? r.mid_hold : r.max_hold);
+  if (!mid && o.peer && PEER_INFO[o.peer.cls] && !['plain', 'none'].includes(o.peer.cls) && why) chips.push(peerBadge(o.peer.cls));
+  if (chips.length) kids.push(h('div', { class: 'chips pick__chips' }, chips));
+  kids.push(h('div', { class: 'pick__foot' }, [
+    held ? h('span', { class: 'badge badge--ok', text: '保有に記録済み' })
       : h('button', { class: 'btn', type: 'button', text: '買えた', onclick: (ev) => {
         ev.currentTarget.disabled = true;
-        formBox.appendChild(boughtForm(o, day, true));
+        formBox.appendChild(boughtForm(o, day, mid));
       } }),
-    inSheet ? null : h('button', { class: 'btn btn--ghost', type: 'button', text: 'チャートと根拠', onclick: () => openStock(o.code) }),
-  ]);
-  const meta = [h('span', { text: o.code }), o.sector ? h('span', { text: o.sector }) : null,
-    h('span', { text: `終値 ${fmtPrice(o.close)}` }),
-    isNum(o.rank) ? h('span', { text: `1年の強さ 上位${Math.max(1, 100 - o.rank)}%` }) : null,
-    isNum(o.age) ? h('span', { text: `高値から${o.age}営業日・${fmtPct(o.dd, 1)}` }) : null,
-    isNum(o.rsi2) ? h('span', { text: `2日RSI ${Math.round(o.rsi2)}` }) : null];
-  const title = [h('div', { class: 'row__name', text: cleanName(o.name) || o.code }), h('div', { class: 'row__meta' }, meta)];
-  return h('div', { class: 'order' + (extra ? ' order--more' : '') }, [
-    inSheet ? null : h('div', { class: 'order__head' }, [
-      rank ? h('span', { class: 'order__rank num', text: String(rank) }) : null,
-      h('button', { class: 'order__title order__title--btn', type: 'button', onclick: () => openStock(o.code) }, title),
-    ]),
-    h('div', { class: 'plan__grid' }, [
-      cell('買いの指値', fmtTick(o.limit), `終値${fmtPct(o.to_limit, 1)}・この日だけ`),
-      cell('損切り', fmtTick(o.stop), `${fmtPct(o.stop_pct, 1)}・調整の安値−${r.mid_stop_atr}ATR`, 'down'),
-      cell('売り', `${o.hold || r.mid_hold}日目`, `営業日の引けで。高値 ${fmtTick(o.hi)}（${fmtPct(o.to_hi, 1)}）`, 'up'),
-      cell('株数', z && z.shares ? `${z.shares.toLocaleString('ja-JP')}株` : '—', z ? (z.none ? '1件の金額では買えない'
-        : isNum(z.loss) ? `損切りで −${fmtYen(z.loss)}（資金の${z.lossPct.toFixed(1)}%）` : '') : '資金を入れると出ます'),
-    ]),
-    z && z.none ? h('div', { class: 'plan__size plan__size--none', text: z.text }) : null,
-    extra ? h('div', { class: 'hint', style: 'margin:4px 0 0', text: extra }) : acts,
-    formBox,
-  ]);
-}
-
-function midCard() {
-  const mid = MID();
-  if (!mid) return null;
-  const r = rules();
-  const sw = SW() || {};
-  const day = orderDay(sw.asof);
-  const orders = mid.orders || [];
-  const held = midHeld();
-  const free = Math.max(0, r.mid_slots - held.length);
-  const body = [];
-  body.push(h('p', { class: 'hint', style: 'margin:0 14px 8px', text:
-    `1年で強く上げた銘柄（12か月の強さが上位1/3・200日線が上向き）が、60日高値から${r.mid_age[0]}〜${r.mid_age[1]}営業日・${r.mid_depth}% 以上の調整をしている中で、` +
-    `短く押した日（2日RSI ${r.rsi_max}未満）に指値を置く。${r.mid_hold}営業日持ち、調整の安値を割ったら手仕舞う（売りの指値は置かない）。` +
-    '短期の押し目買いとは別の計画で、同じ銘柄に両方は出しません。' }));
-  if (orders.length) {
-    body.push(h('div', { class: 'orders__when' + (day && day.state === 'expired' ? ' is-expired' : !free ? ' is-short' : '') }, [
-      h('div', { class: 'orders__k', text: `${md(sw.asof)}（${wd(sw.asof)}）の引けで出た中期の注文・中期の保有 ${held.length}／${r.mid_slots}銘柄` +
-        (free ? `（あと${free}件置ける。上から順に）` : '') }),
-      h('div', { class: 'orders__v', text: !free ? `中期の枠（${r.mid_slots}銘柄）が埋まっているので、新しい中期の注文は置かない（検証の口座も同じ置き方です）` : day ? day.text : '' }),
-    ]));
-    body.push(h('div', { class: 'orders' }, orders.map((o, i) => midOrderCard(o, i + 1, day,
-      i >= free ? `中期の枠（${r.mid_slots}銘柄）を超える分。保有が減れば同じ条件で使えます` : null))));
-  } else {
-    body.push(h('div', { class: 'callout callout--accent', style: 'margin:0 14px 8px', text:
-      `今日は中期の注文なし。調整中の銘柄が短く押した日に出ます（下の「調整中の銘柄」）。中期の保有 ${held.length}／${r.mid_slots}銘柄。` }));
-  }
-  const near = (mid.near || []).filter((x) => isNum(x.trig));
-  if (near.length) {
-    body.push(h('details', { class: 'acc acc--inline', open: orders.length ? null : 'open' }, [
-      h('summary', {}, [h('span', { class: 'acc__title', text: `調整中の銘柄 ${mid.n_shape || near.length}（押し待ち。近い順）` })]),
-      foldable((n) => h('div', {}, near.slice(0, n).map((x) => h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(x.code) }, [
-        h('div', { class: 'signal__name', text: cleanName(x.name) || x.code }),
-        h('div', { class: 'signal__right num' }, [
-          h('b', { class: 'down', text: fmtPct(x.to, 1) }),
-          h('small', { text: `${x.code}　${fmtPrice(x.price)}円` }),
-        ]),
-        h('div', { class: 'signal__tags' }, [
-          h('span', { class: 'badge badge--accent', text: `高値から${x.age}日・${fmtPct(x.dd, 1)}` }),
-          isNum(x.rank) ? h('span', { class: 'badge', text: `1年の強さ 上位${Math.max(1, 100 - x.rank)}%` }) : null,
-        ]),
-        h('div', { class: 'signal__why', text: `終値が ${fmtPrice(x.trig)}円 未満で引けたら、翌営業日に中期の注文が出る` +
-          (x.ok === false ? '（ただしそこまで下げると200日線の条件も割れる）' : '') + `。調整の安値 ${fmtPrice(x.low)}円` }),
-      ]))), near.length, 6, '全銘柄'),
-    ]));
-  }
-  body.push(midEvidenceLine());
-  return card('中期の押し目', orders.length ? `${orders.length}銘柄` : '大きなトレンドの中の調整', body, null, true, 'sw-mid');
-}
-
-/* 中期の注文のそばに置く検証の一行（比べる相手と偏りつき） */
-function midEvidenceLine() {
-  const v = ((SW() || {}).verify || {});
-  const m = v.mid || {};
-  const a = m.all || {}, b = (m.base || {}).all || {};
-  const acc = v.account || {}, prev = v.account_prev || {};
-  const text = a.n
-    ? `検証（${a.n}回）: 1回の平均 ${fmtPct(a.avg, 2)}・勝率 ${a.win}%（調整の条件なしで強い銘柄の押しを同じ出口で買うと ${fmtPct(b.avg, 2)}・${b.win ?? '—'}%）。` +
-      (isNum(acc.cagr) && isNum(prev.cagr) ? `短期と合わせた口座は年率 ${fmtPct(acc.cagr, 1)}・最大の目減り ${fmtPct(acc.dd, 1)}（短期だけなら ${fmtPct(prev.cagr, 1)}・${fmtPct(prev.dd, 1)}）。` : '') +
-      '勝率は低く、少数の大きく伸びた銘柄が平均を作る。今の採用銘柄だけで測っている（生存者の偏り）。'
-    : '検証に足りる日足がまだありません（12か月の強さに250営業日が要ります）。予測ではなく、決めた規則どおりに注文を置くための目安です。';
-  return h('button', { class: 'evidence', type: 'button', onclick: () => selectView('verify', 'v-mid') }, [
-    h('span', { text }), h('b', { text: '検証を見る ›' })]);
-}
-
-function ordersCard() {
-  const sw = SW();
-  if (!sw) {
-    return card('注文', null, h('div', { class: 'empty', text: '四本値の日足がまだありません。次の大引の更新で注文が出ます。' }), null, false, 'sw-orders');
-  }
-  const r = rules();
-  const day = orderDay(sw.asof);
-  const orders = sw.orders || [];
-  const body = [];
-  // いつ有効か・資金で何件置けるかを1つの枠に（注文の前に読む量を減らす）
-  const fc = orders.length && !(day && day.state === 'expired') ? freeCash() : null;
-  const fit = fc ? Math.min(fc.fit, orders.length) : null;
-  body.push(h('div', { class: 'orders__when' + (day && day.state === 'expired' ? ' is-expired' : fc && fit < orders.length ? ' is-short' : '') }, [
-    h('div', { class: 'orders__k', text: `${md(sw.asof)}（${wd(sw.asof)}）の引けで出た買い注文` +
-      (fc ? `・空き資金 ${fmtYen(fc.free)}（1件 ${fmtYen(fc.budget)}）で上から${fit}件` : '') }),
-    h('div', { class: 'orders__v', text: day ? day.text : '' }),
-    fc && fit < orders.length ? h('div', { class: 'orders__k', text: `保有に ${fmtYen(fc.used)}。置けない分は見送り、空いた資金は次の注文に回します（検証の口座も同じ置き方です）。` }) : null,
+    h('span', { class: 'pick__size' + (z && z.none ? ' is-none' : ''), text: z ? (z.none ? '1件の金額では100株も買えない'
+      : `${z.shares.toLocaleString('ja-JP')}株・約${fmtYen(z.shares * o.limit)}` + (isNum(z.loss) ? `（損切りで −${fmtYen(z.loss)}）` : '')) : '資金を入れると株数が出ます' }),
+    inSheet ? null : h('button', { class: 'btn btn--ghost', type: 'button', text: '詳しく ›', onclick: () => openStock(o.code) }),
   ]));
-  body.push(riskSettingsBox(refreshPlan));
-  if (!orders.length) {
-    body.push(h('div', { class: 'callout callout--accent', text: ((MID() || {}).orders || []).length
-      ? '短期の注文なし。今日押した銘柄は、大きなトレンドの中の調整なので下の「中期の押し目」に出しています（同じ銘柄に両方は出しません）。'
-      : '注文なし。上昇トレンドの銘柄で、短く押したもの（2日RSI 10未満）がありません。待つのも作戦です。下の「監視」に、もうすぐ注文対象になる銘柄を出しています。' }));
-  } else {
-    body.push(h('div', { class: 'orders' }, orders.map((o, i) => orderCard(o, i + 1, day))));
-  }
-  const more = sw.more || [];
-  if (more.length) {
-    body.push(h('details', { class: 'acc acc--inline' }, [
-      h('summary', {}, [h('span', { class: 'acc__title', text: `次点 ${more.length}銘柄（1日${r.max_orders}銘柄・同じ業種${r.sector_cap}銘柄までの上限で外れたもの）` })]),
-      h('div', { class: 'orders' }, more.map((o) => orderCard(o, null, day, '上限で外れた次点。枠が空いていれば同じ条件で使えます'))),
-    ]));
-  }
-  const skip = sw.skip || [];
-  if (skip.length) {
-    body.push(h('details', { class: 'acc acc--inline' }, [
-      h('summary', {}, [h('span', { class: 'acc__title', text: `見送り ${skip.length}銘柄（業種の上げに沿った押し）` })]),
-      h('div', {}, skip.map((o) => h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(o.code) }, [
-        h('div', { class: 'signal__name', text: cleanName(o.name) || o.code }),
-        h('div', { class: 'signal__right num' }, [h('small', { text: `${o.code}　${fmtPrice(o.close)}円` })]),
-        h('div', { class: 'signal__why', text: o.peer ? peerLine(o.peer.g, o.peer.g20, o.peer.rel20) : '' }),
-      ]))),
-      h('p', { class: 'hint', style: 'margin:6px 14px 10px', text:
-        `業種が${r.peer_n}日で +${r.peer_up}% 以上上げている中で、自分も業種並み（業種との差が ${r.peer_lag}pt より上）の押し。` +
-        `4年の検証で勝率 ${PEER_INFO.hot.stat}・1回の平均 ${HOT_AVG}（前半／後半）と、ほかの押しより明らかに弱い。業種の上げが一服し始めた押しになりやすい。同じ押しでも、業種より遅れている銘柄（出遅れの押し）は勝率 ${PEER_INFO.lag.stat} でした。` }),
-    ]));
-  }
-  body.push(h('details', { class: 'acc acc--inline' }, [
-    h('summary', {}, [h('span', { class: 'acc__title', text: '置き方（IFD・OCO）と並べ方' })]),
-    h('div', { class: 'acc__body acc__body--plain', text:
-      `買いは指値（終値 − ${r.entry_atr}ATR、この日だけ）を IFD（約定したら損切りの逆指値が自動で入る注文）で置くと、検証と同じく約定した日から損切り（約定値 − ${r.stop_atr}ATR）が効きます。` +
-      `翌日からは毎朝、「売りの指値」（直近${r.exit_n}日の終値の平均。ただし約定値 +${r.floor}% より下には置かない）と損切りを OCO（片方が約定したらもう片方は取り消し）で置き直す。` +
-      `${r.max_hold}営業日で売れなければ引けで売る。\n並べ方は、25日線からの下離れ＋業種より遅れている分が大きい順（業種ぐるみの押し・出遅れの押しが先に来る）。1日${r.max_orders}銘柄・同じ業種${r.sector_cap}銘柄まで。` }),
-  ]));
-  body.push(evidenceLine());
-  return card('短期の押し目買い', orders.length ? `${orders.length}銘柄` : null, body, null, true, 'sw-orders');
+  kids.push(formBox);
+  return h('div', { class: 'pick' + (inSheet ? ' pick--sheet' : '') }, kids);
 }
 
-/* 注文のそばに置く検証の一行。勝率は比べる相手と、偏り（生存者・急落）と一緒に出す（CLAUDE.md の約束） */
-function evidenceLine() {
+/* 候補が信頼できるかを3つの数字で（アプリが実際に出した注文の結果・過去4年の再現の口座・比べる相手つきの勝率） */
+function trustBox() {
   const sw = SW() || {};
   const v = sw.verify || {};
   const a = v.all || {}, base = v.base || {}, acc = v.account || {};
-  const text = a.n
-    ? `検証（直近${v.days || ''}営業日・${a.n}回）: 勝率 ${a.win}%（同じ銘柄を毎日買って5日後に売ると ${base.win ?? '—'}%）・1回の平均 ${fmtPct(a.avg, 2)}` +
-      (isNum(acc.cagr) ? `、中期の押し目と合わせて本番どおりに置いた口座は年率 ${fmtPct(acc.cagr, 1)}・最大の目減り ${fmtPct(acc.dd, 1)}` : '') +
-      '。今の採用銘柄だけで測っている（生存者の偏り）・急落に弱い。予測ではなく、決めた規則どおりに注文を置くための目安です。'
-    : '検証に足りる日足がまだありません。予測ではなく、決めた規則どおりに注文を置くための目安です。';
-  return h('button', { class: 'evidence', type: 'button', onclick: () => selectView('verify', 'v-swing') }, [
-    h('span', { text }), h('b', { text: '検証を見る ›' })]);
+  const p = sw.paper || {};
+  const stats = [
+    // 結果の出た回が少ないうちは率にしない（3回で100%は何も言っていない）
+    stat('アプリの注文の結果', !p.n ? '記録中' : p.n >= 20 ? `${p.win}%` : `${Math.round(p.win * p.n / 100)}勝${p.n - Math.round(p.win * p.n / 100)}敗`,
+      !p.n ? `${p.issued || 0}件を記録・結果待ち${p.open || 0}` : p.n >= 20 ? `勝ち／${p.n}回・平均${fmtPct(p.avg, 1)}` : `まだ少ない・平均${fmtPct(p.avg, 1)}`,
+      p.n ? cls(p.avg) : ''),
+    stat('過去の口座（年率）', isNum(acc.cagr) ? fmtPct(acc.cagr, 0) : '—', isNum(acc.dd) ? `最大の目減り ${fmtPct(acc.dd, 0)}` : '', cls(acc.cagr)),
+    stat('短期の勝率', a.n ? `${a.win}%` : '—', a.n ? `毎日買うと ${base.win ?? '—'}%` : ''),
+  ];
+  return h('button', { class: 'trust', type: 'button', onclick: () => selectView('verify', 'v-swing') }, [
+    h('div', { class: 'trust__h', text: 'この候補はどれくらい当てになるか' }),
+    h('div', { class: 'summary__stats trust__stats' }, stats),
+    h('div', { class: 'trust__note', text: '過去の数字は今の採用銘柄だけで測った再現（生存者の偏り）で、急落に弱い。勝率は高いが、負けは1回が大きい。予測ではありません。' +
+      '置いた指値の約定は4割前後で、資金は半分ほど遊びます。検証を見る ›' }),
+  ]);
+}
+
+function picksCard() {
+  const sw = SW();
+  if (!sw) {
+    return card('今日の買い候補', null, h('div', { class: 'empty', text: '四本値の日足がまだありません。次の大引の更新で候補が出ます。' }), null, false, 'sw-picks');
+  }
+  const r = rules();
+  const day = orderDay(sw.asof);
+  const expired = day && day.state === 'expired';
+  const mids = (MID() || {}).orders || [];
+  const free = Math.max(0, r.mid_slots - midHeld().length);
+  const items = mids.slice(0, free).map((o) => [o, 'mid']).concat((sw.orders || []).map((o) => [o, 'short']));
+  const body = [];
+  body.push(h('div', { class: 'picks__when' + (expired ? ' is-expired' : '') }, [
+    h('b', { text: !day ? '' : expired ? '期限切れ' : day.state === 'today' ? `今日 ${day.label} だけ有効` : `${day.label} だけ有効` }),
+    h('span', { text: expired ? '次の候補は大引の更新（夕方〜夜）か翌朝7時台に出ます'
+      : `${md(sw.asof)}の引けで決めた指値。寄りの前に置き、約定しなければその日で取り消し` }),
+  ]));
+  if (!items.length) {
+    body.push(h('div', { class: 'callout callout--accent', text:
+      '今日は買い候補なし。上昇トレンドの銘柄で、短く押したもの（売買代金30億円以上）がありません。待つのも作戦です。下の「もうすぐ」に近い銘柄を出しています。' }));
+  } else {
+    body.push(h('div', { class: 'picks' }, items.map(([o, k], i) => pickCard(o, k, i + 1, day))));
+    const fc = expired ? null : freeCash();
+    const notes = [];
+    if (fc) notes.push(`空き資金 ${fmtYen(fc.free)}（1件 ${fmtYen(fc.budget)}）で上から${Math.min(fc.fit, items.length)}件まで置けます。置けない分は見送り。`);
+    if (mids.length > free) notes.push(`中期の枠（${r.mid_slots}銘柄）が埋まっているので、中期の候補 ${mids.length - free}件は出していません。`);
+    if ((sw.more || []).length) notes.push(`短期は1日${r.max_orders}件・同じ業種${r.sector_cap}件までで、次点が${sw.more.length}件あります（銘柄シートで見られます）。`);
+    if (notes.length) body.push(h('p', { class: 'hint picks__note', text: notes.join('') }));
+  }
+  body.push(trustBox());
+  body.push(h('details', { class: 'acc acc--inline' }, [
+    h('summary', {}, [h('span', { class: 'acc__title', text: '株数の設定と、注文の置き方' })]),
+    riskSettingsBox(refreshPlan),
+    h('div', { class: 'acc__body acc__body--plain', text:
+      `短期: 買いは指値（終値 − ${r.entry_atr}ATR・その日だけ）を IFD で置き、約定したら損切り（約定値 − ${r.stop_atr}ATR）の逆指値が入るようにする。` +
+      `翌日からは毎朝、売りの指値（直近${r.exit_n}日の終値の平均。ただし約定値 +${r.floor}% より下には置かない）と損切りを OCO で置き直す。${r.max_hold}営業日で売れなければ引けで売る。\n` +
+      `中期: 同じく指値で買い、損切り（調整の安値 − ${r.mid_stop_atr}ATR）だけを置く。売りの指値は置かず、${r.mid_hold}営業日目の引けで売る（伸びる銘柄を早く売らない）。\n` +
+      `候補にするのは20日平均の売買代金が${r.liq_min}億円以上・株価${r.min_price}円以上の銘柄だけ（指値が約定しやすく、突然の注目で振れにくい）。` +
+      '決算の材料（自社・同業・類似銘柄の決算、次の決算日）は判断の参考で、候補の条件にも並び順にも使っていません。' }),
+  ]));
+  return card('今日の買い候補', items.length ? `${items.length}銘柄` : null, body, null, true, 'sw-picks');
 }
 
 /* ---- 2. 保有中（この端末に記録した銘柄） ---- */
@@ -2197,13 +2171,12 @@ function portfolioCard() {
     addBox.appendChild(holdForm(null));
     addBtn.hidden = true;
   } });
-  const note = '押し目買いの銘柄は計画（毎朝の売り指値・損切り・期限）どおりに、中期の押し目の銘柄は損切り（調整の安値−1ATR）か60営業日目の引けで手仕舞い、' +
-    '自分の判断で持つ銘柄は引けの形（20日の騰落と2日RSI）で「持つ／今は売らない／減らす候補」を出します。' +
-    '買値・株数はこの端末にだけ保存されます。予測でも売買の推奨でもありません。';
+  const note = '候補から買った銘柄は計画どおりに手仕舞い、自分の判断で持つ銘柄は引けの形で「持つ／今は売らない／減らす候補」を出します。' +
+    '買値・株数はこの端末にだけ保存されます。';
   if (!pos.length && !own.length) {
-    return card('保有銘柄', addBtn, [
-      h('p', { class: 'hint', style: 'margin:0 0 8px', text: '注文が約定したら注文の「買えた」を押すと、ここに毎朝の売り指値・損切り・期限が出ます。' +
-        'ほかに持っている銘柄は「＋ 追加」でコード・買値・株数を入れると、毎日の引けの形から判定と次の営業日の売り指値・撤退ラインを出します。' }),
+    return card('保有', addBtn, [
+      h('p', { class: 'hint', style: 'margin:0 0 8px', text: '候補が約定したら「買えた」を押すと、ここに毎朝の売り指値・損切り・期限が出ます。' +
+        'ほかに持っている銘柄は「＋ 追加」で入れると、引けの形から判定と売り指値・撤退ラインを出します。' }),
       addBox,
     ], note, false, 'sw-pos');
   }
@@ -2234,7 +2207,7 @@ function portfolioCard() {
       h('small', { text: `${fmtPct((val / cost - 1) * 100, 1)}・評価 ${fmtYen(val)}` }),
     ]) : null,
   ]);
-  return card('保有銘柄', addBtn, [
+  return card('保有', addBtn, [
     head,
     h('div', { class: 'orders' }, pos.map((p) => positionRow(p)).concat(own.map((p) => holdRow(p)))),
     h('div', { class: 'hold__pad' }, [addBox]),
@@ -2292,25 +2265,34 @@ function watchState(code) {
   return { key: 'wait', text: '押し待ち' };
 }
 
-function watchItems() {
-  const map = new Map();
-  const add = (code, name, src, extra) => {
-    if (!code) return;
-    const it = map.get(code) || { code, name: cleanName(name) || code, src: [], signals: [], notes: null };
-    if (!it.src.includes(src)) it.src.push(src);
-    if (extra) Object.assign(it, { signals: extra.signals || it.signals, notes: extra.notes || it.notes, first: extra.first || it.first, wl: extra.wl || it.wl });
-    map.set(code, it);
-  };
-  ((LEDGER && LEDGER.entries) || []).filter((e) => e.status !== 'closed').forEach((e) =>
-    add(e.code, e.name, '発掘', { signals: e.signals || [], notes: e.notes, first: e.first_seen }));
-  effectiveWatchlist(sessData()).forEach((w) => add(String(w.code), w.name, 'ウォッチ', { wl: w }));
-  ((SW() || {}).near || []).forEach((n) => add(n.code, n.name, 'もうすぐ'));
-  const items = [...map.values()].map((it) => {
-    const st = stockOf(it.code);
-    return { ...it, name: cleanName((st || {}).n) || it.name || it.code, st, ws: watchState(it.code) };
+/* 監視の1行の材料。src は「もうすぐ」「決算」「ウォッチ」「発掘」 */
+function watchItem(code, name, src, extra) {
+  const st = stockOf(code);
+  return { code, name: cleanName((st || {}).n) || cleanName(name) || code, src, st, ws: watchState(code), ...(extra || {}) };
+}
+const thinStock = (code) => ['thin'].includes((swOf(code) || {}).st);
+
+/* 4つの見方。どれも「見つけた日に買わず、ルールの形（押した日）を待つ」一覧で、注文は出さない。
+   流動性の低い銘柄（売買代金が下限未満・低位株）は、自分で登録したウォッチ以外には出さない */
+function watchLists() {
+  const r = rules();
+  const sw = SW() || {}, mid = MID() || {};
+  const seen = new Set([...(sw.orders || []), ...(mid.orders || [])].map((o) => o.code));
+  const near = [];
+  (sw.near || []).forEach((n) => { if (!seen.has(n.code)) { seen.add(n.code); near.push(watchItem(n.code, n.name, 'もうすぐ')); } });
+  (mid.near || []).filter((x) => isNum(x.to) && x.to >= -5).forEach((x) => {
+    if (!seen.has(x.code)) { seen.add(x.code); near.push(watchItem(x.code, x.name, 'もうすぐ')); }
   });
-  items.sort((a, b) => WATCH_ORDER.indexOf(a.ws.key) - WATCH_ORDER.indexOf(b.ws.key) || (b.ws.to ?? -99) - (a.ws.to ?? -99));
-  return items;
+  near.sort((a, b) => (b.ws.to ?? -99) - (a.ws.to ?? -99));
+  const earn = picksData().watch.map((x) => watchItem(x.code, x.name, '決算'));
+  const wl = effectiveWatchlist(sessData()).map((w) => watchItem(String(w.code), w.name, 'ウォッチ', { wl: w }));
+  const ledger = ((LEDGER && LEDGER.entries) || []).filter((e) => e.status !== 'closed');
+  const found = ledger.filter((e) => !thinStock(e.code)).map((e) => watchItem(e.code, e.name, '発掘', { signals: e.signals || [], notes: e.notes }));
+  found.sort((a, b) => WATCH_ORDER.indexOf(a.ws.key) - WATCH_ORDER.indexOf(b.ws.key) || (b.ws.to ?? -99) - (a.ws.to ?? -99));
+  const L = (THERMO || {}).lists || {};
+  const avoid = [].concat((L.hot || []).map((x) => [x, '高値掴み注意', `RSI ${isNum(x.rsi) ? Math.round(x.rsi) : '—'}・5日 ${fmtPct(x.r5, 1)}`]),
+    (L.good_out || []).map((x) => [x, '好材料出尽くし', `${md(x.date)} 上方修正から ${fmtPct(x.since, 1)}`]));
+  return { near, earn, wl, found, avoid, thinFound: ledger.length - found.length, r };
 }
 
 function watchRow(it) {
@@ -2319,6 +2301,8 @@ function watchRow(it) {
   const wl = it.wl || {};
   const price = isNum(st.price) ? st.price : wl.price;
   const d1 = isNum(st.d1) ? st.d1 : wl.change_pct;
+  const sw = swOf(it.code) || {};
+  const el = earnLine(it.code);
   return h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(it.code) }, [
     h('div', { class: 'signal__name', text: it.name }),
     h('div', { class: 'signal__right num' }, [
@@ -2326,77 +2310,65 @@ function watchRow(it) {
       h('small', { text: `${it.code}　${isNum(price) ? fmtPrice(price) + '円' : ''}` }),
     ]),
     h('div', { class: 'signal__tags' }, [h('span', { class: 'badge' + (tone ? ' badge--' + tone : ''), text: label })]
-      .concat((swOf(it.code) || {}).md ? [h('span', { class: 'badge badge--accent', text: '中期' })] : [])
-      .concat(['signal', 'near', 'wait'].includes(it.ws.key) && !(swOf(it.code) || {}).md && (swOf(it.code) || {}).pc !== 'hot' ? [peerBadge((swOf(it.code) || {}).pc)] : [])
-      .concat(it.src.filter((s) => s !== 'もうすぐ').map((s) => h('span', { class: 'badge badge--src', text: s })))
+      .concat(sw.md ? [h('span', { class: 'badge badge--accent', text: '中期' })] : [])
+      .concat(['signal', 'near', 'wait'].includes(it.ws.key) && !sw.md && sw.pc !== 'hot' ? [peerBadge(sw.pc)] : [])
       .concat((wl.disclosures || []).map((m) => h('span', { class: 'badge badge--warn', text: '📄 ' + m })))
-      .concat((wl.tags || []).slice(0, 2).map((t) => h('span', { class: 'badge badge--accent', text: t })))
       .concat(wl.pending ? [h('span', { class: 'badge badge--warn', text: hasGitHubToken() ? 'リポジトリ反映待ち' : 'この端末だけ' })] : [])
-      .concat((it.signals || []).slice(0, 2).map((s) => h('span', { class: 'badge', text: s })))),
+      .concat((it.signals || []).slice(0, 2).map((x) => h('span', { class: 'badge', text: x })))),
     h('div', { class: 'signal__why', text: it.ws.text }),
+    el ? h('div', { class: 'signal__why watch__earn', text: el }) : null,
     it.notes ? h('div', { class: 'signal__why watch__note', text: it.notes }) : null,
   ]);
 }
 
 function watchCard() {
-  const all = watchItems();
-  const L = (THERMO || {}).lists || {};
-  const avoid = [].concat((L.hot || []).map((x) => [x, '高値掴み注意', `RSI ${isNum(x.rsi) ? Math.round(x.rsi) : '—'}・5日 ${fmtPct(x.r5, 1)}`]),
-    (L.good_out || []).map((x) => [x, '好材料出尽くし', `${md(x.date)} 上方修正から ${fmtPct(x.since, 1)}`]));
-  const groups = ((SW() || {}).peers || []);
+  const W = watchLists();
   const editBtn = h('button', { class: 'btn btn--ghost', type: 'button', text: 'ウォッチを編集', onclick: () => openSheet(sessData()) });
   const list = h('div', {});
   const note = h('div', { class: 'card__note' });
-  const count = (s) => all.filter((it) => it.src.includes(s)).length;
-  const wlItems = all.filter((it) => it.src.includes('ウォッチ'));
-  const pending = wlItems.filter((it) => (it.wl || {}).pending).length;
+  const pending = W.wl.filter((it) => (it.wl || {}).pending).length;
   const NOTES = {
-    all: '見つけた日に買わず、このルールの形（上昇トレンド中の短い押し）になるのを待つための一覧。上から、注文対象・もうすぐ（あと3%以内の下げで注文対象になり、その価格でも上昇トレンドを保つ）・待つ、の順。押すと銘柄の詳しい画面が開きます。',
-    'もうすぐ': 'あと3%以内の下げで注文対象になり、その価格でも上昇トレンドを保つ銘柄。',
-    'ウォッチ': '自分で登録した銘柄。今日のランキング・開示に出たものは印が付きます。' + (pending ? (hasGitHubToken()
+    near: `あと少しの下げで買い候補になる銘柄（短期: あと3%以内で、その価格でも上昇トレンドを保つ／中期: 調整中で、あと5%以内）。上から近い順。` +
+      `売買代金${W.r.liq_min}億円以上の銘柄だけです。`,
+    earn: '最近の決算（自社の決算か、同業・類似銘柄の決算が上向き）で連想が向かいやすい銘柄のうち、上昇トレンドで売買代金の条件を満たすもの。' +
+      '決算で上がった日に追わず、押して買い候補になるのを待つ一覧です（決算の向きが押し目買いの成績を良くするかは、記録をためて確かめます）。',
+    wl: '自分で登録した銘柄。今日のランキング・開示に出たものは印が付きます。流動性の低い銘柄も出します（買い候補にはなりません）。' + (pending ? (hasGitHubToken()
       ? `　${pending}銘柄はまだリポジトリに届いていません。「ウォッチを編集」→「保存して反映」をもう一度押してください。`
-      : `　${pending}銘柄はこの端末にだけ保存されていて、サーバ側の収集は対象にしていません（開示・ランキングの突き合わせ、日足の取得は行われません）。「ウォッチを編集」→「連携設定」で GitHub トークンを保存すると、リポジトリに書き込まれます。`) : ''),
-    '発掘': '売買代金・開示・テーマから機械が見つけた銘柄（理由づけは AI）。見つけた日の終値で買った場合の成績は検証タブ。',
-    peer: '', avoid: '短期で上がりすぎた銘柄（RSI 75以上・25日線から+15%以上・5日で+15%以上）と、好材料でも上がらない銘柄。上がっているから買う、はいつもの負けパターン。' +
-      'このルールの注文は上昇トレンド中の「下げた日」だけに出るので、ここに並ぶ銘柄には出ません。',
+      : `　${pending}銘柄はこの端末にだけ保存されていて、サーバ側の収集は対象にしていません。「ウォッチを編集」→「連携設定」で GitHub トークンを保存すると、リポジトリに書き込まれます。`) : ''),
+    found: '売買代金・開示・テーマから機械が見つけた銘柄（理由づけは AI）。見つけた日の終値で買った場合の成績は検証タブ。' +
+      (W.thinFound ? `売買代金${W.r.liq_min}億円未満の${W.thinFound}銘柄は出していません。` : ''),
+    avoid: '短期で上がりすぎた銘柄（RSI 75以上・25日線から+15%以上・5日で+15%以上）と、好材料でも上がらない銘柄。上がっているから買う、はいつもの負けパターン。',
   };
-  let filter = 'all';
-  const draw = () => {
+  const draw = (filter) => {
     list.textContent = '';
-    if (filter === 'peer') {
-      const g = peerGroups();
-      list.appendChild(g.body);
-      note.textContent = g.note;
-      return;
-    }
+    note.textContent = NOTES[filter];
     if (filter === 'avoid') {
-      list.appendChild(h('div', {}, avoid.map(([x, why, sub]) => h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(x.code) }, [
+      list.appendChild(h('div', {}, W.avoid.map(([x, why, sub]) => h('button', { class: 'signal signal--btn', type: 'button', onclick: () => openStock(x.code) }, [
         h('div', { class: 'signal__name', text: cleanName(x.name) || x.code }),
         h('div', { class: 'signal__right num' }, [h('small', { text: x.code })]),
         h('div', { class: 'signal__tags' }, [h('span', { class: 'badge badge--warn', text: why })]),
         h('div', { class: 'signal__why', text: sub }),
       ]))));
-      note.textContent = NOTES.avoid;
       return;
     }
-    const rows = all.filter((it) => filter === 'all' || it.src.includes(filter));
-    note.textContent = NOTES[filter];
+    const rows = W[filter];
     if (!rows.length) {
-      list.appendChild(h('div', { class: 'empty', style: 'padding:6px 14px', text: filter === 'ウォッチ'
-        ? '登録がありません。「ウォッチを編集」か、銘柄の詳しい画面の☆で登録します。' : 'なし' }));
+      list.appendChild(h('div', { class: 'empty', style: 'padding:6px 14px', text: filter === 'wl'
+        ? '登録がありません。「ウォッチを編集」か、銘柄の詳しい画面の☆で登録します。'
+        : filter === 'earn' ? '今は該当なし（決算の記録がたまると増えます）' : 'なし' }));
       return;
     }
-    list.appendChild(foldable((n) => h('div', {}, rows.slice(0, n).map(watchRow)), rows.length, 10, '全件'));
+    list.appendChild(foldable((n) => h('div', {}, rows.slice(0, n).map(watchRow)), rows.length, 6, '全件'));
   };
-  const opts = [['all', `すべて ${all.length}`], ['もうすぐ', `もうすぐ ${count('もうすぐ')}`], ['ウォッチ', `ウォッチ ${count('ウォッチ')}`],
-    ['発掘', `発掘 ${count('発掘')}`]];
-  if (SW()) opts.push(['peer', `業種で見る ${groups.length}`]);
-  if (avoid.length) opts.push(['avoid', `追わない ${avoid.length}`]);
-  const seg = segmented(opts, (k) => { filter = k; draw(); }, 'all');
+  const opts = [['near', `もうすぐ ${W.near.length}`], ['earn', `決算の連想 ${W.earn.length}`], ['wl', `ウォッチ ${W.wl.length}`],
+    ['found', `発掘 ${W.found.length}`]];
+  if (W.avoid.length) opts.push(['avoid', `追わない ${W.avoid.length}`]);
+  const first = W.near.length ? 'near' : W.earn.length ? 'earn' : W.wl.length ? 'wl' : 'near';
+  const seg = segmented(opts, draw, first);
   seg.classList.add('seg--scroll');
-  draw();
+  draw(first);
   return h('section', { class: 'card card--flush', id: 'sw-watch' }, [
-    h('div', { class: 'card__head' }, [h('h2', { class: 'card__title', text: '監視' }), editBtn]),
+    h('div', { class: 'card__head' }, [h('h2', { class: 'card__title', text: 'もうすぐ・監視' }), editBtn]),
     h('div', { class: 'card__seg' }, seg), list, note,
   ]);
 }
@@ -2441,6 +2413,13 @@ function peerMember(m, kind) {
     h('div', { class: 'signal__tags' }, [h('span', { class: 'badge' + (st[1] ? ' badge--' + st[1] : ''), text: st[0] })]),
     why ? h('div', { class: 'signal__why', text: why }) : null,
   ]);
+}
+
+/* 業種タブの「押し目の業種」（売買タブから移した。業種ぐるみの下げ・業種の上げの中で、どの銘柄が押しているか） */
+function peerCard() {
+  if (!SW()) return null;
+  const g = peerGroups();
+  return card('押し目の業種', `${rules().peer_n}日の業種ぐるみの下げ・上げ`, [g.body], g.note, true, 'sc-peer');
 }
 
 function peerGroups() {
@@ -3354,13 +3333,11 @@ function pulseCard() {
 function renderTrade() {
   const out = [pulseCard()];
   if (!THERMO) {
-    out.push(card('注文', null, h('div', { class: 'empty', text: 'データがまだありません。次の自動更新で作られます。' }), null, false, 'sw-orders'));
+    out.push(card('今日の買い候補', null, h('div', { class: 'empty', text: 'データがまだありません。次の自動更新で作られます。' }), null, false, 'sw-picks'));
     out.push(portfolioCard());
     return out;
   }
-  out.push(ordersCard());
-  const mc = midCard();
-  if (mc) out.push(mc);
+  out.push(picksCard());
   out.push(portfolioCard());
   out.push(watchCard());
   return out;
@@ -3733,6 +3710,8 @@ function renderSectors() {
     out.push(rrgCard(st));
     out.push(strengthListCard(st));
   }
+  const pc = peerCard();
+  if (pc) out.push(pc);
   out.push(nikkeiSectorCard());
   out.push(themeToneCard((THERMO || {}).themes));
   return out;
@@ -4174,7 +4153,7 @@ function searchIndex() {
      値段 → 日足（注文・保有の価格の横線つき）→ 主な数字 → 押し目買いのルールでの位置（注文なら計画と「買えた」）→
      保有していれば計画／判定（していなければ「持っているなら」の判定と追加）→ 今日の材料（開示・ランキング・発掘・見出し）→
      買う前／売る前チェック → ☆ウォッチ・株探
-   同じ銘柄に画面ごとに違う計画を出さないよう、注文・保有の行は売買タブと同じ部品（orderCard・positionRow・holdRow）で描く。
+   同じ銘柄に画面ごとに違う計画を出さないよう、注文・保有の行は売買タブと同じ部品（pickCard・positionRow・holdRow）で描く。
    右上の虫眼鏡から開くと検索になり、選ぶとその銘柄に切り替わる（戻るで検索に戻る）。 */
 let sheetState = null;              // { mode: 'search'|'stock', code, intent, q, back, msg }
 
@@ -4468,13 +4447,13 @@ function stockView(code) {
       mdx ? h('div', { class: 'order__peer' }, [h('span', { class: 'badge badge--accent', text: '中期' }),
         h('span', { class: 'order__peer-t', text: `1年の強さ 上位${Math.max(1, 100 - mdx.rank)}%・60日高値 ${fmtPrice(mdx.hi)}円・調整の安値 ${fmtPrice(mdx.low)}円。` +
           '1年で強く上げた銘柄の1〜3か月の調整。押した日に指値、調整の安値を割ったら手仕舞い、60営業日持つ' })]) : null,
-      // 注文があれば業種の行は注文の中に出る
-      !order && !mdx && sw.g && pi && !['plain', 'none'].includes(sw.pc) ? h('div', { class: 'order__peer' }, [peerBadge(sw.pc), h('span', { class: 'order__peer-t', text: peerLine(sw.g, sw.g20, sw.rel) })]) : null,
-      !order && sw.g && strengthOf(sw.g) ? h('div', { class: 'order__peer' }, [quadBadge(strengthOf(sw.g).quad), h('span', { class: 'order__peer-t', text: strengthLine(sw.g) + '（目安。注文の条件には使わない）' })]) : null,
+      !mdx && sw.g && pi && !['plain', 'none'].includes(sw.pc) ? h('div', { class: 'order__peer' }, [peerBadge(sw.pc), h('span', { class: 'order__peer-t', text: peerLine(sw.g, sw.g20, sw.rel) })]) : null,
+      sw.g && strengthOf(sw.g) ? h('div', { class: 'order__peer' }, [quadBadge(strengthOf(sw.g).quad), h('span', { class: 'order__peer-t', text: strengthLine(sw.g) + '（目安。注文の条件には使わない）' })]) : null,
     ]),
-    mo ? h('div', { class: 'orders sd__order' }, [midOrderCard(mo, moi + 1, orderDay(swx.asof),
-      moi >= rules().mid_slots ? `中期の枠（${rules().mid_slots}銘柄）を超える分。保有が減れば同じ条件で使えます` : null, true)]) : null,
-    order ? h('div', { class: 'orders sd__order' }, [orderCard(order, oi >= 0 ? oi + 1 : null, orderDay(swx.asof), oi >= 0 ? null : '上限で外れた次点。枠が空いていれば同じ条件で使えます', true)]) : null,
+    mo ? h('div', { class: 'sd__order' }, [pickCard(mo, 'mid', null, orderDay(swx.asof), true),
+      moi >= rules().mid_slots - midHeld().length ? h('p', { class: 'hint', text: `中期の枠（${rules().mid_slots}銘柄）を超える分。保有が減れば同じ条件で使えます` }) : null]) : null,
+    order ? h('div', { class: 'sd__order' }, [pickCard(order, 'short', null, orderDay(swx.asof), true),
+      oi >= 0 ? null : h('p', { class: 'hint', text: '1日の上限・同じ業種の上限で外れた次点。枠が空いていれば同じ条件で使えます' })]) : null,
   ]));
 
   // 保有
@@ -4662,13 +4641,13 @@ function bindSheet() {
 
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
-  trade: [['sw-orders', '短期'], ['sw-mid', '中期'], ['sw-pos', '保有銘柄'], ['sw-watch', '監視']],
+  trade: [['sw-picks', '買い候補'], ['sw-pos', '保有'], ['sw-watch', 'もうすぐ・監視']],
   preopen: [['sec-summary', '要点'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
   session: [['sec-summary', '要点'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
-  sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
+  sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-peer', '押し目の業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
   news: [['nw-mine', '自分の銘柄'], ['nw-earn', '決算から読む'], ['nw-disc', '開示'], ['nw-feed', 'ニュース']],
   verify: [['v-swing', '成績'], ['v-mid', '中期'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-thermo', '温度計'], ['v-track', '警告'],
     ['v-sector', '業種'], ['v-ledger', '発掘'], ['v-mine', '自分の記録']],
