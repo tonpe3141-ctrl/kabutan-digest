@@ -1272,6 +1272,87 @@ def test_hold():
     check("研究の値は前半・後半の2つずつ", all(len(r["avg"]) == 2 for r in blk["exits"]["rows"]), True)
 
 
+# ==================== 混み合いの印・主役の入れ替わり ====================
+def test_crowd():
+    from dashboard import crowd as CW
+    from dashboard.thermo_run import _crowd_brief
+
+    print("\n[急騰して混み合った銘柄の印・主役の入れ替わり]")
+    n = 60
+    dates = [f"2026-08-{d:02d}" if d <= 31 else f"2026-09-{d - 31:02d}" for d in range(1, n + 1)]
+
+    def stock(price=1000.0, vol=10000, moves=None, vols=None):
+        """moves: {日の位置: 前日比%}、vols: {日の位置: 出来高}。それ以外は動かない"""
+        rows, c = [], price
+        for i in range(n):
+            pc = c
+            c = pc * (1 + (moves or {}).get(i, 0.0) / 100)
+            rows.append([pc, max(pc, c), min(pc, c), c, (vols or {}).get(i, vol)])
+        return rows
+
+    last = n - 1
+    # A: 最後の3日で +4%・+4%・+3.5%（3日で約 +12%）、最後の日の出来高は 3倍 → 印
+    # B: 同じ上げでも出来高は平常 → 印なし。C: 出来高は多いが上げは小さい → 印なし
+    stocks = {"1001": stock(moves={last - 2: 4, last - 1: 4, last: 3.5}, vols={last: 30000}),
+              "1002": stock(moves={last - 2: 4, last - 1: 4, last: 3.5}),
+              "1003": stock(moves={last: 2}, vols={last: 30000})}
+    for k in range(20):
+        stocks[f"2{k:03d}"] = stock()
+    rows = CW.today_rows(dates, stocks)
+    check("3日で +10% 以上・出来高1.5倍以上の銘柄だけ印が付く", sorted(rows), ["1001"])
+    check("印の中身: 3日の騰落・出来高の倍数・最新の日付", (rows["1001"]["asof"], rows["1001"]["r3"] > 11.5, rows["1001"]["vr"]),
+          (dates[last], True, 3.0))
+    check("境目: 3日で +9.9% は印なし", CW.is_hot({"r3": 9.9, "vr": 3.0}), False)
+    check("境目: 出来高 1.49 倍は印なし", CW.is_hot({"r3": 12.0, "vr": 1.49}), False)
+    check("日付が短すぎれば印は出ない", CW.today_rows(dates[:10], {c: v[:10] for c, v in stocks.items()}), {})
+
+    mk = CW.market_returns(dates, stocks)
+    check("市場の代わり = その日の全銘柄の前日比の中央値（動かない銘柄が大半なら 0）", (mk[0], mk[last]), (0.0, 0.0))
+
+    # 検証: 印が付いた日の翌日の結果で数える（最後の日は結果が無いので数えない）。前半・後半に分ける
+    big = {}
+    for k in range(40):
+        # 4日おきに急騰して出来高が膨らみ、翌日は市場より −4%（弱い側の尾）
+        mv, vv = {}, {}
+        for d in range(30 + k % 3, n - 2, 6):
+            mv[d - 2], mv[d - 1], mv[d], mv[d + 1] = 4, 4, 3.5, -4
+            vv[d] = 40000
+        big[f"3{k:03d}"] = stock(moves=mv, vols=vv)
+    for k in range(60):
+        big[f"4{k:03d}"] = stock()
+    ver = CW.verify(dates, big)
+    check("検証: 最後の日は翌日が無いので数えない", ver["to"], dates[n - 2])
+    check("検証: 前半と後半の2つ", all(len(v) == 2 for v in ver["cls"].values()), True)
+    hot = [x for x in ver["cls"]["hot"] if x]
+    check("検証: 印が付いた翌日は市場より3%以上弱い割合が高い（全銘柄より）",
+          all(x["weak"] > a["weak"] for x, a in zip(ver["cls"]["hot"], ver["cls"]["all"]) if x and a), True)
+    check("検証: 件数が少なすぎる側は None（30件未満）", CW._agg([1.0] * 29), None)
+    check("検証: 日数が少なすぎれば None", CW.verify(dates[:20], {c: v[:20] for c, v in stocks.items()}), None)
+
+    # 主役の入れ替わり: 前の営業日に市場を大きく上回った銘柄が今日は置き去り・出遅れが買われた銘柄
+    names = {"5001": "主役", "5002": "出遅れ", "5003": "変わらず"}
+    rot = {"5001": stock(price=2000, vol=100000, moves={last - 1: 6, last: -2}),
+           "5002": stock(price=2000, vol=100000, moves={last - 1: -1, last: 5}),
+           "5003": stock(price=2000, vol=100000, moves={last - 1: 6, last: 1})}
+    for k in range(20):
+        rot[f"6{k:03d}"] = stock(price=2000, vol=100000)
+    r = CW.rotation(dates, rot, names, {"5001": {"themes": ["電線"]}, "5002": {"themes": ["半導体"]}})
+    check("入れ替わり: 置き去りは前日の主役だけ、買われたのは前日の出遅れだけ",
+          ([x["code"] for x in r["out"]], [x["code"] for x in r["into"]]), (["5001"], ["5002"]))
+    check("入れ替わり: 銘柄名・テーマ・前日→今日の対市場の差", (r["out"][0]["name"], r["out"][0]["th"], r["out"][0]["prev"], r["out"][0]["now"]),
+          ("主役", ["電線"], 6.0, -2.0))
+    check("入れ替わり: テーマ別の件数", sorted((t["theme"], t["out"], t["into"]) for t in r["themes"]), [("半導体", 0, 1), ("電線", 1, 0)])
+    thin = {c: stock(price=100, vol=10, moves=v and {last - 1: 6, last: -2}) for c, v in [("7001", 1)]}
+    thin.update({f"8{k:03d}": stock() for k in range(20)})
+    check("入れ替わり: 売買代金の少ない銘柄は出さない（20日平均 20億円未満）", CW.rotation(dates, thin, {}, {})["out"], [])
+
+    blk, hrows = CW.block(dates, stocks, {}, {})
+    check("crowd ブロック: 規則・検証・入れ替わり・印の数", sorted(blk), sorted(["rules", "verify", "rotation", "n"]))
+    check("要約（Routine が読む）: ウォッチに該当した銘柄・入れ替わり・検証", sorted(_crowd_brief({**blk, "watch": []})),
+          sorted(["rule", "n_flagged", "verify", "big", "watch", "rotation"]))
+    check("crowd が無ければ要約も無い", _crowd_brief(None), None)
+
+
 # ==================== マクロ環境 ====================
 TW_TABLE_HTML = """<html><body><article>
 <h1>FF金利織り込み度＝日本時間30日現在（10月、12月開催分）</h1>
@@ -1573,6 +1654,7 @@ if __name__ == "__main__":
     test_swing()
     test_mid()
     test_hold()
+    test_crowd()
     test_ohlc_cache()
     test_ledger_stats()
     test_press()
