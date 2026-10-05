@@ -14,9 +14,9 @@ import sys
 import traceback
 from datetime import date, datetime, timedelta
 
-from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
-    JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS,
+    JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
     US_INDICES, US_SECTOR_ETFS,
 )
 
@@ -195,6 +195,7 @@ def build_preopen(target_date: date) -> dict:
     payload["ai_commentary"] = before.get("ai_commentary")
     payload["ai_macro"] = before.get("ai_macro")
     payload["ai_earnings"] = before.get("ai_earnings")
+    payload["ai_picks"] = before.get("ai_picks")
     payload["_earn_rows"] = after_hours
     return payload
 
@@ -360,6 +361,7 @@ def build_session(target_date: date, slot: str) -> dict:
     payload["ai_commentary"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_commentary")
     payload["ai_macro"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_macro")
     payload["ai_earnings"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_earnings")
+    payload["ai_picks"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_picks")
     payload["_earn_rows"] = disc.get("rows") or []
     payload["_after_hours"] = split["after"]
     return payload
@@ -538,6 +540,9 @@ def run(slot: str, target_date: date | None = None) -> dict:
         if latest.get("date") == target_date.isoformat():
             payload["earnings"] = (((latest.get("slots") or {}).get(slot) or {}).get("data") or {}).get("earnings")
 
+    # 売買タブの買う候補に、決算の材料（自社の決算・類似銘柄の決算・次の決算日）を添える。注文は変えない（DESIGN.md 23章）
+    payload["picks"] = _safe("決算の材料（売買）", lambda: _build_picks(target_date))
+
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)
     removed = store.prune_history()
@@ -546,6 +551,17 @@ def run(slot: str, target_date: date | None = None) -> dict:
 
     print(f"\n✅ {slot} を更新しました → {store.latest_path()}")
     return payload
+
+
+def _build_picks(target_date: date) -> dict | None:
+    thermo = thermo_run._read(THERMO_PATH, None)
+    out = picks_mod.build(thermo, earnings_mod.load(), themes_mod.load_themes(), target_date.isoformat())
+    if out:
+        track = thermo_run._read(SWING_TRACK_PATH, None)
+        if picks_mod.tag_track(track, out.get("asof"), out["earn"]):
+            thermo_run._write(SWING_TRACK_PATH, track, indent=0)
+        print(f"    ✅ 決算の材料: 候補 {len(out['earn'])} 銘柄、決算の連想の監視 {len(out['watch'])} 銘柄")
+    return out
 
 
 def _build_earnings(slot: str, target_date: date, payload: dict, rows: list[dict]) -> dict | None:

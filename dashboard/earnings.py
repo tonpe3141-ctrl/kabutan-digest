@@ -279,7 +279,9 @@ def update_log(store: dict, items: list[dict], asof: str, today: date) -> None:
     for it in items:
         log.append({"date": asof, "code": it["code"], "name": it.get("name"), "industry": it.get("industry"),
                     "themes": it.get("themes") or [], "dir": it.get("dir"), "kinds": it.get("kinds"),
-                    "head": (it.get("flash") or {}).get("headline") or (it.get("titles") or [""])[0]})
+                    "head": (it.get("flash") or {}).get("headline") or (it.get("titles") or [""])[0],
+                    # 類似銘柄（売買タブで「この銘柄を類似に挙げた決算」を引く。picks.py）
+                    "peers": [p["code"] for p in it.get("peers") or []]})
     cutoff = (today - timedelta(days=EARN_LOG_DAYS)).isoformat()
     store["log"] = sorted([e for e in log if (e.get("date") or "") >= cutoff], key=lambda e: (e["date"], e["code"]))
 

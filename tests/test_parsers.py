@@ -612,14 +612,14 @@ def test_swing():
           W.compact(["2026-01-05", "2026-01-06", "2026-01-07"], [[10, 11, 9, 10.5, 3], None, [10, 12, 10, 11, 4]]),
           [("2026-01-05", 10.0, 11.0, 9.0, 10.5, 300), ("2026-01-07", 10.0, 12.0, 10.0, 11.0, 400)])
 
-    # 入口: 上昇トレンド（終値>200日線、50日線>200日線）で 2日RSI<10、売買代金10億円以上、300円以上
+    # 入口: 上昇トレンド（終値>200日線、50日線>200日線）で 2日RSI<10、売買代金30億円以上、300円以上
     up = _swing_bars(dips=(-2.0, -2.0))
     ind = W.indicators(up)
     i = len(up) - 1
     check("上昇トレンド中に2日続けて押すと入口", (W.is_signal(ind, i), ind["rsi"][i] < 10), (True, True))
     check("押す前（上昇が続く日）は入口でない", W.is_signal(ind, i - 2), False)
     thin = W.indicators(_swing_bars(vol_shares=300_000, dips=(-2.0, -2.0)))
-    check("売買代金が10億円に満たないと入口にしない", W.is_signal(thin, i), False)
+    check("売買代金が30億円に満たないと入口にしない", W.is_signal(thin, i), False)
     cheap = W.indicators(_swing_bars(start=100.0, vol_shares=50_000_000, dips=(-2.0, -2.0)))
     check("300円未満の低位株は入口にしない", W.is_signal(cheap, i), False)
     down = W.indicators(_swing_bars(drift=-0.003, dips=(-2.0, -2.0)))
@@ -855,7 +855,7 @@ def test_mid():
     # 検証: 中期の形の押しは中期で数え、短期の成績と注文には入れない。比べる相手と、以前の置き方の口座も出す
     post = [-1.5] + [0.3] * 70                       # 翌日に指値まで下げて約定し、そのあと60営業日持つ
     strong = _mid_bars(post)
-    weak = {k: _swing_bars(n=len(strong), drift=0.0) for k in ("8001", "8002")}
+    weak = {k: _swing_bars(n=len(strong), drift=0.0, vol_shares=4_000_000) for k in ("8001", "8002")}   # 売買代金40億円（下限30億円）
     v = W.verify({"7777": strong, **weak})
     sig_day = strong[i][0]
     check("検証: 中期の押しを中期の成績に数える（60営業日で手仕舞い）", (v["mid"]["all"]["n"], v["mid"]["all"]["times"]), (1, 100))
@@ -1639,6 +1639,50 @@ def test_earnings():
         check("開示が無ければ None（画面は出さない）", out2, None)
 
 
+def test_picks():
+    from dashboard import picks as P, swing as W
+    print("\n[買う候補に添える決算の材料]")
+    log = [
+        {"date": "2026-09-01", "code": "1111", "name": "自社", "dir": "down", "themes": ["半導体"], "head": "下方修正", "peers": []},
+        {"date": "2026-10-01", "code": "2222", "name": "同業A", "dir": "up", "themes": ["半導体"], "peers": ["1111", "3333"]},
+        {"date": "2026-10-02", "code": "4444", "name": "同業B", "dir": "up", "themes": ["半導体"], "peers": []},
+        {"date": "2026-10-02", "code": "5555", "name": "別業種", "dir": "down", "themes": ["銀行"], "peers": []},
+    ]
+    themes_of = {"1111": ["半導体"], "3333": ["電子部品"], "6666": ["半導体"]}
+    c = P.context("1111", log, themes_of, "2026-10-03", {"1111": {"date": "2026-10-09"}})
+    check("自社の決算（45暦日以内）があれば、その向きが決算の向き", (c["t"], c["own"]["date"]), ("down", "2026-09-01"))
+    check("類似銘柄に挙げた会社と、同じテーマの会社を数える（別のテーマは数えない）",
+          ([b["code"] for b in c["by"]], c["up"], c["down"]), (["4444", "2222"], 2, 0))
+    check("類似銘柄経由とテーマ経由を区別する", {b["code"]: b["via"] for b in c["by"]}, {"4444": "テーマ: 半導体", "2222": "類似銘柄"})
+    check("次の決算日（今日以降）", c["next"], "2026-10-09")
+    c3 = P.context("3333", log, themes_of, "2026-10-03")
+    check("連想が1件だけなら向きを付けない", (c3["t"], c3["up"]), (None, 1))
+    check("連想が上向き2件（下向きの2倍以上）なら上向き", P.context("6666", log, themes_of, "2026-10-03")["t"], "up")
+    check("自社の決算が45暦日より前なら自社の決算として見ない", P.context("1111", log, themes_of, "2026-10-20")["own"], None)
+    check("材料が何も無ければ None", P.context("9999", log, themes_of, "2026-10-03"), None)
+
+    thermo = {"swing": {"asof": "2026-10-02", "orders": [{"code": "1111"}], "more": [], "near": [], "mid": {"orders": [], "near": []}},
+              "stocks": {
+                  "1111": {"n": "自社", "price": 1000, "sw": {"st": "signal", "tv": 50, "up": True}},
+                  "6666": {"n": "上昇・流動性あり", "price": 2000, "sw": {"st": "wait", "tv": 80, "up": True, "to": -2.0}},
+                  "7777": {"n": "商い不足", "price": 2000, "sw": {"st": "thin", "tv": 5, "up": True}},
+                  "8888": {"n": "下落トレンド", "price": 2000, "sw": {"st": "out", "tv": 80, "up": False}},
+              }}
+    for code in ("7777", "8888"):
+        themes_of[code] = ["半導体"]
+    out = P.build(thermo, {"log": log, "schedule": {}}, {"stocks": {k: {"themes": v} for k, v in themes_of.items()}}, "2026-10-03")
+    check("候補（注文）の銘柄には決算の材料が付く", out["earn"]["1111"]["t"], "down")
+    check("決算の連想の監視: 上向き・上昇トレンド・売買代金の条件を満たす銘柄だけ（注文の銘柄は出さない）",
+          [x["code"] for x in out["watch"]], ["6666"])
+    check("流動性の下限は押し目買いと同じ", W.LIQ_MIN, 30.0)
+
+    track = {"orders": [{"asof": "2026-10-02", "code": "1111"}, {"asof": "2026-10-01", "code": "2222"}],
+             "mid": {"orders": [{"asof": "2026-10-02", "code": "6666"}]}}
+    check("出した日の注文にだけ決算の向きを書き残す", (P.tag_track(track, "2026-10-02", out["earn"]),
+          track["orders"][0].get("earn"), "earn" in track["orders"][1], track["mid"]["orders"][0].get("earn")), (True, "down", False, "up"))
+    check("書き残すのは1回だけ", P.tag_track(track, "2026-10-02", {}), False)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1661,6 +1705,7 @@ if __name__ == "__main__":
     test_macro()
     test_sectors()
     test_earnings()
+    test_picks()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
