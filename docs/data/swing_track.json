@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-10-05",
+"updated_at": "2026-10-06",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -361,7 +361,8 @@
 "name": "フリー",
 "limit": 3380,
 "stop": 2952,
-"done": false
+"done": false,
+"earn": "none"
 },
 {
 "asof": "2026-10-05",
@@ -369,7 +370,8 @@
 "name": "ラインヤフー",
 "limit": 480,
 "stop": 433,
-"done": false
+"done": false,
+"earn": "none"
 },
 {
 "asof": "2026-10-05",
@@ -377,7 +379,8 @@
 "name": "オリンパス",
 "limit": 1934,
 "stop": 1811,
-"done": false
+"done": false,
+"earn": "none"
 },
 {
 "asof": "2026-10-05",
@@ -385,7 +388,8 @@
 "name": "電源開発",
 "limit": 3895,
 "stop": 3595,
-"done": false
+"done": false,
+"earn": "none"
 },
 {
 "asof": "2026-10-05",
@@ -393,7 +397,26 @@
 "name": "日本製鉄",
 "limit": 632,
 "stop": 590,
-"done": false
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-05",
+"code": "9433",
+"name": "ＫＤＤＩ",
+"limit": 2865,
+"stop": 2702,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-05",
+"code": "9684",
+"name": "スクウェア・エニックス・ホールディングス",
+"limit": 2807,
+"stop": 2618,
+"done": false,
+"earn": "none"
 }
 ],
 "stats": {
@@ -415,11 +438,11 @@
 "big_loss": 0,
 "fill": 42,
 "open": 8,
-"issued": 36,
+"issued": 38,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-10-05",
+"updated_at": "2026-10-06",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -493,7 +516,8 @@
 "limit": 8680,
 "stop": 7890,
 "done": false,
-"low": 8635.0
+"low": 8635.0,
+"earn": "none"
 }
 ],
 "stats": {
