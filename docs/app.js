@@ -1237,6 +1237,7 @@ function renderSession(d, slot, upd) {
   out.push(macroCard(d, upd));
   out.push(sectorsTodayCard(d));
   out.push(themeCard(d.theme_flow));
+  out.push(rotationCard());
   out.push(rankingCard(d));
   out.push(heatmapCard(d.constituents, d.breadth));
   out.push(thermoCard());
@@ -1794,6 +1795,8 @@ function positionRow(p, inSheet) {
     : `期限（${r.max_hold}営業日）。次の営業日に売り指値に届かなければ引けで売る` }));
   if (mid && !due) lines.push(h('div', { class: 'guard__note guard__note--info', text:
     '売りの指値は置かない（伸びる銘柄を早く売らない）。損切りの逆指値だけを置いておき、上げても下げても決めた日まで持つ' }));
+  const crowdTxt = crowdNote(st);
+  if (crowdTxt) lines.push(h('div', { class: 'guard__note guard__note--warn', text: crowdTxt }));
   const doneBox = h('div', {});
   const exitBtn = h('button', { class: 'btn', type: 'button', text: '売った', onclick: (ev) => {
     ev.currentTarget.disabled = true;
@@ -1957,6 +1960,10 @@ function holdRow(p, inSheet) {
   } else if (['am', 'lunch', 'pm'].includes(marketPhase()) && ((DATA || {}).slots || {}).zenba && !((DATA.slots.zenba.data || {}).watchlist || []).some((w) => w.code === p.code)) {
     note('info', 'ウォッチリスト（リポジトリに反映したもの）に入れておくと、前場の更新で前場の安値・高値も撤退ライン・売り指値と突き合わせます');
   }
+  const lagTxt = lagNote(am);
+  if (lagTxt) note('warn', lagTxt);
+  const crowdTxt = crowdNote(st);
+  if (crowdTxt) note('warn', crowdTxt);
   const ev = st.ev;
   if (ev && ev.dir === 'down' && !String(ev.label || '').startsWith('悪材料出尽くし')) {
     note('warn', `下方修正・減配の開示（${md(ev.date)}）。判定は値動きだけで出している。業績の前提が変わったなら、持つ理由を見直す`);
@@ -2920,6 +2927,79 @@ function thermoCard() {
       '温度は注文の条件には使っていません（押し目買いは、相場全体が弱い日のほうがむしろ成績が良かった）。上がると買いたくなる・下がると売りたくなる衝動の逆側に立つための物差しです。' }),
     h('b', { text: '温度の検証を見る ›' })]));
   return h('section', { class: 'card hero', id: 'sec-temp' }, kids);
+}
+
+/* ==================== 急騰して混み合った銘柄・主役の入れ替わり（DESIGN.md 24章） ==================== */
+function CW() { return (THERMO || {}).crowd || null; }
+
+/* 前の引けまでの3日で急騰し、出来高が膨らんだ銘柄の一行。方向の予測ではなく「市場と違う動きをしやすい」印（検証は検証タブ） */
+function crowdNote(st) {
+  const cw = st && st.cw;
+  if (!cw) return null;
+  const X = CW() || {};
+  const v = (X.verify || {}).cls || {};
+  const rg = (a, k) => (a && a[0] && a[1] ? `${Math.round(Math.min(a[0][k], a[1][k]))}〜${Math.round(Math.max(a[0][k], a[1][k]))}%` : null);
+  const big = (X.verify || {}).big || 3;
+  const ev = rg(v.hot, 'weak')
+    ? `。同じ形の銘柄は翌日、市場より${big}%以上弱くなる割合が ${rg(v.hot, 'weak')}（通常 ${rg(v.all, 'weak')}）、強くなる割合も ${rg(v.hot, 'strong')}。` +
+      '向きは五分で、売買の合図ではなく、市場とずれても耐えられる株数・撤退ラインかの確認用'
+    : '';
+  return `${md(cw.asof)}の引けまでに3日で ${fmtPct(cw.r3, 1)}・出来高 ${cw.vr} 倍の急騰${ev}`;
+}
+
+/* 市場が上げているのに自分の銘柄が逆行している日の一行（前場のウォッチ値と日経の差。事実の指摘で、判定は変えない） */
+function lagNote(am) {
+  if (!am || !isNum(am.change_pct) || !isNum(am.nk) || am.nk < 1) return null;
+  const ex = am.change_pct - am.nk;
+  if (ex > -2) return null;
+  return `日経 ${fmtPct(am.nk, 1)} に対して ${fmtPct(am.change_pct, 1)}（${fmtSigned(ex, 1)}pt）。市場が買われる日に置いていかれている。` +
+    '前の営業日に買われた銘柄から、出遅れていた銘柄へ資金が移る日に起きやすい（市況の「資金の移り先」）。判定は変えない';
+}
+
+/* 市況: 前の営業日の主役が今日は市場を下回った銘柄と、その逆（相場全体が動いた日に、どこへ資金が移ったか） */
+function rotationCard() {
+  const r = (CW() || {}).rotation;
+  if (!r || (!(r.out || []).length && !(r.into || []).length)) return null;
+  const ex = (x) => h('div', { class: 'row__delta num', text: `${fmtSigned(x.prev, 1)}→${fmtSigned(x.now, 1)}pt` });
+  const meta = (x) => [(x.th || []).slice(0, 2).map((t) => '#' + t).join(' ') || null];
+  const kids = [h('div', { class: 'check__lh', text: `対市場（全銘柄の中央値）の差。${md(r.prev)} ${fmtSigned(r.mkt[0], 1)}% → ${md(r.asof)} ${fmtSigned(r.mkt[1], 1)}%` })];
+  const section = (title, rows, n) => {
+    if (!rows.length) return;
+    kids.push(h('div', { class: 'check__lh', style: 'margin-top:8px', text: `${title}（${n}銘柄）` }));
+    kids.push(h('div', { class: 'rows rows--norank' }, rows.map((x, i) => stockRow({ ...x, price: null }, i, { rank: false, meta, right: ex }))));
+  };
+  section(`前の営業日に市場を +${r.lead}pt 以上上回り、今日は ${r.lag}pt 以下に置いていかれた`, r.out || [], r.n_out);
+  section(`前の営業日は市場以下で、今日は +${r.up}pt 以上買われた`, r.into || [], r.n_into);
+  const th = (r.themes || []).filter((t) => t.out + t.into > 1);
+  if (th.length) kids.push(h('p', { class: 'hint', text: 'テーマ別: ' + th.map((t) => `#${t.theme}（置き去り ${t.out}・買われ ${t.into}）`).join('　') }));
+  kids.push(h('p', { class: 'hint', text: `売買代金の20日平均が ${r.min_tv} 億円以上の銘柄だけ。今日の動きの事実の並べ替えで、明日の予測ではない。` +
+    '持っている銘柄が「置き去り」に入っていたら、まず資金の移り先の問題か、個別の悪材料（開示・ニュース）があったかを分けて確認する。' +
+    '置き去りになった銘柄の翌日・5日後の動きは全銘柄と変わらなかった（過去2年）ので、戻りを待つ・慌てて投げる根拠にはならない。' }));
+  return card('資金の移り先', `${md(r.asof)}の引け`, kids, null, false, 'sec-rotation');
+}
+
+function crowdProofCard() {
+  const X = CW();
+  const v = X && X.verify;
+  if (!v) return card('急騰した銘柄の翌日', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-crowd');
+  const cells = (a) => (a ? [`${a.n.toLocaleString('ja-JP')}件`, fmtSigned(a.avg, 2), `${a.up}%`, `${a.weak}%`, `${a.strong}%`] : ['—', '—', '—', '—', '—']);
+  const rows = [['hot', '急騰して混み合った銘柄'], ['all', '全銘柄']];
+  const kids = [
+    h('div', { class: 'check__lh', text: `${X.rules.text}（引けの形）。翌日の、全銘柄の中央値との差。${md(v.from)}〜${md(v.to)}、前半は ${md(v.split)} まで` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['', '期間', '件数', '平均%', '上回った', `${v.big}%以上弱い`, `${v.big}%以上強い`].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, rows.flatMap(([k, label]) => [0, 1].map((half) => h('tr', {}, [
+        h('th', { text: half ? '' : label }), h('td', { text: half ? '後半' : '前半' }),
+        ...cells((v.cls[k] || [])[half]).map((t) => h('td', { class: 'num', text: t })),
+      ])))),
+    ])),
+    h('p', { class: 'hint', text: '見方: 平均はプラス（急騰した銘柄は翌日も平均では市場を上回った）で、上回った割合も五分。つまり「過熱だから売る」は成り立たない。' +
+      '変わるのは振れ幅で、市場より3%以上弱くなる日が全銘柄の3〜5倍、強くなる日も同じだけ増える。前半・後半で同じ。' }),
+    h('p', { class: 'hint', text: '同じ検証で、次の形は天井のサインにならなかった: 上ヒゲ、高値から −25% の戻り、2日RSI 95 超、売買代金の上位が連続（フジクラは70営業日ずっと上位で情報が無い）。' +
+      '今の採用銘柄だけで測るので、上げ続けた銘柄に偏る。予測ではなく、同じ形の銘柄が過去にどうなったかの並びです。' }),
+  ];
+  return card('急騰した銘柄の翌日', '混み合いの印の根拠', kids,
+    '印は保有銘柄と銘柄の画面に出ます。注文の条件には使っていません。', false, 'v-crowd');
 }
 
 function tempChart(series) {
@@ -4318,6 +4398,8 @@ function stockMaterials(code, name, s) {
   const le = ((LEDGER && LEDGER.entries) || []).find((e) => e.code === code && e.status !== 'closed');
   if (tags.length) lines.push(h('div', { class: 'chips' }, tags.map((x) => h('span', { class: 'badge badge--accent', text: x }))));
   if (s && (s.th || []).length) lines.push(h('div', { class: 'sd__line' }, [h('b', { text: 'テーマ ' }), document.createTextNode(s.th.map((x) => '#' + x).join(' '))]));
+  // 保有の行（holdRow・positionRow）が同じ一行を出すので、持っていない銘柄だけ
+  if (s && s.cw && !readPos().some((p) => p.code === code) && !readHold().some((p) => p.code === code)) lines.push(h('div', { class: 'guard__note guard__note--warn', text: crowdNote(s) }));
   if (s && s.ev && s.ev.label) lines.push(h('div', { class: 'guard__note guard__note--' + (s.ev.dir === 'down' ? 'warn' : 'info'), text: `${s.ev.label}（${md(s.ev.date)}・その後 ${fmtPct(s.ev.since, 1)}）` }));
   if (le) {
     lines.push(h('div', { class: 'sd__line' }, [h('b', { text: `発掘（${md(le.first_seen)}〜） ` }),
@@ -4504,6 +4586,7 @@ function renderVerify() {
     out.push(midStatsCard());
     out.push(ruleCard());
     out.push(holdProofCard());
+    out.push(crowdProofCard());
     out.push(backtestCard(th.backtest));
     out.push(trackCard(th.track));
     const st = ST();

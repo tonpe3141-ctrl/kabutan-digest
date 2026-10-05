@@ -849,7 +849,7 @@ dialog.sheet--stock { max-width: 640px; }
 .sd__results .row { padding-left: 16px; padding-right: 16px; }
 .sheet--stock .sheet__inner.is-search { min-height: 86vh; }
 .sd__results .row { grid-template-columns: 1fr auto; }
-.sd__results .row__rank { display: none; }
+.sd__results .row__rank, .rows--norank .row__rank { display: none; }
 .row--disc { grid-template-columns: 34px 1fr auto; }
 
 /* ==================== マクロ環境（DESIGN.md 20章） ==================== */

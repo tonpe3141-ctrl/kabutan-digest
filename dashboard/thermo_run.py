@@ -15,7 +15,7 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, hold as HD, sectors as X, store, swing as W, thermo as T
+from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, store, swing as W, thermo as T
 from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
@@ -320,6 +320,22 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         print(f"    ⚠️  業種の強弱で例外: {e}")
         strength = None
 
+    # 急騰して混み合った銘柄の印と、主役の入れ替わり（予測ではなく、明日の振れ幅と今日の資金の移り先。注文には使わない）
+    try:
+        crowd, crowd_rows = CW.block(ohlc.get("dates") or [], ohlc.get("stocks") or {}, names, themes.get("stocks") or {})
+        # ウォッチリスト（保有株はここに入れておく）の銘柄のうち、印が付いた・主役の入れ替わりに入ったもの。Routine が名前を挙げる
+        rot = crowd.get("rotation") or {}
+        rot_of = {x["code"]: (k, x) for k, lst in (("out", rot.get("out") or []), ("into", rot.get("into") or [])) for x in lst}
+        crowd["watch"] = [{"code": c, "name": names.get(c) or c, "cw": crowd_rows.get(c),
+                           "rot": rot_of[c][0] if c in rot_of else None,
+                           "prev": rot_of[c][1]["prev"] if c in rot_of else None, "now": rot_of[c][1]["now"] if c in rot_of else None}
+                          for c in watch if c in crowd_rows or c in rot_of]
+        print(f"    ✅ 混み合い: 印 {len(crowd_rows)}銘柄、入れ替わり 主役→置き去り {rot.get('n_out')}・"
+              f"出遅れ→買われ {rot.get('n_into')}、ウォッチに該当 {len(crowd['watch'])}")
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  混み合いで例外: {e}")
+        crowd, crowd_rows = None, {}
+
     stock_rows = {}
     for code, mt in metrics.items():
         cls = T.stock_class(mt)
@@ -334,6 +350,8 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             "sw": _sw_brief(sw_rows.get(code)),
             "hd": _hd_brief(hold_rows.get(code)),
         }
+        if code in crowd_rows:
+            stock_rows[code]["cw"] = crowd_rows[code]
 
     def pick_list(kind, key_fn, limit, reverse=False):
         rows = [dict(code=c, **r) for c, r in stock_rows.items() if kind in r["cls"]]
@@ -357,7 +375,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "hold": hold, "strength": strength, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -745,6 +763,25 @@ def summary(th: dict) -> dict | None:
         },
         # 業種の強弱（強い順の上位と下位。先行＝強い・勢いあり、一服、出遅れ、改善＝弱い業種の戻り）
         "strength": _strength_brief(th.get("strength")),
+        # 急騰して混み合った銘柄の印（明日の振れ幅）と、主役の入れ替わり（今日の資金の移り先）。方向の予測ではない
+        "crowd": _crowd_brief(th.get("crowd")),
+    }
+
+
+def _crowd_brief(cw: dict | None) -> dict | None:
+    if not cw:
+        return None
+    rot = cw.get("rotation") or {}
+    v = (cw.get("verify") or {}).get("cls") or {}
+    return {
+        "rule": (cw.get("rules") or {}).get("text"), "n_flagged": cw.get("n"),
+        "verify": {k: v.get(k) for k in ("hot", "all")} if v else None, "big": (cw.get("verify") or {}).get("big"),
+        "watch": cw.get("watch") or [],
+        "rotation": {"asof": rot.get("asof"), "prev": rot.get("prev"), "mkt": rot.get("mkt"),
+                     "n_out": rot.get("n_out"), "n_into": rot.get("n_into"),
+                     "out": [{k: x.get(k) for k in ("code", "name", "th", "prev", "now")} for x in (rot.get("out") or [])[:6]],
+                     "into": [{k: x.get(k) for k in ("code", "name", "th", "prev", "now")} for x in (rot.get("into") or [])[:6]],
+                     "themes": rot.get("themes")} if rot else None,
     }
 
 

@@ -188,6 +188,28 @@ def thermo(b: Brief, d: dict, picks: dict):
     if st.get("top"):
         b.add("業種の強さ 上位: " + "、".join(f"{x['g']}(市場差60日{pct(x.get('rs60'))}・{x.get('quad')})" for x in st["top"]))
         b.add("業種の強さ 下位: " + "、".join(f"{x['g']}({pct(x.get('rs60'))})" for x in st.get("bottom") or []))
+    cw = th.get("crowd") or {}
+    if cw:
+        b.h("混み合い・資金の移り先（付け直さない。予測ではなく事実と振れ幅）")
+        v = cw.get("verify") or {}
+        hot, allv = v.get("hot") or [None, None], v.get("all") or [None, None]
+        if all(hot) and all(allv):
+            b.add(f"印の条件: {cw.get('rule')}。翌日に市場より{cw.get('big')}%以上 弱い割合 {hot[0]['weak']}→{hot[1]['weak']}%（全銘柄 {allv[0]['weak']}→{allv[1]['weak']}%）"
+                  f"・強い割合 {hot[0]['strong']}→{hot[1]['strong']}%（{allv[0]['strong']}→{allv[1]['strong']}%）・上回った割合 {hot[0]['up']}→{hot[1]['up']}%（前半→後半）")
+        for x in cw.get("watch") or []:
+            m = x.get("cw") or {}
+            b.add(f"ウォッチ {x['name']}({x['code']})" + (f" 印: 3日{pct(m.get('r3'))}・出来高{m.get('vr')}倍" if m else "")
+                  + (f" {'置き去り' if x.get('rot') == 'out' else '買われた'}: 対市場{pct(x.get('prev'))}→{pct(x.get('now'))}" if x.get("rot") else ""))
+        rot = cw.get("rotation") or {}
+        if rot:
+            b.add(f"対市場の基準（全銘柄の中央値）: {rot.get('prev')} {pct((rot.get('mkt') or [None, None])[0])} → {rot.get('asof')} {pct((rot.get('mkt') or [None, None])[1])}")
+            for key, label in (("out", "置き去り（前の営業日の主役）"), ("into", "買われた（前の営業日は出遅れ）")):
+                xs = rot.get(key) or []
+                if xs:
+                    b.add(f"{label}{rot.get('n_' + key)}銘柄: " + "、".join(
+                        f"{name(x['name'])}({'/'.join((x.get('th') or [])[:1])}){pct(x.get('prev'))}→{pct(x.get('now'))}" for x in xs[:6]))
+            if rot.get("themes"):
+                b.add("テーマ別: " + "、".join(f"{t['theme']}(置き去り{t['out']}・買われ{t['into']})" for t in rot["themes"]))
     sw = th.get("swing") or {}
     earn = (picks or {}).get("earn") or {}
     b.h(f"買う候補（{sw.get('asof')} の引けで出た注文。次の営業日だけ有効。価格は付け直さない）")
