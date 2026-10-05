@@ -72,9 +72,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 2635.0
+"last": 2626.5
 },
 {
 "asof": "2026-09-28",
@@ -141,13 +141,15 @@
 "name": "中部電",
 "limit": 2661,
 "stop": 2379.88,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-09-30",
 "entry": 2661.98,
-"days": 3,
-"open": true,
-"last": 2635.0
+"days": 4,
+"out": "2026-10-05",
+"exit": 2675.25,
+"why": "sell",
+"ret": 0.4
 },
 {
 "asof": "2026-09-29",
@@ -191,13 +193,15 @@
 "name": "中部電",
 "limit": 2662,
 "stop": 2383.88,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-10-01",
 "entry": 2662.98,
-"days": 2,
-"open": true,
-"last": 2635.0
+"days": 3,
+"out": "2026-10-05",
+"exit": 2675.25,
+"why": "sell",
+"ret": 0.36
 },
 {
 "asof": "2026-09-30",
@@ -218,9 +222,9 @@
 "filled": true,
 "in": "2026-10-01",
 "entry": 4113.07,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 4059.0
+"last": 4094.0
 },
 {
 "asof": "2026-10-01",
@@ -232,9 +236,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 3479.82,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3460.0
+"last": 3455.0
 },
 {
 "asof": "2026-10-01",
@@ -246,9 +250,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 17606.07,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 17485.0
+"last": 17525.0
 },
 {
 "asof": "2026-10-01",
@@ -260,9 +264,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2586.5,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2559.0
+"last": 2609.5
 },
 {
 "asof": "2026-10-01",
@@ -274,9 +278,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 499.09,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 497.9
+"last": 488.4
 },
 {
 "asof": "2026-10-01",
@@ -292,8 +296,14 @@
 "code": "4478",
 "name": "フリー",
 "limit": 3385,
-"stop": 2935,
-"done": false
+"stop": 2935.0,
+"done": false,
+"filled": true,
+"in": "2026-10-05",
+"entry": 3385.0,
+"days": 1,
+"open": true,
+"last": 3455.0
 },
 {
 "asof": "2026-10-02",
@@ -301,7 +311,8 @@
 "name": "シマノ",
 "limit": 17310,
 "stop": 16310,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-10-02",
@@ -309,7 +320,8 @@
 "name": "ヤマハ",
 "limit": 1188,
 "stop": 1106,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-10-02",
@@ -317,15 +329,22 @@
 "name": "明治ＨＤ",
 "limit": 4010,
 "stop": 3740,
-"done": false
+"done": true,
+"filled": false
 },
 {
 "asof": "2026-10-02",
 "code": "4689",
 "name": "ラインヤフー",
 "limit": 490,
-"stop": 443,
-"done": false
+"stop": 443.18,
+"done": false,
+"filled": true,
+"in": "2026-10-05",
+"entry": 490.08,
+"days": 1,
+"open": true,
+"last": 488.4
 },
 {
 "asof": "2026-10-02",
@@ -333,29 +352,70 @@
 "name": "ＯＬＣ",
 "limit": 2776,
 "stop": 2537,
+"done": true,
+"filled": false
+},
+{
+"asof": "2026-10-05",
+"code": "4478",
+"name": "フリー",
+"limit": 3380,
+"stop": 2952,
+"done": false
+},
+{
+"asof": "2026-10-05",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 480,
+"stop": 433,
+"done": false
+},
+{
+"asof": "2026-10-05",
+"code": "7733",
+"name": "オリンパス",
+"limit": 1934,
+"stop": 1811,
+"done": false
+},
+{
+"asof": "2026-10-05",
+"code": "9513",
+"name": "電源開発",
+"limit": 3895,
+"stop": 3595,
+"done": false
+},
+{
+"asof": "2026-10-05",
+"code": "5401",
+"name": "日本製鉄",
+"limit": 632,
+"stop": 590,
 "done": false
 }
 ],
 "stats": {
-"n": 3,
+"n": 5,
 "win": 100,
-"avg": 1.75,
-"med": 1.93,
+"avg": 1.2,
+"med": 0.43,
 "pf": null,
-"avg_win": 1.75,
+"avg_win": 1.2,
 "avg_loss": null,
-"worst": 0.43,
-"days": 3.3,
+"worst": 0.36,
+"days": 3.4,
 "d2": 0,
-"per_day": 0.53,
+"per_day": 0.35,
 "stops": 0,
 "sells": 100,
 "times": 0,
-"small": 33,
+"small": 60,
 "big_loss": 0,
-"fill": 44,
+"fill": 42,
 "open": 8,
-"issued": 31,
+"issued": 36,
 "since": "2026-09-25"
 },
 "mid": {
@@ -372,9 +432,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2042.5
+"last": 2103.0
 },
 {
 "asof": "2026-10-01",
@@ -387,9 +447,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 9143.04,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 9080.0
+"last": 9050.0
 },
 {
 "asof": "2026-10-02",
@@ -397,17 +457,24 @@
 "name": "資生堂",
 "limit": 3200,
 "stop": 3085,
-"done": false,
-"low": 3261.0
+"done": true,
+"low": 3261.0,
+"filled": false
 },
 {
 "asof": "2026-10-02",
 "code": "278A",
 "name": "Terra Drone",
 "limit": 8720,
-"stop": 7920,
+"stop": 7923.93,
 "done": false,
-"low": 8635.0
+"low": 8635.0,
+"filled": true,
+"in": "2026-10-05",
+"entry": 8724.46,
+"days": 1,
+"open": true,
+"last": 9050.0
 },
 {
 "asof": "2026-10-02",
@@ -415,15 +482,25 @@
 "name": "ヤマハ発",
 "limit": 1732,
 "stop": 1689,
+"done": true,
+"low": 1731.5,
+"filled": false
+},
+{
+"asof": "2026-10-05",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 8680,
+"stop": 7890,
 "done": false,
-"low": 1731.5
+"low": 8635.0
 }
 ],
 "stats": {
 "n": 0,
-"fill": 100,
-"open": 2,
-"issued": 5,
+"fill": 60,
+"open": 3,
+"issued": 6,
 "since": "2026-10-01"
 }
 }
