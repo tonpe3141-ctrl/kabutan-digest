@@ -1482,8 +1482,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "ストップ高で引けた銘柄の一つで、「AiSE」提供開始記念キャンペーンの実施が株探に出ている。同日のサイバーセキュリティ関連の急騰に連れた動きの可能性もあるが、株価との因果は記事では確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0d660999cf627794e60d89298de4327006c819ff",
    "tracked_by": "日足"
   },
   {
@@ -1511,8 +1511,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に通期経常を13.1億円から17.1億円に30.2%上方修正し、配当も5円増額した。AIの普及による電力需要の増加で環境・エネルギー分野が伸びたと会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/284e743a520765755255b1f3685c960d79fb3752",
    "tracked_by": "日足"
   }
  ],
