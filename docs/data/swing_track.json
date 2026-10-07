@@ -72,9 +72,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 2628.0
+"last": 2676.0
 },
 {
 "asof": "2026-09-28",
@@ -254,9 +254,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 17606.07,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 17460.0
+"last": 17480.0
 },
 {
 "asof": "2026-10-01",
@@ -284,9 +284,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 499.09,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 491.1
+"last": 498.0
 },
 {
 "asof": "2026-10-01",
@@ -346,13 +346,15 @@
 "name": "ラインヤフー",
 "limit": 490,
 "stop": 443.18,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-10-05",
 "entry": 490.08,
-"days": 2,
-"open": true,
-"last": 491.1
+"days": 3,
+"out": "2026-10-07",
+"exit": 496.07,
+"why": "sell",
+"ret": 1.12
 },
 {
 "asof": "2026-10-02",
@@ -439,8 +441,9 @@
 "name": "資生堂",
 "limit": 3160,
 "stop": 2828,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-06",
@@ -448,17 +451,24 @@
 "name": "ＫＤＤＩ",
 "limit": 2856,
 "stop": 2698,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-06",
 "code": "9684",
 "name": "スクウェア・エニックス・ホールディングス",
 "limit": 2806,
-"stop": 2622,
+"stop": 2623.12,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-07",
+"entry": 2806.45,
+"days": 1,
+"open": true,
+"last": 2790.5
 },
 {
 "asof": "2026-10-06",
@@ -466,8 +476,9 @@
 "name": "電通グループ",
 "limit": 3470,
 "stop": 3250,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-06",
@@ -475,30 +486,76 @@
 "name": "レオパレス21",
 "limit": 984,
 "stop": 864,
+"done": true,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-07",
+"code": "2503",
+"name": "キリンＨＤ",
+"limit": 2745,
+"stop": 2586,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-07",
+"code": "9684",
+"name": "スクウェア・エニックス・ホールディングス",
+"limit": 2762,
+"stop": 2593,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-07",
+"code": "7014",
+"name": "名村造船所",
+"limit": 4480,
+"stop": 3865,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-07",
+"code": "9433",
+"name": "ＫＤＤＩ",
+"limit": 2852,
+"stop": 2702,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-07",
+"code": "7832",
+"name": "バンナムＨＤ",
+"limit": 5570,
+"stop": 5150,
 "done": false,
 "earn": "none"
 }
 ],
 "stats": {
-"n": 9,
+"n": 10,
 "win": 100,
-"avg": 1.25,
-"med": 0.7,
+"avg": 1.23,
+"med": 0.79,
 "pf": null,
-"avg_win": 1.25,
+"avg_win": 1.23,
 "avg_loss": null,
 "worst": 0.1,
 "days": 3.2,
-"d2": 11,
+"d2": 10,
 "per_day": 0.39,
 "stops": 0,
 "sells": 100,
 "times": 0,
-"small": 44,
+"small": 40,
 "big_loss": 0,
-"fill": 34,
+"fill": 33,
 "open": 4,
-"issued": 43,
+"issued": 48,
 "since": "2026-09-25"
 },
 "mid": {
@@ -515,9 +572,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 2145.0
+"last": 2174.0
 },
 {
 "asof": "2026-10-01",
@@ -530,9 +587,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 9143.04,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 8550.0
+"last": 8140.0
 },
 {
 "asof": "2026-10-02",
@@ -555,9 +612,9 @@
 "filled": true,
 "in": "2026-10-05",
 "entry": 8724.46,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 8550.0
+"last": 8140.0
 },
 {
 "asof": "2026-10-02",
@@ -581,26 +638,52 @@
 "filled": true,
 "in": "2026-10-06",
 "entry": 8681.07,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 8550.0
+"last": 8140.0
 },
 {
 "asof": "2026-10-06",
 "code": "278A",
 "name": "Terra Drone",
 "limit": 8190,
-"stop": 7470,
+"stop": 7480.71,
 "done": false,
 "low": 8550.0,
+"earn": "none",
+"filled": true,
+"in": "2026-10-07",
+"entry": 8193.57,
+"days": 1,
+"open": true,
+"last": 8140.0
+},
+{
+"asof": "2026-10-07",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 7790,
+"stop": 7100,
+"done": false,
+"low": 8140.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-07",
+"code": "285A",
+"name": "キオクシア",
+"limit": 17450,
+"stop": 11900,
+"done": false,
+"low": 12793.3205,
 "earn": "none"
 }
 ],
 "stats": {
 "n": 0,
-"fill": 67,
-"open": 4,
-"issued": 7,
+"fill": 71,
+"open": 5,
+"issued": 9,
 "since": "2026-10-01"
 }
 }
