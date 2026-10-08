@@ -791,7 +791,7 @@ function earnDirBadge(dir) {
   return x ? h('span', { class: 'badge badge--' + x[1], text: x[0] }) : null;
 }
 
-function earnPeerChip(p) {
+function earnPeerChip(p, pre) {
   const tail = [];
   if (p.today) tail.push('同じ日に発表' + (EARN_DIR[p.today] ? `（${EARN_DIR[p.today][0]}）` : ''));
   else if (p.last) tail.push(`${md(p.last.date)}の決算` + (EARN_DIR[p.last.dir] ? `（${EARN_DIR[p.last.dir][0]}）` : ''));
@@ -800,7 +800,7 @@ function earnPeerChip(p) {
   return h('button', { class: 'peer', type: 'button', title: p.src || '', onclick: () => openStock(p.code) }, [
     h('span', { class: 'peer__top' }, [
       h('span', { class: 'peer__name', text: cleanName(p.name) || p.code }),
-      isNum(p.pct) ? h('span', { class: 'peer__pct num ' + cls(p.pct), text: fmtPct(p.pct, 1) }) : null,
+      isNum(p.pct) ? h('span', { class: 'peer__pct num ' + (pre ? '' : cls(p.pct)), title: pre ? '引け後の開示への反応ではない（開示前の値動き）' : '', text: fmtPct(p.pct, 1) }) : null,
     ]),
     tail.length ? h('span', { class: 'peer__meta', text: tail.join('・') }) : null,
   ]);
@@ -825,7 +825,8 @@ function earnItem(it, ai, moveLabel) {
       h('span', { class: 'earn__code', text: it.code }),
       it.industry ? h('span', { class: 'kind', text: it.industry }) : null,
       earnDirBadge(it.dir),
-      isNum(mv) ? h('span', { class: 'earn__move num ' + cls(mv), title: moveLabel, text: fmtPct(mv, 1) }) : null,
+      isNum(mv) ? h('span', { class: 'earn__move num ' + (it.after_close ? '' : cls(mv)), title: it.after_close ? '引け後の開示。この値動きは開示の前で、決算への反応は翌営業日に出る' : moveLabel,
+        text: (it.after_close ? '開示前 ' : '') + fmtPct(mv, 1) }) : null,
     ]),
     h('div', { class: 'earn__flash', text: flash.headline || (it.titles || [])[0] || '' }),
   ];
@@ -840,7 +841,7 @@ function earnItem(it, ai, moveLabel) {
   if (peers.length) {
     const why = new Map(((ai && ai.peers) || []).map((p) => [String(p.code), p.why]));
     kids.push(h('div', { class: 'earn__lh', text: '類似銘柄（押すと銘柄シート）' }));
-    kids.push(h('div', { class: 'peers' }, peers.map(earnPeerChip)));
+    kids.push(h('div', { class: 'peers' }, peers.map((p) => earnPeerChip(p, it.after_close))));
     const whys = peers.filter((p) => why.get(String(p.code))).map((p) =>
       h('li', {}, [h('b', { text: (cleanName(p.name) || p.code) + ' ' }), document.createTextNode(why.get(String(p.code)))]));
     if (whys.length) kids.push(h('ul', { class: 'earn__whys' }, whys));
@@ -957,7 +958,7 @@ function earnCard() {
       .sort((x, y) => (x.a ? x.a.i : 999 + x.i) - (y.a ? y.a.i : 999 + y.i));
     const moveLabel = slot === 'preopen' ? '開示の日の値動き（引け後の開示は、まだ反応していない）' : 'きょうの値動き';
     if (items.length) {
-      body.appendChild(h('div', { class: 'earn__lh earn__lh--list', text: `${e.n_read}社の決算（${slot === 'preopen' ? '右の％は開示の日の値動き。引け後の開示への反応はこれから' : '右の％はきょうの値動き'}）` }));
+      body.appendChild(h('div', { class: 'earn__lh earn__lh--list', text: `${e.n_read}社の決算（${slot === 'preopen' ? '右の％は開示の日の値動き。引け後の開示への反応はこれから' : '右の％はきょうの値動き。引け後の開示は「開示前」で、反応は翌営業日'}）` }));
       body.appendChild(foldable((n) => h('div', { class: 'earns' }, items.slice(0, n).map((x) => earnItem(x.it, x.a, moveLabel))), items.length, 6, '全社'));
     }
     const more = e.more || [];
