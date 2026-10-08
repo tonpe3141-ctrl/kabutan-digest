@@ -1747,6 +1747,17 @@ def test_reactions():
           (s2["log"][0].get("rx", {}).get("ex"), s2["log"][0].get("m"), s2["log"][0].get("time")), (-4.0, {"pg": 80.0, "pa": 70.0}, "15:30"))
 
 
+def test_after_close_move():
+    from dashboard import earnings as E
+    print("\n[引け後の開示は、その日の値動きで評価しない]")
+    items = [{"code": "6323", "time": "15:30", "dir": "up", "peers": [{"code": "6104", "name": "A"}]},
+             {"code": "9999", "time": "13:00", "dir": "up", "peers": []}]
+    quotes = {"6323": {"change_pct": -1.0}, "6104": {"change_pct": -4.4}, "9999": {"change_pct": 3.0}}
+    E.enrich_peers(items, quotes, lambda c: {}, {}, [], "2026-10-08")
+    check("15:30 以降の開示は after_close（値動きは開示前）、場中の開示はその日の反応",
+          (items[0]["after_close"], items[1]["after_close"], items[0]["move"]["pct"]), (True, False, -1.0))
+
+
 def test_newsflow():
     from dashboard import newsflow as N
     print("\n[ニュースから読む（値動きと材料の突き合わせ）]")
@@ -1895,6 +1906,7 @@ if __name__ == "__main__":
     test_earnings()
     test_flash_metrics()
     test_reactions()
+    test_after_close_move()
     test_picks()
     test_newsflow()
     test_spill()

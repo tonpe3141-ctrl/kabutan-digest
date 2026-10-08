@@ -258,8 +258,10 @@ def earnings(b: Brief, d: dict):
     for it in items:
         fl = it.get("flash") or {}
         mv = it.get("move") or {}
-        b.add(f"■ {it.get('name')}({it.get('code')}) {'・'.join(it.get('kinds') or [])} 向き:{it.get('dir') or '不明'} {it.get('industry') or ''}"
-              f" テーマ:{'・'.join(it.get('themes') or []) or '—'} 値動き{pct(mv.get('pct'))}")
+        # 引け後（15:30〜）の開示は、この値動きより後に出ている。反応は翌営業日に出るので、決算の評価に使わない
+        mvl = f"開示前の値動き{pct(mv.get('pct'))}（引け後の開示。反応は翌営業日）" if it.get("after_close") else f"値動き{pct(mv.get('pct'))}"
+        b.add(f"■ {it.get('name')}({it.get('code')}) {it.get('time') or ''}開示 {'・'.join(it.get('kinds') or [])} 向き:{it.get('dir') or '不明'} {it.get('industry') or ''}"
+              f" テーマ:{'・'.join(it.get('themes') or []) or '—'} {mvl}")
         if fl.get("headline"):
             b.add(f"  速報: {cut(fl['headline'], 80)}｜{cut(fl.get('body'), 260)}{b.ref('E', fl['headline'], fl.get('url'), '株探')}")
         nts = it.get("notes") or []
@@ -272,7 +274,7 @@ def earnings(b: Brief, d: dict):
             b.add(f"  報道: {cut(p.get('title'), 70)}{b.ref('E', p.get('title'), p.get('url'), p.get('source'))}")
         ps = it.get("peers") or []
         if ps:
-            b.add("  類似: " + "、".join(
+            b.add("  類似" + ("（値動きは開示前。決算への反応ではない）" if it.get("after_close") else "") + ": " + "、".join(
                 f"{p.get('name')}({p['code']}){pct(p.get('pct'))}・20日{pct(p.get('r20'))}"
                 + (f"・決算{p['next']}" if p.get("next") else "")
                 + (f"・同日{p['today']}" if p.get("today") else f"・前回{(p.get('last') or {}).get('dir')}" if p.get("last") else "")
