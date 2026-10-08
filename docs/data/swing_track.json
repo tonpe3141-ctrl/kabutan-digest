@@ -72,9 +72,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 2676.0
+"last": 2640.5
 },
 {
 "asof": "2026-09-28",
@@ -250,13 +250,15 @@
 "name": "シマノ",
 "limit": 17600,
 "stop": 16622.5,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-10-02",
 "entry": 17606.07,
-"days": 4,
-"open": true,
-"last": 17480.0
+"days": 5,
+"out": "2026-10-08",
+"exit": 17641.28,
+"why": "sell",
+"ret": 0.1
 },
 {
 "asof": "2026-10-01",
@@ -284,9 +286,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 499.09,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 498.0
+"last": 493.0
 },
 {
 "asof": "2026-10-01",
@@ -466,9 +468,9 @@
 "filled": true,
 "in": "2026-10-07",
 "entry": 2806.45,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2790.5
+"last": 2795.0
 },
 {
 "asof": "2026-10-06",
@@ -495,9 +497,15 @@
 "code": "2503",
 "name": "キリンＨＤ",
 "limit": 2745,
-"stop": 2586,
+"stop": 2587.0,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-08",
+"entry": 2745.14,
+"days": 1,
+"open": true,
+"last": 2750.5
 },
 {
 "asof": "2026-10-07",
@@ -505,17 +513,24 @@
 "name": "スクウェア・エニックス・ホールディングス",
 "limit": 2762,
 "stop": 2593,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-07",
 "code": "7014",
 "name": "名村造船所",
 "limit": 4480,
-"stop": 3865,
+"stop": 3862.14,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-08",
+"entry": 4475.0,
+"days": 1,
+"open": true,
+"last": 4435.0
 },
 {
 "asof": "2026-10-07",
@@ -523,39 +538,91 @@
 "name": "ＫＤＤＩ",
 "limit": 2852,
 "stop": 2702,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-07",
 "code": "7832",
 "name": "バンナムＨＤ",
 "limit": 5570,
-"stop": 5150,
+"stop": 5158.25,
+"done": false,
+"earn": "none",
+"filled": true,
+"in": "2026-10-08",
+"entry": 5570.32,
+"days": 1,
+"open": true,
+"last": 5721.0
+},
+{
+"asof": "2026-10-08",
+"code": "2503",
+"name": "キリンＨＤ",
+"limit": 2724,
+"stop": 2566,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "8053",
+"name": "住友商",
+"limit": 1678,
+"stop": 1549,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "6178",
+"name": "日本郵政",
+"limit": 2344,
+"stop": 2165,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "6448",
+"name": "ブラザー工業",
+"limit": 4550,
+"stop": 4245,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "8001",
+"name": "伊藤忠",
+"limit": 2112,
+"stop": 1955,
 "done": false,
 "earn": "none"
 }
 ],
 "stats": {
-"n": 10,
+"n": 11,
 "win": 100,
-"avg": 1.23,
-"med": 0.79,
+"avg": 1.13,
+"med": 0.7,
 "pf": null,
-"avg_win": 1.23,
+"avg_win": 1.13,
 "avg_loss": null,
 "worst": 0.1,
-"days": 3.2,
-"d2": 10,
-"per_day": 0.39,
+"days": 3.4,
+"d2": 9,
+"per_day": 0.34,
 "stops": 0,
 "sells": 100,
 "times": 0,
-"small": 40,
+"small": 45,
 "big_loss": 0,
-"fill": 33,
-"open": 4,
-"issued": 48,
+"fill": 35,
+"open": 6,
+"issued": 53,
 "since": "2026-09-25"
 },
 "mid": {
@@ -572,9 +639,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 2174.0
+"last": 2140.5
 },
 {
 "asof": "2026-10-01",
@@ -582,14 +649,16 @@
 "name": "Terra Drone",
 "limit": 9140,
 "stop": 7901.07,
-"done": false,
+"done": true,
 "low": 8635.0,
 "filled": true,
 "in": "2026-10-02",
 "entry": 9143.04,
-"days": 4,
-"open": true,
-"last": 8140.0
+"days": 5,
+"out": "2026-10-08",
+"exit": 7901.07,
+"why": "stop",
+"ret": -13.68
 },
 {
 "asof": "2026-10-02",
@@ -607,14 +676,16 @@
 "name": "Terra Drone",
 "limit": 8720,
 "stop": 7923.93,
-"done": false,
+"done": true,
 "low": 8635.0,
 "filled": true,
 "in": "2026-10-05",
 "entry": 8724.46,
-"days": 3,
-"open": true,
-"last": 8140.0
+"days": 4,
+"out": "2026-10-08",
+"exit": 7923.93,
+"why": "stop",
+"ret": -9.28
 },
 {
 "asof": "2026-10-02",
@@ -632,15 +703,17 @@
 "name": "Terra Drone",
 "limit": 8680,
 "stop": 7897.14,
-"done": false,
+"done": true,
 "low": 8635.0,
 "earn": "none",
 "filled": true,
 "in": "2026-10-06",
 "entry": 8681.07,
-"days": 2,
-"open": true,
-"last": 8140.0
+"days": 3,
+"out": "2026-10-08",
+"exit": 7897.14,
+"why": "stop",
+"ret": -9.13
 },
 {
 "asof": "2026-10-06",
@@ -654,9 +727,9 @@
 "filled": true,
 "in": "2026-10-07",
 "entry": 8193.57,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 8140.0
+"last": 7820.0
 },
 {
 "asof": "2026-10-07",
@@ -664,9 +737,10 @@
 "name": "Terra Drone",
 "limit": 7790,
 "stop": 7100,
-"done": false,
+"done": true,
 "low": 8140.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-07",
@@ -674,16 +748,72 @@
 "name": "キオクシア",
 "limit": 17450,
 "stop": 11900,
+"done": true,
+"low": 12793.3205,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-08",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 7500,
+"stop": 6860,
+"done": false,
+"low": 7820.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "7014",
+"name": "名村造船所",
+"limit": 4330,
+"stop": 4120,
+"done": false,
+"low": 4435.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "5713",
+"name": "住友鉱",
+"limit": 9090,
+"stop": 8750,
+"done": false,
+"low": 9263.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-08",
+"code": "285A",
+"name": "キオクシア",
+"limit": 17460,
+"stop": 11920,
 "done": false,
 "low": 12793.3205,
 "earn": "none"
 }
 ],
 "stats": {
-"n": 0,
-"fill": 71,
-"open": 5,
-"issued": 9,
+"n": 3,
+"win": 0,
+"avg": -10.7,
+"med": -9.28,
+"pf": 0.0,
+"avg_win": null,
+"avg_loss": -10.7,
+"worst": -13.68,
+"days": 4,
+"d2": 0,
+"per_day": -2.67,
+"stops": 100,
+"sells": 0,
+"times": 0,
+"small": 0,
+"big_loss": 100,
+"fill": 56,
+"open": 2,
+"issued": 13,
 "since": "2026-10-01"
 }
 }
