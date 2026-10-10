@@ -55,6 +55,32 @@ def absolute(base, href):
     return host + (href if href.startswith("/") else "/" + href)
 
 
+# ---- 0. 信用残の時系列の表（/quote/{code}.T/history?styl=margin） ----
+for code in CODES[:2]:
+    for page in (1, 2, 8):
+        u = f"https://finance.yahoo.co.jp/quote/{code}.T/history?styl=margin" + (f"&page={page}" if page > 1 else "")
+        r = get(u)
+        print(f"\n=== 信用残の時系列の表 {code} page={page} ===\n    {u} status={getattr(r, 'status_code', None)}")
+        if r is None or r.status_code != 200:
+            continue
+        soup = BeautifulSoup(r.text, "html.parser")
+        tb = soup.find("table", attrs={"aria-label": re.compile("信用残")})
+        if not tb:
+            print("    表が無い")
+            continue
+        heads = [th.get_text(" ", strip=True) for th in tb.find("thead").find_all("th")] if tb.find("thead") else []
+        rows = tb.find("tbody").find_all("tr") if tb.find("tbody") else tb.find_all("tr")
+        print(f"    見出し: {heads}  行数: {len(rows)}")
+        for tr in rows[:4] + rows[-2:]:
+            print("      " + " | ".join("/".join(c.stripped_strings) for c in tr.find_all(["th", "td"])))
+        pg = [a.get_text(strip=True) + ">" + a["href"] for a in soup.find_all("a", href=True) if "page=" in a["href"]][:12]
+        print(f"    ページ送り: {pg}")
+        nxt = soup.find(string=re.compile("次へ|件中"))
+        print(f"    件数の表示: {nxt.strip()[:80] if nxt else None}")
+if not os.environ.get("PROBE_MARGIN_ALL"):
+    print("\n完了0")
+    sys.exit(0)
+
 # ---- 1. Yahoo!ファイナンスの銘柄ページ ----
 for code in []:  # 1回目で確認済み（tools の履歴）
     url = f"https://finance.yahoo.co.jp/quote/{code}.T"
