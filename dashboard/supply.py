@@ -19,11 +19,12 @@
    ただし差は小さく（勝った割合で5〜8pt）、平均では上回ることもある（少数の大きな戻りが平均を押し上げる）。
    売買代金30億円以上の大型では前半の差がほとんど無かった。だから「上がりにくさ」の説明に使い、注文の条件・並べ方には使わない。
 
-2. 信用残（Yahoo!ファイナンスの銘柄ページ。週1回・前週末の残高）
-   信用買残・信用売残・信用倍率と前週比。買残を20日平均の出来高で割った「買残は出来高の何日分か」（取組の重さ）、
-   1週で買残が急に増えた（+30%以上）、買残の増減と株価の向きの組み合わせ（下げながら買残が増える＝戻り売りの予備軍が増えている、など）を事実として出す。
-   過去の信用残は取れないので、先の値動きとの関係は検証できていない。週ごとの残高を docs/data/margin.json にためて、
-   たまってから前半で決めて後半で確かめる。それまでは数字と事実だけを出し、判定・注文には使わない。
+2. 信用残（Yahoo!ファイナンスの信用残の時系列。週1回・前週末の残高。株式分割は adjust_splits で補正）
+   信用買残・信用売残・信用倍率と前週比、買残が20日平均の出来高の何日分か、1週の急増、4週の買残の増減と株価の向きを出す。
+   売買代金の大きい110銘柄・約80週で確かめた（MARGIN_RESEARCH）: 1週で買残 +30%以上の週のあとは市場に勝つ割合が
+   前半・後半とも全体より低く（51／52% 対 57／54%）、下げの中で買残が減った（整理が進んだ）週のあとは高かった（74／68%）。
+   下げの中で買残が増えた形は前半と後半で向きが逆、倍率と出来高の日数は差が出なかった。警告にするのは1週の急増だけ。
+   どれも注文・判定には使わない。
 
 すべて純関数（取得は sources/margin.py）。入力は ohlc.json（dates と stocks: {コード: [[始,高,安,終,出来高(100株)] か null, ...]}）。
 """
@@ -48,6 +49,22 @@ RATIO_SHORT = 1.0   # これ未満 → 売り長
 JUMP = 30.0         # 1週で買残がこれ以上（%）増えた → 新しい買い方が多い（目安。未検証）
 HIST_WEEKS = 26     # 銘柄ごとにためる週の数
 SPLIT_K = (2, 3, 4, 5, 10)   # 分割とみなす倍率（adjust_splits）
+
+# 信用残の研究（tools/research_margin.py を Actions で実行。2026-10-10）。売買代金の大きい110銘柄、残高 2025-03〜2026-08 の 8,166週、
+# 公表日（残高の翌週の火曜）の引けから次の20営業日の対市場。前半は 2025-12-05 まで。境目は先に決めて動かしていない。
+# 本番の履歴（26週）では数え直せないので、値を持つ。[前半, 後半]
+MARGIN_RESEARCH = {
+    "period": ["2025-03〜2025-12", "2025-12〜2026-08"], "stocks": 110, "weeks": 8166, "h": 20,
+    "cls": {
+        "all": {"label": "全部", "n": [4062, 4104], "up": [57, 54], "avg": [2.73, 3.69]},
+        "jump": {"label": f"1週で買残 +{JUMP:g}%以上", "n": [228, 193], "up": [51, 52], "avg": [1.30, 1.96]},
+        "flush": {"label": "4週で株価 −5%以下・買残 −10%以下", "n": [105, 88], "up": [74, 68], "avg": [7.68, 5.25]},
+        "trap": {"label": "4週で株価 −5%以下・買残 +10%以上", "n": [380, 577], "up": [61, 49], "avg": [4.04, 1.82]},
+        "chase": {"label": "4週で株価 +5%以上・買残 +10%以上", "n": [214, 318], "up": [61, 57], "avg": [4.95, 6.82]},
+        "ratio_long": {"label": f"信用倍率 {RATIO_LONG:g}倍以上", "n": [2113, 2556], "up": [59, 53], "avg": [2.66, 3.08]},
+        "ratio_short": {"label": f"信用倍率 {RATIO_SHORT:g}倍未満", "n": [170, 114], "up": [60, 54], "avg": [6.95, 0.97]},
+    },
+}
 
 RULE_TEXT = (f"直近{VP_N}営業日の出来高を日々の安値〜高値に割り振り、今の値段より上で売買された割合。"
              f"{HEAVY:g}%以上をしこりが多いとする")
@@ -344,32 +361,45 @@ def _close_on(s: list | None, dates: list, d: str):
     return best
 
 
+def _ev(k: str) -> str:
+    """研究の値（MARGIN_RESEARCH）から「同じ形のあと勝った割合 前半／後半（全体）」の一句。"""
+    c, a = MARGIN_RESEARCH["cls"].get(k), MARGIN_RESEARCH["cls"]["all"]
+    if not c:
+        return ""
+    return f"同じ形の週のあと20営業日に市場に勝った割合 {c['up'][0]}／{c['up'][1]}%（全体 {a['up'][0]}／{a['up'][1]}%）"
+
+
 def margin_notes(m: dict) -> list[dict]:
-    """信用残の数字から、事実の一言（目安。先の値動きは未検証）。tone は warn / info。"""
+    """信用残の数字から、事実の一言。tone は warn / info。
+
+    警告にするのは、研究（MARGIN_RESEARCH）で前半・後半とも全体より弱かった形だけ（1週の急増）。
+    向きがそろわなかった形・研究で数が足りなかった形は情報にとどめ、そう書く。"""
     out = []
-    if m.get("days") is not None and m["days"] >= DAYS_HEAVY:
-        out.append({"k": "days", "tone": "warn",
-                    "t": f"買残が20日平均の出来高の{m['days']:g}日分（{DAYS_HEAVY:g}日分以上は取組が重い目安）。戻ると返済売りが出やすい"})
     buy, chg = m.get("buy"), m.get("buy_chg")
     if buy and chg and buy - chg > 0 and chg / (buy - chg) * 100 >= JUMP:
         out.append({"k": "jump", "tone": "warn",
-                    "t": f"1週で買残が {chg / (buy - chg) * 100:+.0f}%（{chg / 1e4:+,.0f}万株）増えた。この週に信用で買った人の値段が、戻りで売りが出やすい価格帯になる"})
-    r = m.get("ratio")
-    if r is not None and r >= RATIO_LONG:
-        out.append({"k": "long", "tone": "info", "t": f"信用倍率 {r:g}倍の買い長（売り残が少なく、買い戻しの支えが薄い。大型株ではよくある水準）"})
-    elif r is not None and r < RATIO_SHORT:
-        out.append({"k": "short", "tone": "info", "t": f"信用倍率 {r:g}倍の売り長（売り方の買い戻しが上げを支えることがある）"})
+                    "t": f"1週で買残が {chg / (buy - chg) * 100:+.0f}%（{chg / 1e4:+,.0f}万株）増えた。この週に信用で買った人の値段が、"
+                         f"戻りで売りが出やすい価格帯になる。{_ev('jump')}"})
     bw, pw = m.get("buy_w"), m.get("px_w")
     if bw is not None and pw is not None and m.get("w"):
         if bw >= 10 and pw <= -5:
-            out.append({"k": "trap", "tone": "warn",
-                        "t": f"{m['w']}週で株価 {pw:+.1f}% の下げの中、買残が {bw:+.0f}% 増えた（下で拾った買い方が、戻りで売りに回りやすい）"})
+            out.append({"k": "trap", "tone": "info",
+                        "t": f"{m['w']}週で株価 {pw:+.1f}% の下げの中、買残が {bw:+.0f}% 増えた（下で拾った信用の買い）。"
+                             f"{_ev('trap')}で、前半と後半で向きがそろわなかった"})
         elif bw <= -10 and pw <= -5:
             out.append({"k": "flush", "tone": "info",
-                        "t": f"{m['w']}週で株価 {pw:+.1f}%・買残 {bw:+.0f}%（下げの中で買残が減った＝投げ・整理が進んだ）"})
+                        "t": f"{m['w']}週で株価 {pw:+.1f}%・買残 {bw:+.0f}%（下げの中で買残が減った＝投げ・整理が進んだ）。{_ev('flush')}。数は少ない"})
         elif bw >= 10 and pw >= 5:
             out.append({"k": "chase", "tone": "info",
                         "t": f"{m['w']}週で株価 {pw:+.1f}%・買残 {bw:+.0f}%（上げに信用の買いがついてきた）"})
+    if m.get("days") is not None and m["days"] >= DAYS_HEAVY:
+        out.append({"k": "days", "tone": "info",
+                    "t": f"買残が20日平均の出来高の{m['days']:g}日分（{DAYS_HEAVY:g}日分以上は取組が重い目安。売買の多い銘柄の研究ではほとんど出ず、確かめていない）"})
+    r = m.get("ratio")
+    if r is not None and r >= RATIO_LONG:
+        out.append({"k": "long", "tone": "info", "t": f"信用倍率 {r:g}倍の買い長（大型株ではよくある水準。研究では倍率の高低で差が出なかった）"})
+    elif r is not None and r < RATIO_SHORT:
+        out.append({"k": "short", "tone": "info", "t": f"信用倍率 {r:g}倍の売り長（研究では前半・後半で差がそろわなかった）"})
     return out
 
 
@@ -390,7 +420,7 @@ def block(dates: list, stocks: dict, margin: dict | None = None, verify: bool = 
         if r:
             mg[code] = r
     heavy = sum(1 for r in rows.values() if r["above"] >= HEAVY)
-    return ({"rules": {"n": VP_N, "heavy": HEAVY, "light": LIGHT, "wall_up": WALL_UP, "text": RULE_TEXT,
+    return ({"research": MARGIN_RESEARCH, "rules": {"n": VP_N, "heavy": HEAVY, "light": LIGHT, "wall_up": WALL_UP, "text": RULE_TEXT,
                        "days_heavy": DAYS_HEAVY, "ratio_long": RATIO_LONG, "ratio_short": RATIO_SHORT, "jump": JUMP,
                        "cls": CLS_LABEL},
              "verify": ver, "n": len(rows), "n_heavy": heavy, "n_margin": len(mg),

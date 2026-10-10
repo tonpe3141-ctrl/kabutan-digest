@@ -8,11 +8,15 @@ on:
       stocks:
         description: "売買代金の大きい順に何銘柄"
         type: string
-        default: "150"
+        default: "110"
       pages:
-        description: "銘柄ごとに読む時系列のページ数"
+        description: "銘柄ごとに読む時系列のページ数（1ページ20週）"
         type: string
-        default: "5"
+        default: "4"
+      gap:
+        description: "Yahoo に取りに行く間隔（秒）。短いと途中で届かなくなる"
+        type: string
+        default: "2.0"
 
 jobs:
   research:
@@ -28,4 +32,5 @@ jobs:
         env:
           STOCKS: ${{ inputs.stocks }}
           PAGES: ${{ inputs.pages }}
-        run: python tools/research_margin.py "$STOCKS" "$PAGES"
+          GAP: ${{ inputs.gap }}
+        run: python tools/research_margin.py "$STOCKS" "$PAGES" "$GAP"

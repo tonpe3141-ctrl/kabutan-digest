@@ -280,7 +280,7 @@ def supply(b: Brief, su: dict):
     up = su.get("up") or {}
     if up.get("heavy") and up.get("light"):
         b.add(f"しこり: {su.get('rule')}。次の{su.get('h')}営業日に市場に勝った割合（前半→後半） 30%未満 {up['light']} ／50〜70% {up['heavy']}"
-              f" ／70%以上 {up.get('heavier')} ／全部 {up.get('all')}。差は小さい。信用残は未検証（週ごとにためている）")
+              f" ／70%以上 {up.get('heavier')} ／全部 {up.get('all')}。差は小さい。信用残は研究の値を一言に添えている（警告は1週で買残+30%以上だけ）")
     for x in su.get("watch") or []:
         b.add("ウォッチ " + supply_line(x))
     for x in su.get("orders") or []:

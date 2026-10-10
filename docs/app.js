@@ -3312,9 +3312,29 @@ function supplySection(code, s) {
   const ev = supplyEvidence();
   const kids = [h('div', { class: 'plan__grid sd__stats' }, cells), h('div', { class: 'sd__pad' }, lines)];
   if (ev) kids.push(h('button', { class: 'evidence evidence--in', type: 'button', onclick: () => { closeSheet(); selectView('verify', 'v-supply'); } }, [h('span', { text: ev + ' ›' })]));
-  kids.push(h('p', { class: 'hint sd__pad', text: (mg ? `信用残は週1回（${md(mg.date)}の残高。Yahoo!ファイナンス）。過去の信用残が取れないので、先の値動きとの関係はまだ確かめていない（残高をためて確かめる）。倍率・日数の境目は目安。` : '') +
-    `しこりは直近${R.n}営業日の出来高を日々の安値〜高値に割り振った目安。どちらも注文の条件・判定には使っていません。` }));
+  kids.push(h('p', { class: 'hint sd__pad', text: (mg ? `信用残は週1回（${md(mg.date)}の残高。Yahoo!ファイナンス）。一言の勝った割合は、売買代金の大きい110銘柄・約80週の研究の値（検証タブ）。` : '') +
+    `しこりは直近${R.n}営業日の出来高を日々の安値〜高値に割り振った目安。どちらも「上がりにくさ」の説明で、注文の条件・判定には使っていません。` }));
   return kids;
+}
+
+/* 信用残の研究（supply.MARGIN_RESEARCH。本番の履歴では数え直せないので固定の値） */
+function marginResearch(R) {
+  if (!R || !R.cls) return null;
+  const keys = ['all', 'jump', 'flush', 'trap', 'chase', 'ratio_long', 'ratio_short'];
+  return h('div', {}, [
+    h('div', { class: 'check__lh', style: 'margin-top:10px', text: `信用残の形と、次の${R.h}営業日（研究: 売買代金の大きい${R.stocks}銘柄・${R.weeks.toLocaleString('ja-JP')}週。` +
+      `残高の公表日＝翌週の火曜の引けから。前半 ${R.period[0]}・後半 ${R.period[1]}）` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['信用残の形', '勝った', '平均%', '件数'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, keys.filter((k) => R.cls[k]).map((k) => { const c = R.cls[k]; return h('tr', {}, [
+        h('th', { text: c.label, style: 'white-space:normal' }), h('td', { class: 'num', text: `${c.up[0]}／${c.up[1]}%` }),
+        h('td', { class: 'num', text: `${fmtSigned(c.avg[0], 1)}／${fmtSigned(c.avg[1], 1)}` }), h('td', { class: 'num', text: `${c.n[0]}／${c.n[1]}` }),
+      ]); })),
+    ])),
+    h('p', { class: 'hint', text: '見方（前半／後半）: 1週で買残が急に増えた週のあとは、どちらの期間も全体より勝ちにくかった（警告にしているのはこれだけ）。下げの中で買残が減った（整理が進んだ）週のあとは勝ちやすかったが、数が少ない。' +
+      '下げの中で買残が増えた形は前半と後半で向きが逆、信用倍率の高低は差がそろわなかった。全体の勝ちが5割を超えるのは、売買代金の大きい銘柄ほど全銘柄の中央値より上に出やすいため。' +
+      '期間は約1年半の上げ相場で、今の採用銘柄だけ（生存者の偏り）。注文の条件には使っていません。' }),
+  ]);
 }
 
 /* 検証タブ: 上値のしこりと次の20営業日 */
@@ -3338,7 +3358,7 @@ function supplyProofCard() {
     h('p', { class: 'hint', text: `見方: しこりが${R.heavy}%を超える銘柄は、市場に勝つ割合が数ポイント低く、中央値もマイナス（前半・後半で同じ向き）。` +
       '60日で上げている銘柄の中でも同じ向きだった。ただし差は小さく、平均では市場を上回ることもある（少数の大きな戻りが平均を押し上げる）。' +
       '売買代金30億円以上の大型だけでは、前半の差はほとんど無かった。「上がりにくさ」の説明で、売り・買いの合図ではない。' }),
-    h('p', { class: 'hint', text: '信用残（買残・売残・倍率）は過去の残高が取れないので、まだ検証していない。週ごとにためて、たまってから前半で決めて後半で確かめる。今の採用銘柄だけで測るので、上げ続けた銘柄に偏る。' }),
+    marginResearch(X.research),
   ], `しこり ${X.n ?? '—'}銘柄（${R.heavy}%以上 ${X.n_heavy ?? '—'}）・信用残 ${X.n_margin ?? '—'}銘柄${X.margin_asof ? `（${md(X.margin_asof)}の残高まで）` : ''}。注文の条件には使っていません。`, false, 'v-supply');
 }
 

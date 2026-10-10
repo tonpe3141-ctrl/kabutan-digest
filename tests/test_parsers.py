@@ -1973,7 +1973,9 @@ def test_supply():
     check("下げの中で買残が増えた・取組が重い・買い長を一言に（4週あいているので1週の急増は数えない）", sorted(n["k"] for n in m["notes"]), ["days", "long", "trap"])
     check("1週で買残 +30% 以上は急増",
           [n["k"] for n in SU.margin_notes({"buy": 13000, "buy_chg": 3000})], ["jump"])
-    check("警告は 出来高の日数・急増・下げの中の増加。倍率の買い長は情報", {n["k"]: n["tone"] for n in m["notes"]}, {"days": "warn", "long": "info", "trap": "warn"})
+    check("警告は研究で前半・後半とも弱かった1週の急増だけ。向きがそろわない形・未確認の形は情報", {n["k"]: n["tone"] for n in m["notes"]},
+          {"days": "info", "long": "info", "trap": "info"})
+    check("一言に研究の値（勝った割合 前半／後半と全体）を添える", "51／52%（全体 57／54%）" in SU.margin_notes({"buy": 13000, "buy_chg": 3000})[0]["t"], True)
     check("信用倍率 0.8 倍は売り長", [n["k"] for n in SU.margin_notes({"ratio": 0.8})], ["short"])
 
     calls = []
