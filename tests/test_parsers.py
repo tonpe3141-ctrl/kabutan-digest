@@ -1882,6 +1882,147 @@ def test_picks_materials():
     check("当てになるかの材料（同業の急騰の検証の5日後）", out["proof"]["spill"]["lag"], [0.4, 1.1])
 
 
+def test_supply():
+    from datetime import date
+
+    from dashboard import supply as SU
+    from dashboard.sources import margin as MS
+    from dashboard.thermo_run import _supply_brief, margin_update
+
+    print("\n[需給: 上値のしこり・信用残]")
+    # 上値のしこり: 安値〜高値に出来高を均等に割り振る
+    rows = [[100, 120, 100, 110, 10], [100, 100, 100, 100, 10]]       # 1日目は 100〜120、2日目は 100 ちょうど
+    above, vwap = SU._above(rows, 110)
+    check("110円より上 = 1日目の半分（5）÷ 合計20 = 25%", round(above, 1), 25.0)
+    check("平均の値段は (高+安+終)/3 の出来高加重", round(vwap, 2), round(((330 / 3) * 10 + 100 * 10) / 20, 2))
+    check("安値が今の値段より上の日は全部が上", round(SU._above([[130, 140, 130, 135, 10]], 110)[0], 1), 100.0)
+    check("分類の境目", (SU.cls_of(29.9), SU.cls_of(30), SU.cls_of(50), SU.cls_of(70), SU.cls_of(100)),
+          ("light", "mid", "heavy", "heavier", "heavier"))
+
+    # 半年 1000円で大量に売買 → 800円まで下げた銘柄はしこりが多い。壁は 1000円のあたり
+    n = SU.VP_N + SU.H + 60
+    dates = [f"d{i:04d}" for i in range(n)]
+    heavy = [[1000, 1010, 990, 1000, 1000]] * 100 + [[p, p + 5, p - 5, p, 100] for p in range(990, 800, -10)]
+    heavy = heavy[:SU.VP_N]
+    pr = SU.profile(heavy)
+    check("高値圏で売買が多く、下げた銘柄はしこりが多い", (pr["cls"], pr["above"] > 80, pr["gap"] < -10), ("heavier", True, True))
+    check("壁は今の値段から +15% の中で出来高の厚い帯（無ければ None）",
+          SU.profile(heavy)["wall"] is None or SU.profile(heavy)["wall"]["lo"] >= 800, True)
+    light = [[p, p + 5, p - 5, p, 1000] for p in range(500, 500 + SU.VP_N * 5, 5)]
+    check("上げ続けた銘柄はしこりが軽い", SU.profile(light)["cls"], "light")
+    check("日足が足りない銘柄は出さない", SU.profile(light[:SU.VP_MIN - 1]), None)
+    near = [[1000, 1000, 1000, 1000, 100]] * 60 + [[1100, 1105, 1095, 1100, 900]] * 40 + [[1000, 1000, 1000, 1000, 100]] * 20
+    w = SU.profile(near)["wall"]
+    check("すぐ上で出来高が厚い価格帯が壁（今から +10% 前後）", (w is not None and 1050 <= w["hi"] <= 1110, w and w["to"] > 0), (True, True))
+
+    # 検証: 先読みしない（t の引けまでで分類、結果は t+H）。短すぎれば None
+    stocks = {f"{k:04d}": [[1000 + k, 1010 + k, 990 + k, 1000 + k, 100]] * n for k in range(25)}
+    v = SU.verify(dates, stocks)
+    check("検証は前半・後半と全部を出す", (v["h"], sorted(v["cls"]), len(v["cls"]["all"])), (SU.H, ["all", "heavier", "heavy", "light", "mid"], 2))
+    check("動かない銘柄ばかりなら対市場は 0", v["cls"]["all"][0]["avg"], 0.0)
+    check("日数が足りなければ検証しない", SU.verify(dates[:50], {c: a[:50] for c, a in stocks.items()}), None)
+
+    # 信用残: Yahoo の信用残の時系列の表（2026-10-10 の実測の見出し・並び。新しい順、分割は調整していない）
+    def table(rows, heads=("日付", "売残", "買残", "売残増減", "買残増減", "信用倍率")):
+        th = "".join(f"<th>{x}</th>" for x in heads)
+        body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
+        return (f"<html><body><button>信用残時系列</button><table aria-label=\"信用残時系列のテーブル\">"
+                f"<thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></body></html>")
+    kx = [("2026/10/2", "2,575,900", "41,467,700", "1,739,500", "27,537,800", "16.10"),
+          ("2026/9/25", "836,400", "13,929,900", "68,600", "443,400", "16.65"),
+          ("2026/9/18", "767,800", "13,486,500", "69,700", "-456,500", "17.57"),
+          ("2026/9/11", "698,100", "13,943,000", "-316,300", "436,300", "19.97"),
+          ("2026/9/4", "1,014,400", "13,506,700", "0", "0", "13.31")]
+    rows = MS.parse_history(table(kx))
+    check("時系列の表: 新しい順に日付・買残・売残・増減・倍率", rows[0], {"date": "2026-10-02", "buy": 41467700, "sell": 2575900,
+                                                       "buy_chg": 27537800, "sell_chg": 1739500, "ratio": 16.1})
+    check("時系列の表: 週の数", len(rows), 5)
+    check("見出しの名前で列を決める（順が変わっても読める）",
+          MS.parse_history(table([("2,575,900", "2026/10/2", "41,467,700")], heads=("売残", "日付", "買残")))[0]["buy"], 41467700)
+    check("表が無いページは []", MS.parse_history("<html><body>株価時系列</body></html>"), [])
+
+    # 分割の補正: キオクシアは 2026-09-29 に 1:3 分割。10/2 の買残 +2,754万株 は株数が3倍に見えただけ
+    st = {}
+    SU.merge_margin(st, "285A", rows, "2026-10-07")
+    adj, splits = SU.adjust_splits(st["stocks"]["285A"]["hist"])
+    check("買残と売残が同じ週に3倍・倍率ほぼ同じ → 分割（1:3）", splits, [{"date": "2026-10-02", "k": 3}])
+    check("分割より前の週を3倍して今の株数にそろえる", adj[-2]["buy"], 13929900 * 3)
+    check("前週比は補正した前の週と比べる（実質は減った）", SU.margin_row(st["stocks"]["285A"], None, [])["buy_chg"], 41467700 - 13929900 * 3)
+    check("分割の週は「1週で急増」と言わない", [n["k"] for n in SU.margin_row(st["stocks"]["285A"], None, [])["notes"]].count("jump"), 0)
+    check("本当に買残だけが増えた週は分割にしない（売残が同じ倍率でない）",
+          SU.adjust_splits([{"date": "2026-09-25", "buy": 1000, "sell": 500}, {"date": "2026-10-02", "buy": 3000, "sell": 520}])[1], [])
+    check("売残が 0 の銘柄は確かめられないので補正しない",
+          SU.adjust_splits([{"date": "2026-09-25", "buy": 1000, "sell": 0}, {"date": "2026-10-02", "buy": 3000, "sell": 0}])[1], [])
+
+    # 週ごとの履歴と、取り直す銘柄の決め方
+    st = {}
+    SU.merge_margin(st, "5803", [{"date": "2026-09-04", "buy": 10_000_000, "sell": 2_000_000}], "2026-09-09")
+    rec = {"date": "2026-10-02", "buy": 19554400, "sell": 2028600, "buy_chg": -3360300, "sell_chg": 983200, "ratio": 9.64}
+    SU.merge_margin(st, "5803", [rec], "2026-10-07")
+    check("同じ日付は差し替え、日付順", [x["date"] for x in st["stocks"]["5803"]["hist"]], ["2026-09-04", "2026-10-02"])
+    check("取り直し: 前回から3日たたない銘柄は取らない", SU.due(st, "5803", "2026-10-09"), False)
+    check("取り直し: 残高が7日以内なら取らない", SU.due(st, "5803", "2026-10-08", every=1), False)
+    check("取り直し: 残高が古く3日たてば取る", SU.due(st, "5803", "2026-10-12"), True)
+    check("取り直し: 一度も取っていない銘柄は取る", SU.due(st, "9999", "2026-10-10"), True)
+
+    ohlc_dates = [f"2026-09-{d:02d}" for d in range(1, 31)] + [f"2026-10-{d:02d}" for d in range(1, 10)]
+    s5803 = [[1000, 1000, 1000, 1000 - i * 10, 20000] for i in range(len(ohlc_dates))]   # 下げ続ける。出来高 200万株/日
+    m = SU.margin_row(st["stocks"]["5803"], s5803, ohlc_dates)
+    check("買残は20日平均の出来高の何日分か", m["days"], round(19554400 / 2_000_000, 1))
+    check("4週の買残の増減と株価", (m["w"], m["buy_w"], m["px_w"] < -5), (4, 95.5, True))
+    check("下げの中で買残が増えた・取組が重い・買い長を一言に（4週あいているので1週の急増は数えない）", sorted(n["k"] for n in m["notes"]), ["days", "long", "trap"])
+    check("1週で買残 +30% 以上は急増",
+          [n["k"] for n in SU.margin_notes({"buy": 13000, "buy_chg": 3000})], ["jump"])
+    check("警告は研究で前半・後半とも弱かった1週の急増だけ。向きがそろわない形・未確認の形は情報", {n["k"]: n["tone"] for n in m["notes"]},
+          {"days": "info", "long": "info", "trap": "info"})
+    check("一言に研究の値（勝った割合 前半／後半と全体）を添える", "51／52%（全体 57／54%）" in SU.margin_notes({"buy": 13000, "buy_chg": 3000})[0]["t"], True)
+    check("信用倍率 0.8 倍は売り長", [n["k"] for n in SU.margin_notes({"ratio": 0.8})], ["short"])
+
+    calls = []
+
+    def fake(code):
+        calls.append(code)
+        return [{"date": "2026-10-02", "buy": 1000, "sell": 500}] if code != "0002" else []
+    ms = {}
+    got = margin_update(ms, ["0001", "0002", "0003"], {"0001"}, fake, "2026-10-10", limit=2)
+    check("取り直しは上限まで。表が無い銘柄も取りに行った日を残す", (got, calls, ms["stocks"]["0002"]["fetched"]),
+          ((1, 2, False), ["0001", "0002"], "2026-10-10"))
+    calls.clear()
+    blocked = margin_update({}, [f"{k:04d}" for k in range(10)], set(), lambda c: calls.append(c), "2026-10-10", give_up=3)
+    check("届かない応答が3回続いたら打ち切る（遮断されたまま叩き続けない）", (blocked, len(calls)), ((0, 3, True), 3))
+
+    sup, jk, mg = SU.block(dates, stocks, ms)
+    check("block(verify=False) は検証を数え直さない", SU.block(dates, stocks, ms, verify=False)[0]["verify"], None)
+
+    # 大引の最後: 信用残を取り直して thermo.json の mg・supply を書き直す（ファイルは差し替えて試す）
+    import dashboard.thermo_run as TR
+    files = {TR.THERMO_PATH: {"stocks": {"0001": {"n": "A", "jk": {"above": 60.0}, "sw": {"tv": 50}}, "0002": {"n": "B", "sw": {"tv": 80}}},
+                              "swing": {"orders": [{"code": "0001"}]}, "supply": {"n": 2, "verify": {"x": 1}}},
+             TR.MARGIN_PATH: {}}
+    saved = {}
+    orig = (TR._read, TR._write, TR.bars_mod.load_ohlc, TR.store.load_watchlist)
+    TR._read = lambda path, default: files.get(path, default)
+    TR._write = lambda path, data, indent=None: saved.__setitem__(path, data)
+    TR.bars_mod.load_ohlc = lambda: {"dates": dates, "stocks": {}}
+    TR.store.load_watchlist = lambda: {"codes": ["0002"]}
+    try:
+        seen = []
+        br = TR.refresh_margin(date(2026, 10, 9), {"indices": {"nikkei": {"close": 1}}},
+                               fetch_margin=lambda c: seen.append(c) or [{"date": "2026-10-02", "buy": 3000, "sell": 1000}])
+        skip = TR.refresh_margin(date(2026, 10, 12), {"indices": {"nikkei": {"close": 1, "stale": True}}}, fetch_margin=lambda c: 1 / 0)
+    finally:
+        TR._read, TR._write, TR.bars_mod.load_ohlc, TR.store.load_watchlist = orig
+    th2 = saved.get(TR.THERMO_PATH) or {}
+    check("取りに行く順: ウォッチ → 注文 → 売買代金の大きい順", seen, ["0002", "0001"])
+    check("thermo.json の銘柄に mg、supply の数を差し替え、検証は残す",
+          ((th2["stocks"]["0001"].get("mg") or {}).get("buy"), th2["supply"]["n_margin"], th2["supply"]["verify"]), (3000, 2, {"x": 1}))
+    check("要約: 注文の銘柄（しこり・信用残）", [x["code"] for x in br["orders"]], ["0001"])
+    check("休場日は取りに行かない", skip, None)
+    check("block: しこりと信用残の数", (sup["n"], sup["n_margin"], sup["margin_asof"]), (25, 1, "2026-10-02"))
+    br = _supply_brief({**sup, "watch": [{"code": "0001"}]}, {"0001": {"n": "A", "mg": mg["0001"]}}, ["0001", "0001"])
+    check("Routine の要約: ウォッチと注文（重複しない）", (len(br["watch"]), len(br["orders"]), br["watch"][0]["mg"]["buy"]), (1, 1, 1000))
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -1911,6 +2052,7 @@ if __name__ == "__main__":
     test_newsflow()
     test_spill()
     test_picks_materials()
+    test_supply()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
