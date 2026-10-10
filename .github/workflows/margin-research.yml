@@ -1,0 +1,31 @@
+name: 信用残の検証（研究）
+
+# 信用残（Yahoo!ファイナンスの時系列）が先の値動きに効くかを、日足キャッシュと突き合わせて数え直す（DESIGN.md 26章）。
+# 手動実行だけ。何もコミットしない。結果はログに出る。
+on:
+  workflow_dispatch:
+    inputs:
+      stocks:
+        description: "売買代金の大きい順に何銘柄"
+        type: string
+        default: "150"
+      pages:
+        description: "銘柄ごとに読む時系列のページ数"
+        type: string
+        default: "5"
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: 信用残の形ごとに、次の20営業日の対市場を数える
+        env:
+          STOCKS: ${{ inputs.stocks }}
+          PAGES: ${{ inputs.pages }}
+        run: python tools/research_margin.py "$STOCKS" "$PAGES"

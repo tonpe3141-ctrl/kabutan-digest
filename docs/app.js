@@ -2186,6 +2186,8 @@ function holdRow(p, inSheet) {
   if (lagTxt) note('warn', lagTxt);
   const crowdTxt = crowdNote(st);
   if (crowdTxt) note('warn', crowdTxt);
+  const supTxt = supplyNote(st);
+  if (supTxt) note('warn', supTxt);
   const ev = st.ev;
   if (ev && ev.dir === 'down' && !String(ev.label || '').startsWith('悪材料出尽くし')) {
     note('warn', `下方修正・減配の開示（${md(ev.date)}）。判定は値動きだけで出している。業績の前提が変わったなら、持つ理由を見直す`);
@@ -3241,6 +3243,103 @@ function crowdProofCard() {
   ];
   return card('急騰した銘柄の翌日', '混み合いの印の根拠', kids,
     '印は保有銘柄と銘柄の画面に出ます。注文の条件には使っていません。', false, 'v-crowd');
+}
+
+/* ==================== 需給: 上値のしこりと信用残（DESIGN.md 26章） ==================== */
+function SUP() { return (THERMO || {}).supply || null; }
+function supRules() { return (SUP() || {}).rules || { heavy: 50, light: 30, n: 120, wall_up: 15, days_heavy: 5 }; }
+function fmtShares(n, signed) {
+  if (!isNum(n)) return '—';
+  const a = Math.abs(n);
+  const s = a >= 1e8 ? `${(a / 1e8).toFixed(2)}億` : a >= 1e4 ? `${Math.round(a / 1e4).toLocaleString('ja-JP')}万` : a.toLocaleString('ja-JP');
+  return (n < 0 ? '−' : signed && n > 0 ? '+' : '') + s + '株';
+}
+
+/* しこりの検証の結論の一行（比べる相手と、差が小さいことを添える） */
+function supplyEvidence() {
+  const v = (SUP() || {}).verify;
+  const c = v && v.cls;
+  const up = (k) => (c && c[k] && c[k][0] && c[k][1] ? `${c[k][0].up}／${c[k][1].up}%` : null);
+  if (!up('heavy') || !up('light')) return null;
+  const R = supRules();
+  return `上値の出来高が${R.heavy}〜70%の銘柄が次の${v.h}営業日で市場（全銘柄の中央値）に勝った割合は ${up('heavy')}` +
+    (up('heavier') ? `、70%以上は ${up('heavier')}` : '') + `（前半／後半）。${R.light}%未満は ${up('light')}。差は小さく、平均では市場を上回ることもある`;
+}
+
+/* 保有の行に出す一行（しこりが多い・信用の取組が重いとき）。詳しくは銘柄シートの「需給」。判定は変えない */
+function supplyNote(st) {
+  const jk = st && st.jk;
+  const mg = st && st.mg;
+  const R = supRules();
+  const parts = [];
+  if (jk && isNum(jk.above) && jk.above >= R.heavy) parts.push(`半年の出来高の${Math.round(jk.above)}%が今の値段より上（平均の値段 ${fmtPrice(jk.vwap)}円）`);
+  ((mg && mg.notes) || []).filter((n) => n.tone === 'warn').forEach((n) => parts.push(n.t.split('（')[0].split('。')[0]));
+  if (!parts.length) return null;
+  return `需給が重い: ${parts.join('・')}。戻ると売りが出やすい（銘柄の画面の「需給」。判定は変えない）`;
+}
+
+/* 銘柄シートの「需給」: 上値のしこり（日足から）と信用残（週1回） */
+function supplySection(code, s) {
+  const jk = s && s.jk;
+  const mg = s && s.mg;
+  const R = supRules();
+  if (!jk && !mg) {
+    return [h('p', { class: 'hint sd__pad', text: SUP() ? `この銘柄は需給のデータがありません（日足が${R.n}営業日に満たない・信用残がまだ取れていない）。` : '需給（上値のしこり・信用残）は次の収集から出ます。' })];
+  }
+  const cells = [];
+  if (jk) {
+    cells.push(cell('上値の出来高', `${Math.round(jk.above)}%`, '半年の出来高のうち今より上'));
+    cells.push(cell('平均の値段', `${fmtPrice(jk.vwap)}円`, `今は ${fmtPct(jk.gap, 1)}`, cls(jk.gap)));
+    cells.push(cell('上の壁', jk.wall ? `${fmtPrice(jk.wall.lo)}〜${fmtPrice(jk.wall.hi)}` : 'なし', jk.wall ? `出来高の${jk.wall.pct}%` : `+${R.wall_up}%まで`));
+  }
+  if (mg) {
+    cells.push(cell('信用買残', fmtShares(mg.buy), isNum(mg.buy_chg) ? `前週比 ${fmtShares(mg.buy_chg, true)}` : null));
+    cells.push(cell('信用売残', fmtShares(mg.sell), isNum(mg.sell_chg) ? `前週比 ${fmtShares(mg.sell_chg, true)}` : null));
+    cells.push(cell('信用倍率', isNum(mg.ratio) ? `${mg.ratio}倍` : '—', '買残÷売残'));
+    cells.push(cell('買残は出来高の', isNum(mg.days) ? `${mg.days}日分` : '—', '20日平均の出来高で割る'));
+    if (isNum(mg.buy_w)) cells.push(cell(`${mg.w}週の買残`, fmtPct(mg.buy_w, 0), isNum(mg.px_w) ? `株価 ${fmtPct(mg.px_w, 1)}` : null));
+  }
+  const lines = [];
+  const note = (tone, text) => lines.push(h('div', { class: 'guard__note guard__note--' + tone, text }));
+  if (jk) {
+    if (jk.above >= R.heavy) note('warn', `この半年の出来高の${Math.round(jk.above)}%は今の値段より上で売買された。そこで買った人は戻れば売りたい（戻り売り）ので、上値が重くなりやすい`);
+    else if (jk.above < R.light) note('info', `この半年の出来高のうち今より上は${Math.round(jk.above)}%だけ。上で買って含み損の人が少なく、戻り売りは軽い`);
+    if (jk.gap <= -5) note('info', `半年の平均の値段（${fmtPrice(jk.vwap)}円）より ${fmtPct(jk.gap, 1)}。この半年に買った人の多くが含み損`);
+    if (jk.wall) note('info', `${jk.wall.to < 0.5 ? '今の値段のすぐ上' : `今から ${fmtPct(jk.wall.to, 1)} 上`}、${fmtPrice(jk.wall.lo)}〜${fmtPrice(jk.wall.hi)}円 に半年の出来高の${jk.wall.pct}%。戻るとここで売りが出やすい`);
+  }
+  (mg && mg.notes || []).forEach((n) => note(n.tone, n.t));
+  if (mg && mg.split) note('info', `${md(mg.split.date)}の週に株式分割（1:${mg.split.k}）。それより前の週の残高は${mg.split.k}倍して今の株数にそろえて比べている`);
+  const ev = supplyEvidence();
+  const kids = [h('div', { class: 'plan__grid sd__stats' }, cells), h('div', { class: 'sd__pad' }, lines)];
+  if (ev) kids.push(h('button', { class: 'evidence evidence--in', type: 'button', onclick: () => { closeSheet(); selectView('verify', 'v-supply'); } }, [h('span', { text: ev + ' ›' })]));
+  kids.push(h('p', { class: 'hint sd__pad', text: (mg ? `信用残は週1回（${md(mg.date)}の残高。Yahoo!ファイナンス）。過去の信用残が取れないので、先の値動きとの関係はまだ確かめていない（残高をためて確かめる）。倍率・日数の境目は目安。` : '') +
+    `しこりは直近${R.n}営業日の出来高を日々の安値〜高値に割り振った目安。どちらも注文の条件・判定には使っていません。` }));
+  return kids;
+}
+
+/* 検証タブ: 上値のしこりと次の20営業日 */
+function supplyProofCard() {
+  const X = SUP();
+  const v = X && X.verify;
+  if (!v) return card('上値のしこりと先の値動き', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-supply');
+  const R = X.rules || supRules();
+  const lab = R.cls || {};
+  const cells = (a) => (a ? [`${a.n.toLocaleString('ja-JP')}件`, fmtSigned(a.avg, 2), fmtSigned(a.med, 2), `${a.up}%`] : ['—', '—', '—', '—']);
+  const rows = [['light', lab.light], ['mid', lab.mid], ['heavy', lab.heavy], ['heavier', lab.heavier], ['all', '全部']];
+  return card('上値のしこりと先の値動き', '需給の根拠', [
+    h('div', { class: 'check__lh', text: `${R.text}。次の${v.h}営業日の、全銘柄の中央値との差（%）。${md(v.from)}〜${md(v.to)}を${v.step}営業日おき、前半は ${md(v.split)} まで` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['上値の出来高', '期間', '件数', '平均', '中央値', '勝った'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, rows.flatMap(([k, label]) => [0, 1].map((half) => h('tr', {}, [
+        h('th', { text: half ? '' : label }), h('td', { text: half ? '後半' : '前半' }),
+        ...cells(((v.cls || {})[k] || [])[half]).map((t) => h('td', { class: 'num', text: t })),
+      ])))),
+    ])),
+    h('p', { class: 'hint', text: `見方: しこりが${R.heavy}%を超える銘柄は、市場に勝つ割合が数ポイント低く、中央値もマイナス（前半・後半で同じ向き）。` +
+      '60日で上げている銘柄の中でも同じ向きだった。ただし差は小さく、平均では市場を上回ることもある（少数の大きな戻りが平均を押し上げる）。' +
+      '売買代金30億円以上の大型だけでは、前半の差はほとんど無かった。「上がりにくさ」の説明で、売り・買いの合図ではない。' }),
+    h('p', { class: 'hint', text: '信用残（買残・売残・倍率）は過去の残高が取れないので、まだ検証していない。週ごとにためて、たまってから前半で決めて後半で確かめる。今の採用銘柄だけで測るので、上げ続けた銘柄に偏る。' }),
+  ], `しこり ${X.n ?? '—'}銘柄（${R.heavy}%以上 ${X.n_heavy ?? '—'}）・信用残 ${X.n_margin ?? '—'}銘柄${X.margin_asof ? `（${md(X.margin_asof)}の残高まで）` : ''}。注文の条件には使っていません。`, false, 'v-supply');
 }
 
 /* 連想の検証: 同業が急騰した日に動かなかった仲間は追いつくか（spill.py。日足キャッシュで毎日数え直す）と、決算への反応の記録 */
@@ -4790,7 +4889,7 @@ function stockView(code) {
   if (badges.length) kids.push(h('div', { class: 'chips sd__badges' }, badges));
 
   if (s) {
-    kids.push(priceChart(code, contextLines(code)));
+    kids.push(priceChart(code, contextLines(code).concat(s.jk && isNum(s.jk.vwap) ? [['vwap', s.jk.vwap, '半年平均']] : [])));
     kids.push(h('div', { class: 'plan__grid sd__stats' }, [
       cell('2日RSI', isNum(sw.rsi2) ? String(Math.round(sw.rsi2)) : '—', `${rules().rsi_max}未満で押し`),
       cell('RSI(14)', isNum(s.rsi) ? String(Math.round(s.rsi)) : '—'),
@@ -4839,6 +4938,7 @@ function stockView(code) {
     holdKids.push(box);
   }
   kids.push(sdSection('保有', holdKids));
+  kids.push(sdSection('需給', supplySection(code, s), '上値のしこり・信用残'));
   kids.push(sdSection('今日の材料', stockMaterials(code, name, s)));
   kids.push(sdSection('買う前／売る前チェック', h('div', { class: 'sd__pad' }, [checkBox(code)])));
 
@@ -4872,6 +4972,7 @@ function renderVerify() {
     out.push(ruleCard());
     out.push(holdProofCard());
     out.push(crowdProofCard());
+    out.push(supplyProofCard());
     out.push(spillProofCard());
     out.push(backtestCard(th.backtest));
     out.push(trackCard(th.track));
@@ -5018,7 +5119,7 @@ const JUMPS = {
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-peer', '押し目の業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
   news: [['nw-mine', '自分の銘柄'], ['nw-read', 'ニュースを読む'], ['nw-move', '動いた銘柄'], ['nw-earn', '決算から読む'], ['nw-disc', '開示'], ['nw-feed', 'ニュース']],
-  verify: [['v-swing', '成績'], ['v-mid', '中期'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-spill', '連想'], ['v-thermo', '温度計'], ['v-track', '警告'],
+  verify: [['v-swing', '成績'], ['v-mid', '中期'], ['v-rule', 'ルール'], ['v-hold', '保有株の判定'], ['v-supply', '需給'], ['v-spill', '連想'], ['v-thermo', '温度計'], ['v-track', '警告'],
     ['v-sector', '業種'], ['v-ledger', '発掘'], ['v-mine', '自分の記録']],
 };
 

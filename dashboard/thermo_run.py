@@ -15,11 +15,11 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, swing as W, thermo as T
-from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
+from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, supply as SU, swing as W, thermo as T
+from .config import MARGIN_FETCH_MAX, MARGIN_PATH, SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
-from .sources import cnbc, nikkei225, nikkei_per, press
+from .sources import cnbc, margin as margin_src, nikkei225, nikkei_per, press
 from .themes import load_themes
 
 HIST_DAYS = 40
@@ -112,13 +112,14 @@ def _live_prices(payload: dict, stale: bool) -> dict[str, float]:
 
 
 def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch=None, fetch_ohlc=None,
-        fetch_quotes=None) -> dict:
+        fetch_quotes=None, fetch_margin=None) -> dict:
     """温度計を計算して thermo.json を書き、latest.json に載せる要約と履歴に残す断片を返す。
 
     fetch だけを渡した場合（tests）は四本値・引け後のクォートを取りに行かない。"""
     if fetch is None:
         fetch, fetch_ohlc = cnbc.fetch_bars, fetch_ohlc or cnbc.fetch_ohlc
         fetch_quotes = fetch_quotes or cnbc.fetch_jp_stocks
+        fetch_margin = fetch_margin or (lambda c: margin_src.fetch(c, target_date))
     today = target_date.isoformat()
     nk_live = ((payload.get("indices") or {}).get("nikkei") or {})
     stale = bool(nk_live.get("stale")) if nk_live else True      # 休場日（前営業日の値）
@@ -346,6 +347,24 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         print(f"    ⚠️  同業の急騰・急落で例外: {e}")
         spill = None
 
+    # 需給: 上値のしこり（日足から全銘柄）と信用残（Yahoo の銘柄ページ。週1回の残高。大引でだけ取りに行く）。注文には使わない
+    try:
+        mstore = _read(MARGIN_PATH, {}) or {}
+        if slot == "taibike" and not stale and fetch_margin:
+            first = watch + [o["code"] for o in (swing.get("orders") or []) + (swing.get("near") or [])
+                             + ((swing.get("mid") or {}).get("orders") or [])]
+            n_got = margin_update(mstore, list(dict.fromkeys(first + universe)), set(first), fetch_margin, today)
+            mstore["updated_at"] = store.now_jst().isoformat(timespec="seconds")
+            _write(MARGIN_PATH, mstore, indent=0)
+            print(f"    ✅ 信用残: {n_got}銘柄を取り直し（たまっている {len(mstore.get('stocks') or {})}銘柄）")
+        supply, jk_rows, mg_rows = SU.block(ohlc.get("dates") or [], ohlc.get("stocks") or {}, mstore)
+        supply["watch"] = [{"code": c, "name": names.get(c) or c, "jk": jk_rows.get(c), "mg": mg_rows.get(c)}
+                           for c in watch if c in jk_rows or c in mg_rows]
+        print(f"    ✅ 需給: しこり {supply['n']}銘柄（多い {supply['n_heavy']}）・信用残 {supply['n_margin']}銘柄")
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  需給で例外: {e}")
+        supply, jk_rows, mg_rows = None, {}, {}
+
     stock_rows = {}
     for code, mt in metrics.items():
         cls = T.stock_class(mt)
@@ -362,6 +381,10 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         }
         if code in crowd_rows:
             stock_rows[code]["cw"] = crowd_rows[code]
+        if code in jk_rows:
+            stock_rows[code]["jk"] = {k: v for k, v in jk_rows[code].items() if k != "asof"}
+        if code in mg_rows:
+            stock_rows[code]["mg"] = mg_rows[code]
 
     def pick_list(kind, key_fn, limit, reverse=False):
         rows = [dict(code=c, **r) for c, r in stock_rows.items() if kind in r["cls"]]
@@ -385,7 +408,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "spill": spill, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "spill": spill, "supply": supply, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -471,6 +494,28 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
 
 
 CONTRA = ("押し目", "売られすぎ・下げ止まり")
+
+
+def margin_update(mstore: dict, codes: list[str], first: set[str], fetch_margin, today: str,
+                  limit: int = MARGIN_FETCH_MAX) -> int:
+    """信用残を取り直す。ウォッチ・注文の銘柄は残高の週が古ければ毎日、ほかは3日おきに、上限まで。取れた銘柄の数を返す。"""
+    got = tried = 0
+    for code in codes:
+        if tried >= limit:
+            break
+        if not SU.due(mstore, code, today, every=1 if code in first else 3):
+            continue
+        tried += 1
+        try:
+            rec = fetch_margin(code)
+        except Exception:                       # noqa: BLE001  1銘柄の不具合で止めない
+            rec = None
+        e = mstore.setdefault("stocks", {}).setdefault(code, {"hist": []})
+        e["fetched"] = today
+        if rec:
+            SU.merge_margin(mstore, code, rec, today)
+            got += 1
+    return got
 
 
 def is_pick(s: dict) -> bool:
@@ -777,7 +822,35 @@ def summary(th: dict) -> dict | None:
         "crowd": _crowd_brief(th.get("crowd")),
         # 同業の急騰・急落と動かなかった仲間（連想の材料）。検証では「動かなかった仲間が追いつく」とは言えなかった
         "spill": _spill_brief(th.get("spill")),
+        # 需給（上値のしこり・信用残）。ウォッチと注文の銘柄だけ。注文・判定には使わない
+        "supply": _supply_brief(th.get("supply"), th.get("stocks") or {},
+                                [o["code"] for o in (sw.get("orders") or []) + ((sw.get("mid") or {}).get("orders") or [])]),
     }
+
+
+def _jk_brief(code: str, st: dict) -> dict | None:
+    jk, mg = st.get("jk"), st.get("mg")
+    if not jk and not mg:
+        return None
+    out = {"code": code, "name": st.get("n")}
+    if jk:
+        out.update({"above": jk.get("above"), "vwap": jk.get("vwap"), "gap": jk.get("gap"), "wall": jk.get("wall")})
+    if mg:
+        out["mg"] = {k: mg.get(k) for k in ("date", "buy", "sell", "buy_chg", "ratio", "days", "w", "buy_w", "px_w")}
+        out["mg"]["notes"] = [n["t"] for n in mg.get("notes") or []]
+    return out
+
+
+def _supply_brief(su: dict | None, stocks: dict, order_codes: list[str]) -> dict | None:
+    if not su:
+        return None
+    v = (su.get("verify") or {}).get("cls") or {}
+    up = {k: [x.get("up") if x else None for x in v.get(k) or []] for k in ("light", "mid", "heavy", "heavier", "all")} if v else None
+    watch = [w["code"] for w in su.get("watch") or []]
+    return {"rule": (su.get("rules") or {}).get("text"), "h": (su.get("verify") or {}).get("h"), "up": up,
+            "n": su.get("n"), "n_heavy": su.get("n_heavy"), "margin_asof": su.get("margin_asof"),
+            "watch": [b for b in (_jk_brief(c, stocks.get(c) or {}) for c in watch) if b],
+            "orders": [b for b in (_jk_brief(c, stocks.get(c) or {}) for c in dict.fromkeys(order_codes)) if b]}
 
 
 def _spill_brief(sp: dict | None) -> dict | None:
