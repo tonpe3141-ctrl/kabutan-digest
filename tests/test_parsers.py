@@ -1883,6 +1883,8 @@ def test_picks_materials():
 
 
 def test_supply():
+    from datetime import date
+
     from dashboard import supply as SU
     from dashboard.sources import margin as MS
     from dashboard.thermo_run import _supply_brief, margin_update
@@ -1981,9 +1983,39 @@ def test_supply():
         return [{"date": "2026-10-02", "buy": 1000, "sell": 500}] if code != "0002" else []
     ms = {}
     got = margin_update(ms, ["0001", "0002", "0003"], {"0001"}, fake, "2026-10-10", limit=2)
-    check("取り直しは上限まで。取れなかった銘柄も取りに行った日を残す", (got, calls, ms["stocks"]["0002"]["fetched"]), (1, ["0001", "0002"], "2026-10-10"))
+    check("取り直しは上限まで。表が無い銘柄も取りに行った日を残す", (got, calls, ms["stocks"]["0002"]["fetched"]),
+          ((1, 2, False), ["0001", "0002"], "2026-10-10"))
+    calls.clear()
+    blocked = margin_update({}, [f"{k:04d}" for k in range(10)], set(), lambda c: calls.append(c), "2026-10-10", give_up=3)
+    check("届かない応答が3回続いたら打ち切る（遮断されたまま叩き続けない）", (blocked, len(calls)), ((0, 3, True), 3))
 
     sup, jk, mg = SU.block(dates, stocks, ms)
+    check("block(verify=False) は検証を数え直さない", SU.block(dates, stocks, ms, verify=False)[0]["verify"], None)
+
+    # 大引の最後: 信用残を取り直して thermo.json の mg・supply を書き直す（ファイルは差し替えて試す）
+    import dashboard.thermo_run as TR
+    files = {TR.THERMO_PATH: {"stocks": {"0001": {"n": "A", "jk": {"above": 60.0}, "sw": {"tv": 50}}, "0002": {"n": "B", "sw": {"tv": 80}}},
+                              "swing": {"orders": [{"code": "0001"}]}, "supply": {"n": 2, "verify": {"x": 1}}},
+             TR.MARGIN_PATH: {}}
+    saved = {}
+    orig = (TR._read, TR._write, TR.bars_mod.load_ohlc, TR.store.load_watchlist)
+    TR._read = lambda path, default: files.get(path, default)
+    TR._write = lambda path, data, indent=None: saved.__setitem__(path, data)
+    TR.bars_mod.load_ohlc = lambda: {"dates": dates, "stocks": {}}
+    TR.store.load_watchlist = lambda: {"codes": ["0002"]}
+    try:
+        seen = []
+        br = TR.refresh_margin(date(2026, 10, 9), {"indices": {"nikkei": {"close": 1}}},
+                               fetch_margin=lambda c: seen.append(c) or [{"date": "2026-10-02", "buy": 3000, "sell": 1000}])
+        skip = TR.refresh_margin(date(2026, 10, 12), {"indices": {"nikkei": {"close": 1, "stale": True}}}, fetch_margin=lambda c: 1 / 0)
+    finally:
+        TR._read, TR._write, TR.bars_mod.load_ohlc, TR.store.load_watchlist = orig
+    th2 = saved.get(TR.THERMO_PATH) or {}
+    check("取りに行く順: ウォッチ → 注文 → 売買代金の大きい順", seen, ["0002", "0001"])
+    check("thermo.json の銘柄に mg、supply の数を差し替え、検証は残す",
+          ((th2["stocks"]["0001"].get("mg") or {}).get("buy"), th2["supply"]["n_margin"], th2["supply"]["verify"]), (3000, 2, {"x": 1}))
+    check("要約: 注文の銘柄（しこり・信用残）", [x["code"] for x in br["orders"]], ["0001"])
+    check("休場日は取りに行かない", skip, None)
     check("block: しこりと信用残の数", (sup["n"], sup["n_margin"], sup["margin_asof"]), (25, 1, "2026-10-02"))
     br = _supply_brief({**sup, "watch": [{"code": "0001"}]}, {"0001": {"n": "A", "mg": mg["0001"]}}, ["0001", "0001"])
     check("Routine の要約: ウォッチと注文（重複しない）", (len(br["watch"]), len(br["orders"]), br["watch"][0]["mg"]["buy"]), (1, 1, 1000))

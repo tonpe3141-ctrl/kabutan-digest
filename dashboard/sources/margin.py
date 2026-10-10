@@ -63,11 +63,14 @@ def parse_history(html: str) -> list[dict]:
     return out
 
 
-def fetch_history(code: str, pages: int = 1) -> list[dict]:
-    """新しい順に pages ページ分（1ページ20週）。取れなければ []。"""
+def fetch_history(code: str, pages: int = 1) -> list[dict] | None:
+    """新しい順に pages ページ分（1ページ20週）。表が無い（信用銘柄でない・上場が新しい）なら []、
+    1ページ目に届かなければ None（相手の遮断・通信の失敗。呼び出し側は続けて失敗したら打ち切る）。"""
     out: list[dict] = []
     for p in range(1, pages + 1):
-        html = get_text(URL.format(code=code) + (f"&page={p}" if p > 1 else ""), timeout=20)
+        html = get_text(URL.format(code=code) + (f"&page={p}" if p > 1 else ""), timeout=20, retries=1)
+        if html is None and p == 1:
+            return None
         rows = parse_history(html) if html else []
         if not rows:
             break
@@ -75,6 +78,6 @@ def fetch_history(code: str, pages: int = 1) -> list[dict]:
     return out
 
 
-def fetch(code: str) -> list[dict]:
+def fetch(code: str) -> list[dict] | None:
     """大引で使う: 直近20週。"""
     return fetch_history(code, pages=1)

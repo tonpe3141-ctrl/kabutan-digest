@@ -373,14 +373,14 @@ def margin_notes(m: dict) -> list[dict]:
     return out
 
 
-def block(dates: list, stocks: dict, margin: dict | None = None) -> tuple:
-    """thermo.json の supply と、銘柄ごとの jk（しこり）・mg（信用残）。"""
+def block(dates: list, stocks: dict, margin: dict | None = None, verify: bool = True) -> tuple:
+    """thermo.json の supply と、銘柄ごとの jk（しこり）・mg（信用残）。verify=False なら検証を数え直さない。"""
     rows = today_rows(dates, stocks)
+    ver = None
     try:
-        ver = verify(dates, stocks)
+        ver = globals()["verify"](dates, stocks) if verify else None
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  需給（しこり）の検証で例外: {e}")
-        ver = None
     mg = {}
     for code, e in ((margin or {}).get("stocks") or {}).items():
         try:

@@ -15,9 +15,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - name: "一時: 信用残の連続取得"
-        run: python tools/probe_margin_rate.py
-        timeout-minutes: 10
+      - name: "一時: 信用残の検証（研究）"
+        run: python tools/research_margin.py 110 4 2.0
+        timeout-minutes: 25
       - name: 信用残・需給の材料（Yahoo の銘柄ページ・JPX・日証金）
         run: python tools/probe_margin.py
         if: always()

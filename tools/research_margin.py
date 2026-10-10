@@ -15,8 +15,12 @@ from statistics import mean, median
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from dashboard import http as HTTP                  # noqa: E402
 from dashboard import supply as SU                  # noqa: E402
 from dashboard.sources import margin as MS          # noqa: E402
+
+GAP = float(sys.argv[3]) if len(sys.argv) > 3 else 2.0
+HTTP._MIN_INTERVAL["finance.yahoo.co.jp"] = GAP     # 続けて100回ほど読むと届かなくなったので、間隔を空ける
 
 N_STOCKS = int(sys.argv[1]) if len(sys.argv) > 1 else 150
 PAGES = int(sys.argv[2]) if len(sys.argv) > 2 else 5
@@ -49,10 +53,14 @@ def pub_index(d: str):
 
 
 groups: dict[str, list] = {}
-n_weeks = n_ok = n_split = 0
+n_weeks = n_ok = n_split = n_fail = 0
 first_date = None
 for k, code in enumerate(codes):
-    raw = sorted(MS.fetch_history(code, pages=PAGES), key=lambda x: x["date"])
+    got = MS.fetch_history(code, pages=PAGES)
+    if got is None:
+        n_fail += 1
+        print(f"  {k}: {code} 届かない（{n_fail}回目）")
+    raw = sorted(got or [], key=lambda x: x["date"])
     if not raw:
         continue
     hist, splits = SU.adjust_splits(raw)          # 分割の前の週を今の株数にそろえる（日足は分割を調整済み）
@@ -99,7 +107,7 @@ for k, code in enumerate(codes):
 
 allw = sorted(d for v in groups.get("all", []) for d in [v[0]])
 split = allw[len(allw) // 2] if allw else None
-print(f"\n取れた銘柄 {n_ok}・週 {n_weeks}・分割の補正 {n_split}回・最古の残高 {first_date}・前半は {split} まで。次の{H}営業日の対市場（%）")
+print(f"\n取れた銘柄 {n_ok}（届かなかった {n_fail}）・週 {n_weeks}・分割の補正 {n_split}回・最古の残高 {first_date}・前半は {split} まで。次の{H}営業日の対市場（%）")
 
 
 def agg(xs):

@@ -574,6 +574,13 @@ def run(slot: str, target_date: date | None = None) -> dict:
     # 売買タブの買う候補に、決算の材料（自社の決算・類似銘柄の決算・次の決算日）を添える。注文は変えない（DESIGN.md 23章）
     payload["picks"] = _safe("決算の材料（売買）", lambda: _build_picks(target_date, payload.get("newsflow")))
 
+    # 信用残（週1回の残高。Yahoo の信用残の時系列）。同じホストに続けて取りに行くので、ほかの収集が済んでから（DESIGN.md 26章）
+    if slot == "taibike":
+        print("  [需給] 信用残を取り直しています...")
+        sup = _safe("信用残", lambda: thermo_run.refresh_margin(target_date, payload))
+        if sup and payload.get("thermo"):
+            payload["thermo"]["supply"] = sup
+
     store.save_slot(target_date, slot, payload)
     store.update_history(target_date, hist_patch)
     removed = store.prune_history()
