@@ -15,7 +15,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
+      - name: 信用残・需給の材料（Yahoo の銘柄ページ・JPX・日証金）
+        run: python tools/probe_margin.py
+        if: always()
       - run: python tools/probe.py
+        if: always()
       - name: 候補データ源（株探配信先・追加ランキング）
         run: python tools/probe_sources.py
         if: always()
