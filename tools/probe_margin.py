@@ -56,7 +56,7 @@ def absolute(base, href):
 
 
 # ---- 1. Yahoo!ファイナンスの銘柄ページ ----
-for code in CODES:
+for code in []:  # 1回目で確認済み（tools の履歴）
     url = f"https://finance.yahoo.co.jp/quote/{code}.T"
     print(f"\n=== Yahoo 銘柄ページ {code} ===\n    {url}")
     r = get(url)
@@ -116,3 +116,81 @@ for url in ["https://www.taisyaku.jp/", "https://www.taisyaku.jp/search/",
             print(f"    先頭のファイル {u}: status={r.status_code} bytes={len(r.content)} 先頭={r.content[:200]!r}")
 
 print("\n完了")
+
+
+# ---- 4. 信用残の時系列（銘柄ページのリンク先）と、日証金の銘柄ページの本文 ----
+def xlsx_rows(content, limit=40):
+    """xlsx を標準ライブラリだけで読む（最初のシート）。"""
+    import io
+    import zipfile
+    import xml.etree.ElementTree as ET
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    z = zipfile.ZipFile(io.BytesIO(content))
+    print(f"    シート: {[n for n in z.namelist() if n.startswith('xl/worksheets/')]}")
+    ss = []
+    if "xl/sharedStrings.xml" in z.namelist():
+        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
+            ss.append("".join(t.text or "" for t in si.iter("{%s}t" % ns["m"])))
+    sheet = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet"))[0]
+    out = []
+    for row in ET.fromstring(z.read(sheet)).iter("{%s}row" % ns["m"]):
+        vals = []
+        for c in row.findall("m:c", ns):
+            v = c.find("m:v", ns)
+            t = c.get("t")
+            x = v.text if v is not None else ""
+            if t == "s" and x:
+                x = ss[int(x)]
+            elif t == "inlineStr":
+                x = "".join(tt.text or "" for tt in c.iter("{%s}t" % ns["m"]))
+            vals.append(f"{c.get('r')}={x}")
+        out.append(vals)
+    for r in out[:limit]:
+        print("      " + " | ".join(r)[:300])
+    print(f"    行数: {len(out)}")
+    return out
+
+
+for code in CODES[:2]:
+    r = get(f"https://finance.yahoo.co.jp/quote/{code}.T")
+    if r is None or r.status_code != 200:
+        continue
+    soup = BeautifulSoup(r.text, "html.parser")
+    a = next((a for a in soup.find_all("a", href=True) if "信用残時系列" in a.get_text()), None)
+    print(f"\n=== 信用残の時系列 {code} === リンク: {a['href'] if a else None}")
+    if a:
+        u = absolute("https://finance.yahoo.co.jp/", a["href"])
+        r2 = get(u)
+        if r2 is not None:
+            print(f"    {u} status={r2.status_code} len={len(r2.text)}")
+            t2 = BeautifulSoup(r2.text, "html.parser").get_text("\n", strip=True)
+            i = t2.find("信用買残")
+            print("    本文: " + t2[max(0, i - 100): i + 1500].replace("\n", " | ") if i >= 0 else f"    信用買残が無い。先頭: {t2[:600]!r}")
+            for kw in ("marginBuy", "creditBuy", "margin", "Margin"):
+                j = r2.text.find(kw)
+                if j >= 0:
+                    print(f"    '{kw}' 前後: {r2.text[j - 80: j + 400]!r}")
+                    break
+
+r = get(f"https://www.taisyaku.jp/search/result/index/1/?code={CODES[0]}")
+if r is not None and r.status_code == 200:
+    t = BeautifulSoup(r.text, "html.parser").get_text("\n", strip=True)
+    i = max(t.find("融資"), 0)
+    print(f"\n=== 日証金 {CODES[0]} 本文 ===\n    " + t[i: i + 1500].replace("\n", " | "))
+
+for label, url, pat in [
+    ("JPX 信用取引現在高 過去推移", "https://www.jpx.co.jp/markets/statistics-equities/margin/05.html", r"\.xlsx$"),
+    ("JPX 信用取引現在高（日々）", "https://www.jpx.co.jp/markets/statistics-equities/margin/index.html", r"\.xlsx$"),
+    ("JPX 投資部門別（週）", "https://www.jpx.co.jp/markets/statistics-equities/investor-type/index.html", r"stock_1_w_\d+_\d+\.xlsx$"),
+]:
+    found = links(label, url, pat, n=3)
+    if found:
+        u = absolute(url, found[0])
+        r = get(u, timeout=60)
+        if r is not None and r.status_code == 200:
+            print(f"    {u}")
+            try:
+                xlsx_rows(r.content, limit=60)
+            except Exception as e:                  # noqa: BLE001
+                print(f"    読めない: {e}")
+print("\n完了2")
