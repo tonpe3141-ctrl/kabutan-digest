@@ -15,11 +15,11 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, swing as W, thermo as T
-from .config import SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
+from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, supply as SU, swing as W, thermo as T
+from .config import MARGIN_FETCH_MAX, MARGIN_GIVE_UP, MARGIN_PATH, SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
-from .sources import cnbc, nikkei225, nikkei_per, press
+from .sources import cnbc, margin as margin_src, nikkei225, nikkei_per, press
 from .themes import load_themes
 
 HIST_DAYS = 40
@@ -346,6 +346,15 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         print(f"    ⚠️  同業の急騰・急落で例外: {e}")
         spill = None
 
+    # 需給: 上値のしこり（日足から全銘柄）と信用残（margin.json。取り直しは大引の最後に refresh_margin が行う）。注文には使わない
+    try:
+        supply, jk_rows, mg_rows = SU.block(ohlc.get("dates") or [], ohlc.get("stocks") or {}, _read(MARGIN_PATH, {}) or {})
+        supply["watch"] = _supply_watch(watch, names, jk_rows, mg_rows)
+        print(f"    ✅ 需給: しこり {supply['n']}銘柄（多い {supply['n_heavy']}）・信用残 {supply['n_margin']}銘柄")
+    except Exception as e:                      # noqa: BLE001  収集は止めない
+        print(f"    ⚠️  需給で例外: {e}")
+        supply, jk_rows, mg_rows = None, {}, {}
+
     stock_rows = {}
     for code, mt in metrics.items():
         cls = T.stock_class(mt)
@@ -362,6 +371,10 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         }
         if code in crowd_rows:
             stock_rows[code]["cw"] = crowd_rows[code]
+        if code in jk_rows:
+            stock_rows[code]["jk"] = {k: v for k, v in jk_rows[code].items() if k != "asof"}
+        if code in mg_rows:
+            stock_rows[code]["mg"] = mg_rows[code]
 
     def pick_list(kind, key_fn, limit, reverse=False):
         rows = [dict(code=c, **r) for c, r in stock_rows.items() if kind in r["cls"]]
@@ -385,7 +398,7 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
         "market": market, "backtest": bt,
         "drivers": [{"key": k, "label": T.DRIVER_LABEL[k], **v} for k, v in drivers.items()],
         "sectors": sectors, "themes": theme_rows[:14], "lists": lists, "watch_guard": guard,
-        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "spill": spill, "stocks": stock_rows, "live": bool(live),
+        "swing": swing, "hold": hold, "strength": strength, "crowd": crowd, "spill": spill, "supply": supply, "stocks": stock_rows, "live": bool(live),
         "coverage": {"macro": len(data.get("macro") or {}), "stocks": len(stock_rows),
                      "stock_days": len(dates), "eps_days": len(eps), "news_titles": tone_today["n"],
                      "ohlc_stocks": len(sw_rows), "ohlc_days": len(ohlc.get("dates") or [])},
@@ -471,6 +484,77 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
 
 
 CONTRA = ("押し目", "売られすぎ・下げ止まり")
+
+
+def _supply_watch(watch: list[str], names: dict, jk_rows: dict, mg_rows: dict) -> list[dict]:
+    return [{"code": c, "name": names.get(c) or c, "jk": jk_rows.get(c), "mg": mg_rows.get(c)}
+            for c in watch if c in jk_rows or c in mg_rows]
+
+
+def margin_update(mstore: dict, codes: list[str], first: set[str], fetch_margin, today: str,
+                  limit: int = MARGIN_FETCH_MAX, give_up: int = MARGIN_GIVE_UP) -> tuple[int, int, bool]:
+    """信用残を取り直す。ウォッチ・注文の銘柄は残高の週が古ければ毎日、ほかは3日おきに、上限まで。
+    相手に届かない（None）ことが give_up 回続いたら打ち切る（遮断されたまま叩き続けない）。
+    戻り値は（取れた銘柄、取りに行った銘柄、打ち切ったか）。"""
+    got = tried = fails = 0
+    for code in codes:
+        if tried >= limit:
+            break
+        if not SU.due(mstore, code, today, every=1 if code in first else 3):
+            continue
+        tried += 1
+        try:
+            rows = fetch_margin(code)
+        except Exception:                       # noqa: BLE001  1銘柄の不具合で止めない
+            rows = None
+        if rows is None:
+            fails += 1
+            if fails >= give_up:
+                return got, tried, True
+            continue
+        fails = 0
+        SU.merge_margin(mstore, code, rows, today)
+        got += 1 if rows else 0
+    return got, tried, False
+
+
+def refresh_margin(target_date: date, payload: dict, fetch_margin=None) -> dict | None:
+    """大引の最後に信用残を取り直し、margin.json と thermo.json（stocks.*.mg・supply）を書き直す。
+
+    Yahoo の同じホストに続けて取りに行くので、ほかの収集（決算の銘柄ページなど）が済んでから呼ぶ。
+    休場日（日経が stale）は取りに行かない。latest.json の要約に載せる supply を返す。"""
+    nk = (payload.get("indices") or {}).get("nikkei") or {}
+    if not nk or nk.get("stale"):
+        return None
+    th = _read(THERMO_PATH, None)
+    if not th or not th.get("stocks"):
+        return None
+    today = target_date.isoformat()
+    fetch_margin = fetch_margin or margin_src.fetch
+    mstore = _read(MARGIN_PATH, {}) or {}
+    watch = store.load_watchlist().get("codes", [])
+    sw = th.get("swing") or {}
+    first = watch + [o["code"] for o in (sw.get("orders") or []) + (sw.get("near") or []) + ((sw.get("mid") or {}).get("orders") or [])]
+    # 残りは売買代金の大きい順（押し目買いの候補になりうる銘柄から）
+    rest = sorted(th["stocks"], key=lambda c: -(((th["stocks"][c].get("sw") or {}).get("tv")) or 0))
+    got, tried, gave_up = margin_update(mstore, list(dict.fromkeys(first + rest)), set(first), fetch_margin, today)
+    mstore["updated_at"] = store.now_jst().isoformat(timespec="seconds")
+    _write(MARGIN_PATH, mstore, indent=0)
+    print(f"    {'⚠️ ' if gave_up else '✅'} 信用残: {tried}銘柄に取りに行き {got}銘柄を更新"
+          + ("（届かない応答が続いたので打ち切り）" if gave_up else "") + f"。たまっている {len(mstore.get('stocks') or {})}銘柄")
+    ohlc = bars_mod.load_ohlc()
+    sup, jk_rows, mg_rows = SU.block(ohlc.get("dates") or [], ohlc.get("stocks") or {}, mstore, verify=False)
+    for code, st in th["stocks"].items():
+        if code in mg_rows:
+            st["mg"] = mg_rows[code]
+    old = th.get("supply") or {}
+    th["supply"] = {**old, "n_margin": sup["n_margin"], "margin_asof": sup["margin_asof"],
+                    "watch": _supply_watch(watch, {c: s.get("n") for c, s in th["stocks"].items()},
+                                           {c: s.get("jk") for c, s in th["stocks"].items() if s.get("jk")}, mg_rows)}
+    _write(THERMO_PATH, th)
+    sw_ = th.get("swing") or {}
+    return _supply_brief(th["supply"], th["stocks"],
+                         [o["code"] for o in (sw_.get("orders") or []) + ((sw_.get("mid") or {}).get("orders") or [])])
 
 
 def is_pick(s: dict) -> bool:
@@ -777,7 +861,35 @@ def summary(th: dict) -> dict | None:
         "crowd": _crowd_brief(th.get("crowd")),
         # 同業の急騰・急落と動かなかった仲間（連想の材料）。検証では「動かなかった仲間が追いつく」とは言えなかった
         "spill": _spill_brief(th.get("spill")),
+        # 需給（上値のしこり・信用残）。ウォッチと注文の銘柄だけ。注文・判定には使わない
+        "supply": _supply_brief(th.get("supply"), th.get("stocks") or {},
+                                [o["code"] for o in (sw.get("orders") or []) + ((sw.get("mid") or {}).get("orders") or [])]),
     }
+
+
+def _jk_brief(code: str, st: dict) -> dict | None:
+    jk, mg = st.get("jk"), st.get("mg")
+    if not jk and not mg:
+        return None
+    out = {"code": code, "name": st.get("n")}
+    if jk:
+        out.update({"above": jk.get("above"), "vwap": jk.get("vwap"), "gap": jk.get("gap"), "wall": jk.get("wall")})
+    if mg:
+        out["mg"] = {k: mg.get(k) for k in ("date", "buy", "sell", "buy_chg", "ratio", "days", "w", "buy_w", "px_w")}
+        out["mg"]["notes"] = [n["t"] for n in mg.get("notes") or []]
+    return out
+
+
+def _supply_brief(su: dict | None, stocks: dict, order_codes: list[str]) -> dict | None:
+    if not su:
+        return None
+    v = (su.get("verify") or {}).get("cls") or {}
+    up = {k: [x.get("up") if x else None for x in v.get(k) or []] for k in ("light", "mid", "heavy", "heavier", "all")} if v else None
+    watch = [w["code"] for w in su.get("watch") or []]
+    return {"rule": (su.get("rules") or {}).get("text"), "h": (su.get("verify") or {}).get("h"), "up": up,
+            "n": su.get("n"), "n_heavy": su.get("n_heavy"), "margin_asof": su.get("margin_asof"),
+            "watch": [b for b in (_jk_brief(c, stocks.get(c) or {}) for c in watch) if b],
+            "orders": [b for b in (_jk_brief(c, stocks.get(c) or {}) for c in dict.fromkeys(order_codes)) if b]}
 
 
 def _spill_brief(sp: dict | None) -> dict | None:

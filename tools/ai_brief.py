@@ -210,6 +210,7 @@ def thermo(b: Brief, d: dict, picks: dict):
                         f"{name(x['name'])}({'/'.join((x.get('th') or [])[:1])}){pct(x.get('prev'))}→{pct(x.get('now'))}" for x in xs[:6]))
             if rot.get("themes"):
                 b.add("テーマ別: " + "、".join(f"{t['theme']}(置き去り{t['out']}・買われ{t['into']})" for t in rot["themes"]))
+    supply(b, th.get("supply") or {})
     sw = th.get("swing") or {}
     earn = (picks or {}).get("earn") or {}
     b.h(f"買う候補（{sw.get('asof')} の引けで出た注文。次の営業日だけ有効。価格は付け直さない）")
@@ -247,6 +248,43 @@ def thermo(b: Brief, d: dict, picks: dict):
         b.add("材料の監視（上昇トレンド・売買代金の条件を満たし、決算・進捗・ニュース・同業の急騰のどれかがある。注文ではない）: "
               + "、".join(f"{x['name']}({x['code']}) 注文対象まで{pct(x.get('to'))}［" + "／".join(cut(y.get('t'), 34) for y in x.get("why") or []) + "］"
                           for x in w))
+
+
+def _shares(v):
+    if not isinstance(v, (int, float)):
+        return "—"
+    return f"{v / 1e4:+,.0f}万株" if v < 0 else f"{v / 1e4:,.0f}万株"
+
+
+def supply_line(x: dict) -> str:
+    parts = []
+    if x.get("above") is not None:
+        parts.append(f"上値の出来高{x['above']:.0f}%・平均の値段{num(x.get('vwap'))}円（今{pct(x.get('gap'))}）")
+        w = x.get("wall")
+        if w:
+            parts.append(f"壁{num(w.get('lo'))}〜{num(w.get('hi'))}円に{w.get('pct')}%")
+    m = x.get("mg")
+    if m:
+        parts.append(f"信用 {m.get('date')} 買残{_shares(m.get('buy'))}（前週比{_shares(m.get('buy_chg'))}）売残{_shares(m.get('sell'))}"
+                     f" 倍率{m.get('ratio')} 買残は出来高の{m.get('days')}日分"
+                     + (f" {m.get('w')}週で買残{pct(m.get('buy_w'), 0)}・株価{pct(m.get('px_w'))}" if m.get("buy_w") is not None else ""))
+        for t in m.get("notes") or []:
+            parts.append(t)
+    return f"{name(x.get('name'))}({x.get('code')}) " + "／".join(parts)
+
+
+def supply(b: Brief, su: dict):
+    if not su or not (su.get("watch") or su.get("orders")):
+        return
+    b.h("需給（上値のしこり・信用残。付け直さない。注文・判定には使わない）")
+    up = su.get("up") or {}
+    if up.get("heavy") and up.get("light"):
+        b.add(f"しこり: {su.get('rule')}。次の{su.get('h')}営業日に市場に勝った割合（前半→後半） 30%未満 {up['light']} ／50〜70% {up['heavy']}"
+              f" ／70%以上 {up.get('heavier')} ／全部 {up.get('all')}。差は小さい。信用残は研究の値を一言に添えている（警告は1週で買残+30%以上だけ）")
+    for x in su.get("watch") or []:
+        b.add("ウォッチ " + supply_line(x))
+    for x in su.get("orders") or []:
+        b.add("注文 " + supply_line(x))
 
 
 def earnings(b: Brief, d: dict):

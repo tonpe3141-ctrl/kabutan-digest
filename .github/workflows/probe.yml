@@ -34,3 +34,6 @@ jobs:
       - name: 決算から読む の材料（TDnet の PDF・銘柄ページの決算速報）
         run: python tools/probe_earnings.py
         if: always()
+      - name: 信用残（Yahoo の信用残の時系列・JPX）
+        run: python tools/probe_margin.py
+        if: always()
