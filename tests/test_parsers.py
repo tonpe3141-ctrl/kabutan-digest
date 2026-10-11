@@ -1228,48 +1228,80 @@ def test_hold():
     from dashboard import hold as HD, swing as W
     from dashboard.thermo_run import _hd_brief, hold_block
 
-    print("\n[保有株の判定（持つ・減らす・売り方）]")
+    print("\n[保有株の売り時（持つ・売る・売り方・値段の線）]")
     check("20日 +12% は勝ち → 持つ", HD.classify(12.0, 50.0), ("win", "hold"))
+    check("20日 +12%・5日線から +2.5ATR は伸びすぎ → 持つ（伸びすぎ）", HD.classify(12.0, 95.0, 2.5), ("win", "hot"))
     check("20日 −25% は急落 → 今は売らない（2日RSI によらない）", HD.classify(-25.0, 5.0), ("crash", "wait"))
     check("20日 −8%・2日RSI 5 は負けの押した日 → 売り指値で", HD.classify(-8.0, 5.0), ("lose", "trim_limit"))
-    check("20日 −8%・2日RSI 80 は負けの戻った日 → 戻った今", HD.classify(-8.0, 80.0), ("lose", "trim_now"))
-    check("20日 −8%・2日RSI 40 は負け", HD.classify(-8.0, 40.0), ("lose", "trim"))
-    check("20日 +3% は中立（形の差なし）", HD.classify(3.0, 40.0), ("flat", "flat"))
-    check("境目: 20日 −5% ちょうどは負け、+10% ちょうどは勝ち",
-          (HD.classify(-5.0, 40.0)[0], HD.classify(10.0, 40.0)[0]), ("lose", "win"))
+    check("20日 −8%・2日RSI 92 は負けの戻った日 → 売り時", HD.classify(-8.0, 92.0), ("lose", "trim_now"))
+    check("20日 −8%・2日RSI 80 は戻り切っていない → 減らす候補", HD.classify(-8.0, 80.0), ("lose", "trim"))
+    check("20日 +3% は中立（様子見）。伸びすぎでも中立は中立", HD.classify(3.0, 40.0, 3.0), ("flat", "flat"))
+    check("境目: 20日 −5% ちょうどは負け、+10% ちょうどは勝ち、2日RSI 90 ちょうどは戻った日",
+          (HD.classify(-5.0, 40.0)[0], HD.classify(10.0, 40.0)[0], HD.classify(-8.0, 90.0)[1]), ("lose", "win", "trim_now"))
     check("20日の騰落が無ければ判定しない", HD.classify(None, 40.0), (None, None))
 
     # 上昇が続いたあと、最後に下げる日足
     bars = _swing_bars(n=60, drift=0.004, dips=(-3.0, -3.0, -3.0, -3.0))
     ind = W.indicators(bars)
-    row = HD.today_row(ind)
+    row = HD.today_row(ind, -2.0)
     i = len(bars) - 1
     want_sell = W.tick_up(sum(b[4] for b in bars[-4:]) / 4)
     check("売り指値 = 直近4日の終値の平均（呼値で切り上げ）", (row["sell"], HD.sell_limit(ind, i)), (want_sell, want_sell))
-    check("判定は20日の騰落と2日RSI から", (row["cls"], row["v"]), HD.classify(HD.ret_n(ind, i), ind["rsi"][i]))
-    check("最新の日付と終値", (row["asof"], row["c"]), (bars[-1][0], bars[-1][4]))
+    check("判定は20日の騰落と2日RSI と5日線からの離れから",
+          (row["cls"], row["v"]), HD.classify(HD.ret_n(ind, i), ind["rsi"][i], HD.z5(ind, i)))
+    check("最新の日付と終値・全銘柄の平均", (row["asof"], row["c"], row["mk"]), (bars[-1][0], bars[-1][4], -2.0))
     check("日足が短すぎれば判定しない", HD.today_row(W.indicators(bars[:15])), None)
     check("thermo.json の hd は必要な項目だけ", sorted(_hd_brief(row)),
-          sorted(["asof", "c", "cls", "v", "r20", "rsi2", "r5", "dd60", "atr", "sell"]))
+          sorted(["asof", "c", "cls", "v", "r20", "rsi2", "r5", "dd60", "atr", "sell", "z5", "mk", "panic", "lines"]))
+    check("2日RSI の境目の値段: 10 なら押し目買いの入口の値段（swing.trigger_price）と同じ",
+          round(HD.rsi_price(ind, i, 10.0), 6), round(W.trigger_price(ind, i), 6))
+
+    def next_ind(p):
+        return W.indicators(bars + [("2099-01-01", p, p, p, p, bars[-1][5])])
+    pb = HD.rsi_price(ind, i, HD.BOUNCE_RSI)
+    check("戻りの線: その終値で引けると2日RSI がちょうど 90",
+          round(next_ind(pb)["rsi"][-1], 4), HD.BOUNCE_RSI)
+    ph = HD.z5_price(ind, i, HD.HOT_Z)
+    ind2 = next_ind(ph)
+    check("伸びすぎの線: その終値で引けると (終値−5日線)/ATR が +2（ATR は今日の値）",
+          round((ind2["c"][-1] - sum(ind2["c"][-5:]) / 5) / ind["atr"][i], 6), HD.HOT_Z)
+    check("線は今日の値段の上下に並ぶ（崩れ < 終値 < 戻り・伸びすぎ）",
+          row["lines"]["brk"] < row["c"] < min(row["lines"]["bounce"], row["lines"]["hot"]), True)
+    # 相場ぐるみの急落: 全銘柄の平均が −1.5% 以下の日に、5日線から −2ATR 以上崩れた
+    crash = _swing_bars(n=60, drift=0.004, dips=(-12.0,))
+    ci = W.indicators(crash)
+    check("相場ぐるみの急落の日に崩れた → panic", (HD.today_row(ci, -2.5)["panic"], HD.today_row(ci, -0.5)["panic"]),
+          (HD.z5(ci, len(crash) - 1) <= HD.BRK_Z, False))
 
     am = HD.intraday(1000, 960, 940, nk_prev=40000, nk_last=39600)
     check("前場: 窓・前日比・日経・日経との差", (am["gap"], am["move"], am["nk"], am["ex"]), (-4.0, -6.0, -1.0, -5.0))
     check("前場: 前日の終値が無ければ出さない", HD.intraday(None, 960, 940), None)
 
-    # 検証: 先読みしない（最後の20日は数えない）・前半と後半に分ける
+    # 全銘柄の平均: 30銘柄未満の日は出さない
     flat = _swing_bars(n=120, drift=0.0)
     up = _swing_bars(n=120, drift=0.01)
     inds = {"1111": W.indicators(flat), "2222": W.indicators(up)}
-    nk = {b[0]: 30000.0 for b in flat}
-    v = HD.verify(inds, nk, min_tv=0)
-    check("検証: 最後の20営業日は結果が無いので数えない（20日後の引けがある日まで）", v["to"], flat[-1 - HD.H][0])
-    n_all = v["cls"]["all"][0]["n"] + v["cls"]["all"][1]["n"]
-    check("検証: 形ごとの件数の合計 = 全体", sum(v["cls"][k][0]["n"] + v["cls"][k][1]["n"] for k in HD.CLASSES), n_all)
-    check("検証: 日経が横ばいなら、上げ続けた銘柄（勝ち）の日経との差はプラス", v["cls"]["win"][1]["avg"] > 0, True)
+    check("全銘柄の平均: 銘柄が少ない日は出さない", HD.market_moves(inds, min_tv=0), {})
+    many = {str(k): W.indicators(up) for k in range(30)}
+    mv = HD.market_moves(many, min_tv=0)
+    check("全銘柄の平均: そろって +1% なら +1%", round(mv[up[40][0]], 6), round((up[40][4] / up[39][4] - 1) * 100, 6))
+
+    # 検証: 先読みしない（最後の20日は数えない）・前半と後半に分ける・平均的な銘柄（横ばい）と比べる
+    moves = {b[0]: 0.0 for b in flat}
+    v = HD.verify(inds, moves, min_tv=0)
+    check("検証: 最後の20営業日は20日後の結果が無いので数えない", v["to"], flat[-1 - HD.H][0])
+    n_all = v["v"]["all"]["20"][0]["n"] + v["v"]["all"]["20"][1]["n"]
+    check("検証: 形ごとの件数の合計 = 全体", sum(v["v"][k]["20"][0]["n"] + v["v"][k]["20"][1]["n"] for k in HD.CLASSES), n_all)
+    check("検証: 判定ごとの件数の合計 = 全体", sum(v["v"][k]["20"][0]["n"] + v["v"][k]["20"][1]["n"] for k in HD.VERDICTS), n_all)
+    check("検証: 平均が横ばいなら、上げ続けた銘柄（勝ち）の差はプラス", v["v"]["win"]["20"][1]["avg"] > 0, True)
+    check("検証: 5・10・20日の3つ", sorted(v["v"]["all"]), ["10", "20", "5"])
     check("検証: 前半と後半を split の日で分ける", v["split"] > v["from"] and v["split"] <= v["to"], True)
-    blk = hold_block(inds, nk, {"2222": HD.today_row(inds["2222"])})
+    blk = hold_block(inds, moves, {"2222": HD.today_row(inds["2222"])})
     check("hold ブロック: 判定の一言・検証・研究の値", sorted(blk), sorted(["rules", "verdicts", "classes", "verify", "research", "exits", "pm"]))
-    check("研究の値は前半・後半の2つずつ", all(len(r["avg"]) == 2 for r in blk["exits"]["rows"]), True)
+    check("出口の研究の値は、3つの買い方 × 前半・後半", all(len(r["diff"][k]) == 2 for r in blk["exits"]["rows"] for k in ("all", "chase", "dip")), True)
+    check("採った出口（撤退ライン・売り時）は、3つの買い方の前半・後半すべてで「持ち続ける」以上（差 −0.05pt まで）",
+          all(x >= -0.05 for r in blk["exits"]["rows"] if r["adopt"] for k in ("all", "chase", "dip") for x in r["diff"][k]), True)
+    check("判定の一言には、取る行動（持つ・売る・減らす）がある", sorted({x["act"] for x in HD.VERDICTS.values()}), ["hold", "sell", "trim"])
 
 
 # ==================== 混み合いの印・主役の入れ替わり ====================

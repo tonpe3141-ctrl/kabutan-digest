@@ -300,15 +300,21 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
     swing = swing_block(ohlc, sw_rows, ind_of, names, sector_of, themes.get("stocks") or {})
     # 保有株の判定（自分の判断で持っている銘柄向け。確定した日足だけで決める。前場の値はアプリが突き合わせる）
     hold_rows = {}
+    hold_inds = {c: ind_of(c) for c in sw_rows}
+    try:
+        mk_moves = HD.market_moves(hold_inds)   # 全銘柄の等ウェイト平均の前日比（相場ぐるみの急落・検証の比べる相手）
+    except Exception:                           # noqa: BLE001  収集は止めない
+        mk_moves = {}
     for code in sw_rows:
         try:
-            r = HD.today_row(ind_of(code))
+            ind = ind_of(code)
+            r = HD.today_row(ind, mk_moves.get(ind["d"][-1]))
         except Exception:                       # noqa: BLE001  1銘柄の不具合で止めない
             r = None
         if r:
             hold_rows[code] = r
     try:
-        hold = hold_block({c: ind_of(c) for c in sw_rows}, dict(bars_mod.series(data, "nikkei")), hold_rows)
+        hold = hold_block(hold_inds, mk_moves, hold_rows)
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  保有株の判定で例外: {e}")
         hold = None
@@ -515,13 +521,15 @@ def _hd_brief(row: dict | None) -> dict | None:
     """銘柄ごとの、保有株の判定（アプリの「保有株」カードと売る前チェックが読む）。"""
     if not row:
         return None
-    return {k: row.get(k) for k in ("asof", "c", "cls", "v", "r20", "rsi2", "r5", "dd60", "atr", "sell")}
+    return {k: row.get(k) for k in ("asof", "c", "cls", "v", "r20", "rsi2", "r5", "dd60", "atr", "sell", "z5", "mk",
+                                     "panic", "lines")}
 
 
-def hold_block(inds: dict, nk: dict, rows: dict) -> dict:
-    """thermo.json の hold。判定の定数と一言、日足キャッシュに毎日当てた検証、研究の値（出口の規則・後場）。"""
+def hold_block(inds: dict, moves: dict, rows: dict) -> dict:
+    """thermo.json の hold。判定の定数と一言、日足キャッシュに毎日当てた検証、研究の値（出口の規則・後場）。
+    moves は全銘柄の等ウェイト平均の前日比（検証の比べる相手）。"""
     try:
-        verify = HD.verify(inds, nk)
+        verify = HD.verify(inds, moves or None)
     except Exception as e:                      # noqa: BLE001  収集は止めない
         print(f"    ⚠️  保有株の判定の検証で例外: {e}")
         verify = None
@@ -531,8 +539,9 @@ def hold_block(inds: dict, nk: dict, rows: dict) -> dict:
     print(f"    ✅ 保有株の判定: {len(rows)}銘柄（" + "・".join(f"{HD.VERDICTS[k]['label']} {n}" for k, n in sorted(cnt.items()))
           + "）" + (f"、検証 {verify['from']}〜{verify['to']}" if verify else "、検証なし"))
     return {"rules": {"r_n": HD.R_N, "win": HD.WIN_R, "lose": HD.LOSE_R, "crash": HD.CRASH_R, "dip": HD.DIP_RSI,
-                      "bounce": HD.BOUNCE_RSI, "exit_n": HD.EXIT_N, "exec_n": HD.EXEC_N, "gap": HD.GAP,
-                      "stop_atr": HD.STOP_ATR, "h": HD.H},
+                      "bounce": HD.BOUNCE_RSI, "hot_z": HD.HOT_Z, "brk_z": HD.BRK_Z, "panic_mk": HD.PANIC_MK,
+                      "exit_n": HD.EXIT_N, "exec_n": HD.EXEC_N, "gap": HD.GAP, "stop_atr": HD.STOP_ATR, "h": HD.H,
+                      "hs": list(HD.HS)},
             "verdicts": HD.VERDICTS, "classes": HD.CLASSES, "verify": verify,
             "research": HD.RESEARCH, "exits": HD.EXIT_STATS, "pm": HD.PM_STATS}
 
