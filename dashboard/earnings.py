@@ -342,6 +342,9 @@ def enrich_peers(items: list[dict], quotes: dict, closes_of, schedule: dict, log
     read_now = {it["code"]: it.get("dir") for it in items}
     for it in items:
         q = quotes.get(it["code"]) or {}
+        # 引け後（15:30〜）の開示は、いま見えている値動きより後に出ている。開示への反応は翌営業日の値動きに出るので、
+        # この値動きは「開示前」の動きで、決算の評価に使えない（after_close を画面と Routine の要約に渡す）
+        it["after_close"] = _minutes(it.get("time")) >= SESSION_END
         it["move"] = {"pct": q.get("change_pct"), "price": q.get("last"), "asof": q.get("asof")}
         for p in it.get("peers") or []:
             q = quotes.get(p["code"]) or {}

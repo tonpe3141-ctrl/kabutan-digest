@@ -22,11 +22,11 @@
     "d1": -1.89,
     "d5": -3.77,
     "d20": null,
-    "last": -5.19,
-    "last_date": "2026-10-05",
-    "excess": -14.25,
-    "days": 9,
-    "worst": -5.19,
+    "last": -5.38,
+    "last_date": "2026-10-09",
+    "excess": -13.01,
+    "days": 13,
+    "worst": -5.57,
     "x5": -5.87,
     "x20": null
    },
@@ -54,11 +54,11 @@
     "d1": -2.68,
     "d5": -6.58,
     "d20": null,
-    "last": -11.11,
-    "last_date": "2026-10-05",
-    "excess": -20.17,
-    "days": 9,
-    "worst": -11.11,
+    "last": -15.81,
+    "last_date": "2026-10-09",
+    "excess": -23.44,
+    "days": 13,
+    "worst": -16.14,
     "x5": -8.68,
     "x20": null
    },
@@ -86,11 +86,11 @@
     "d1": 0.0,
     "d5": -2.9,
     "d20": null,
-    "last": -0.97,
-    "last_date": "2026-10-05",
-    "excess": -6.37,
-    "days": 6,
-    "worst": -2.9,
+    "last": -3.38,
+    "last_date": "2026-10-09",
+    "excess": -7.4,
+    "days": 10,
+    "worst": -3.62,
     "x5": -5.83,
     "x20": null
    },
@@ -120,11 +120,11 @@
     "d1": 1.85,
     "d5": -0.93,
     "d20": null,
-    "last": -1.85,
-    "last_date": "2026-10-05",
-    "excess": -7.25,
-    "days": 6,
-    "worst": -1.85,
+    "last": 5.43,
+    "last_date": "2026-10-09",
+    "excess": 1.41,
+    "days": 10,
+    "worst": -6.23,
     "x5": -3.86,
     "x20": null
    },
@@ -156,11 +156,11 @@
     "d1": -19.54,
     "d5": -39.66,
     "d20": null,
-    "last": -59.2,
-    "last_date": "2026-10-05",
-    "excess": -66.78,
-    "days": 8,
-    "worst": -59.2,
+    "last": -58.62,
+    "last_date": "2026-10-09",
+    "excess": -64.79,
+    "days": 12,
+    "worst": -60.34,
     "x5": -42.33,
     "x20": null
    },
@@ -192,10 +192,10 @@
     "d1": 5.16,
     "d5": 4.74,
     "d20": null,
-    "last": 9.87,
-    "last_date": "2026-10-05",
-    "excess": 2.29,
-    "days": 8,
+    "last": 3.83,
+    "last_date": "2026-10-09",
+    "excess": -2.34,
+    "days": 12,
     "worst": 2.38,
     "x5": 2.07,
     "x20": null
@@ -222,10 +222,10 @@
     "d1": 0.29,
     "d5": 5.65,
     "d20": null,
-    "last": 8.15,
-    "last_date": "2026-10-05",
-    "excess": 2.75,
-    "days": 6,
+    "last": 5.01,
+    "last_date": "2026-10-09",
+    "excess": 0.99,
+    "days": 10,
     "worst": 0.29,
     "x5": 2.72,
     "x20": null
@@ -253,10 +253,10 @@
     "d1": -1.1,
     "d5": -1.5,
     "d20": null,
-    "last": -1.68,
-    "last_date": "2026-10-05",
-    "excess": -9.26,
-    "days": 8,
+    "last": -0.81,
+    "last_date": "2026-10-09",
+    "excess": -6.98,
+    "days": 12,
     "worst": -2.02,
     "x5": -4.17,
     "x20": null
@@ -289,10 +289,10 @@
     "d1": 4.2,
     "d5": 7.07,
     "d20": null,
-    "last": 9.48,
-    "last_date": "2026-10-05",
-    "excess": 2.71,
-    "days": 7,
+    "last": 2.79,
+    "last_date": "2026-10-09",
+    "excess": -2.58,
+    "days": 11,
     "worst": -1.63,
     "x5": 1.82,
     "x20": null
@@ -319,10 +319,10 @@
     "d1": -0.19,
     "d5": -3.75,
     "d20": null,
-    "last": -4.81,
-    "last_date": "2026-10-05",
-    "excess": -10.21,
-    "days": 6,
+    "last": -3.85,
+    "last_date": "2026-10-09",
+    "excess": -7.87,
+    "days": 10,
     "worst": -4.81,
     "x5": -6.68,
     "x20": null
@@ -352,10 +352,10 @@
     "d1": 1.33,
     "d5": -2.81,
     "d20": null,
-    "last": -2.27,
-    "last_date": "2026-10-05",
-    "excess": -7.67,
-    "days": 6,
+    "last": 1.8,
+    "last_date": "2026-10-09",
+    "excess": -2.22,
+    "days": 10,
     "worst": -2.81,
     "x5": -5.74,
     "x20": null
@@ -384,9 +384,9 @@
     "d5": -9.47,
     "d20": null,
     "last": -9.47,
-    "last_date": "2026-10-05",
-    "excess": -16.24,
-    "days": 7,
+    "last_date": "2026-10-09",
+    "excess": -14.84,
+    "days": 11,
     "worst": -11.52,
     "x5": -14.72,
     "x20": null
@@ -418,13 +418,13 @@
     "d1": 24.43,
     "d5": 8.61,
     "d20": null,
-    "last": 3.3,
-    "last_date": "2026-10-05",
-    "excess": -2.1,
-    "days": 6,
+    "last": -6.72,
+    "last_date": "2026-10-09",
+    "excess": -10.74,
+    "days": 10,
     "x5": 5.68,
     "x20": null,
-    "worst": 3.3
+    "worst": -9.59
    },
    "status": "watching",
    "notes": "売買代金29位に新規ランクインし上昇率2位(+22.44%)。値動きの背景を裏付ける記事は見当たらず、記事での裏付けなし。",
@@ -452,13 +452,13 @@
     "d1": -1.2,
     "d5": -1.69,
     "d20": null,
-    "last": -6.11,
-    "last_date": "2026-10-05",
-    "excess": -11.51,
-    "days": 6,
+    "last": -18.15,
+    "last_date": "2026-10-09",
+    "excess": -22.17,
+    "days": 10,
     "x5": -4.62,
     "x20": null,
-    "worst": -6.11
+    "worst": -20.27
    },
    "status": "watching",
    "notes": "AIテーマの一角として株探の「話題株ピックアップ【夕刊】」にも名前が挙がり、上昇率8位・売買代金上位に新規ランクインした。",
@@ -482,13 +482,13 @@
     "d1": 3.31,
     "d5": 0.76,
     "d20": null,
-    "last": 1.07,
-    "last_date": "2026-10-05",
-    "excess": -4.33,
-    "days": 6,
+    "last": -6.79,
+    "last_date": "2026-10-09",
+    "excess": -10.81,
+    "days": 10,
     "x5": -2.17,
     "x20": null,
-    "worst": 0.63
+    "worst": -6.79
    },
    "status": "watching",
    "notes": "銀行業が東証33業種で首位(+4.08%)となる中、上方修正・増配の開示を機械的に検知して引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率トップ3の筆頭に挙がっている。",
@@ -515,13 +515,13 @@
     "d1": -2.94,
     "d5": -9.23,
     "d20": null,
-    "last": -11.33,
-    "last_date": "2026-10-05",
-    "excess": -16.73,
-    "days": 6,
+    "last": -15.38,
+    "last_date": "2026-10-09",
+    "excess": -19.4,
+    "days": 10,
     "x5": -12.16,
     "x20": null,
-    "worst": -11.33
+    "worst": -15.38
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
@@ -545,13 +545,13 @@
     "d1": 3.87,
     "d5": -1.48,
     "d20": null,
-    "last": 1.66,
-    "last_date": "2026-10-05",
-    "excess": -3.74,
-    "days": 6,
+    "last": -0.92,
+    "last_date": "2026-10-09",
+    "excess": -4.94,
+    "days": 10,
     "x5": -4.41,
     "x20": null,
-    "worst": -1.48
+    "worst": -2.03
    },
    "status": "watching",
    "notes": "通期経常の上方修正・増配に加え負ののれん発生益の計上を開示し引っかかった。株探の業種別騰落ランキング記事でも卸売業の上昇率上位3銘柄に挙がっている。",
@@ -575,13 +575,13 @@
     "d1": 1.73,
     "d5": 1.37,
     "d20": null,
-    "last": 3.46,
-    "last_date": "2026-10-05",
-    "excess": -1.94,
-    "days": 6,
+    "last": -2.83,
+    "last_date": "2026-10-09",
+    "excess": -6.85,
+    "days": 10,
     "x5": -1.56,
     "x20": null,
-    "worst": 0.09
+    "worst": -2.83
    },
    "status": "watching",
    "notes": "中間・期末配当予想の増額修正を開示し引っかかった。株探の業種別騰落ランキング記事でも銀行業上昇率上位3銘柄に挙がっている。",
@@ -605,13 +605,13 @@
     "d1": 0.62,
     "d5": -1.39,
     "d20": null,
-    "last": -2.31,
-    "last_date": "2026-10-05",
-    "excess": -7.71,
-    "days": 6,
+    "last": -3.24,
+    "last_date": "2026-10-09",
+    "excess": -7.26,
+    "days": 10,
     "x5": -4.32,
     "x20": null,
-    "worst": -2.31
+    "worst": -3.24
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
@@ -639,10 +639,10 @@
     "d1": 24.43,
     "d5": 64.66,
     "d20": null,
-    "last": 66.29,
-    "last_date": "2026-10-05",
-    "excess": 60.89,
-    "days": 6,
+    "last": 80.21,
+    "last_date": "2026-10-09",
+    "excess": 76.19,
+    "days": 10,
     "x5": 61.73,
     "x20": null,
     "worst": 24.43
@@ -671,10 +671,10 @@
     "d1": 9.09,
     "d5": 23.3,
     "d20": null,
-    "last": 23.3,
-    "last_date": "2026-10-05",
-    "excess": 17.12,
-    "days": 5,
+    "last": 28.75,
+    "last_date": "2026-10-09",
+    "excess": 23.96,
+    "days": 9,
     "x5": 17.12,
     "x20": null,
     "worst": 9.09
@@ -701,13 +701,13 @@
     "d1": -0.56,
     "d5": -3.67,
     "d20": null,
-    "last": -3.67,
-    "last_date": "2026-10-05",
-    "excess": -9.85,
-    "days": 5,
+    "last": -4.28,
+    "last_date": "2026-10-09",
+    "excess": -9.07,
+    "days": 9,
     "x5": -9.85,
     "x20": null,
-    "worst": -3.72
+    "worst": -4.72
    },
    "status": "watching",
    "notes": "年初来高値を更新し商いを伴ったため引っかかった。記事での裏付けなし。",
@@ -731,13 +731,13 @@
     "d1": 0.71,
     "d5": -1.67,
     "d20": null,
-    "last": -1.67,
-    "last_date": "2026-10-05",
-    "excess": -7.85,
-    "days": 5,
+    "last": -0.95,
+    "last_date": "2026-10-09",
+    "excess": -5.74,
+    "days": 9,
     "x5": -7.85,
     "x20": null,
-    "worst": -1.67
+    "worst": -2.38
    },
    "status": "watching",
    "notes": null,
@@ -761,10 +761,10 @@
     "d1": 2.34,
     "d5": 0.8,
     "d20": null,
-    "last": 0.8,
-    "last_date": "2026-10-05",
-    "excess": -5.38,
-    "days": 5,
+    "last": 3.9,
+    "last_date": "2026-10-09",
+    "excess": -0.89,
+    "days": 9,
     "x5": -5.38,
     "x20": null,
     "worst": 0.74
@@ -791,13 +791,13 @@
    "nikkei_at_flag": 65481.27,
    "track": {
     "d1": -4.98,
-    "d5": null,
+    "d5": -7.87,
     "d20": null,
-    "last": -12.25,
-    "last_date": "2026-10-05",
-    "excess": -19.07,
-    "days": 4,
-    "x5": null,
+    "last": -11.65,
+    "last_date": "2026-10-09",
+    "excess": -17.07,
+    "days": 8,
+    "x5": -15.82,
     "x20": null,
     "worst": -14.84
    },
@@ -823,15 +823,15 @@
    "nikkei_at_flag": 66753.72,
    "track": {
     "d1": 1.04,
-    "d5": null,
+    "d5": -2.42,
     "d20": null,
-    "last": -1.27,
-    "last_date": "2026-10-05",
-    "excess": -6.05,
-    "days": 3,
-    "x5": null,
+    "last": -3.69,
+    "last_date": "2026-10-09",
+    "excess": -7.1,
+    "days": 7,
+    "x5": -7.34,
     "x20": null,
-    "worst": -1.27
+    "worst": -3.69
    },
    "status": "watching",
    "notes": "東証プライムの値上がり率1位で、上昇率・出来高急増と年初来高値の両方に引っかかった。株探は前日引け後に発表した26年12月末株主からの株主優待制度の導入を材料に挙げている。",
@@ -855,14 +855,14 @@
    "nikkei_at_flag": 66753.72,
    "track": {
     "d1": 5.71,
-    "d5": null,
+    "d5": 13.12,
     "d20": null,
-    "last": 9.36,
-    "last_date": "2026-10-05",
-    "excess": 4.58,
-    "days": 3,
+    "last": 19.68,
+    "last_date": "2026-10-09",
+    "excess": 16.27,
+    "days": 7,
     "worst": 5.71,
-    "x5": null,
+    "x5": 8.2,
     "x20": null
    },
    "status": "watching",
@@ -885,15 +885,15 @@
    "nikkei_at_flag": 66753.72,
    "track": {
     "d1": 1.16,
-    "d5": null,
+    "d5": 0.51,
     "d20": null,
-    "last": -0.71,
-    "last_date": "2026-10-05",
-    "excess": -5.49,
-    "days": 3,
-    "x5": null,
+    "last": -2.93,
+    "last_date": "2026-10-09",
+    "excess": -6.34,
+    "days": 7,
+    "x5": -4.41,
     "x20": null,
-    "worst": -0.71
+    "worst": -2.93
    },
    "status": "watching",
    "notes": "15:30に27年3月期の業績予想と配当予想の修正（増配）を開示し引っかかった。時事通信も経常利益を475億円→560億円、純利益を320億円→440億円に上方修正したと伝えている。",
@@ -915,15 +915,15 @@
    "nikkei_at_flag": 66753.72,
    "track": {
     "d1": -0.59,
-    "d5": null,
+    "d5": -1.52,
     "d20": null,
-    "last": -1.86,
-    "last_date": "2026-10-05",
-    "excess": -6.64,
-    "days": 3,
-    "x5": null,
+    "last": -2.62,
+    "last_date": "2026-10-09",
+    "excess": -6.03,
+    "days": 7,
+    "x5": -6.44,
     "x20": null,
-    "worst": -2.03
+    "worst": -2.62
    },
    "status": "watching",
    "notes": "15:50に中間配当と期末配当予想の修正（記念配当と普通配当の増配）を開示し引っかかった。記事での裏付けなし。",
@@ -945,13 +945,13 @@
    "nikkei_at_flag": 66753.72,
    "track": {
     "d1": -0.37,
-    "d5": null,
+    "d5": -0.74,
     "d20": null,
-    "last": 0.37,
-    "last_date": "2026-10-05",
-    "excess": -4.41,
-    "days": 3,
-    "x5": null,
+    "last": 2.59,
+    "last_date": "2026-10-09",
+    "excess": -0.82,
+    "days": 7,
+    "x5": -5.66,
     "x20": null,
     "worst": -1.85
    },
@@ -978,13 +978,13 @@
    "nikkei_at_flag": 68956.72,
    "track": {
     "d1": 0.92,
-    "d5": null,
+    "d5": 1.97,
     "d20": null,
-    "last": 1.05,
-    "last_date": "2026-10-05",
-    "excess": -0.39,
-    "days": 2,
-    "x5": null,
+    "last": 6.23,
+    "last_date": "2026-10-09",
+    "excess": 6.12,
+    "days": 6,
+    "x5": 1.85,
     "x20": null,
     "worst": 0.92
    },
@@ -1012,13 +1012,13 @@
    "nikkei_at_flag": 68956.72,
    "track": {
     "d1": 2.71,
-    "d5": null,
+    "d5": 8.83,
     "d20": null,
-    "last": 7.15,
-    "last_date": "2026-10-05",
-    "excess": 5.71,
-    "days": 2,
-    "x5": null,
+    "last": 10.64,
+    "last_date": "2026-10-09",
+    "excess": 10.53,
+    "days": 6,
+    "x5": 8.71,
     "x20": null,
     "worst": 2.71
    },
@@ -1048,13 +1048,13 @@
    "nikkei_at_flag": 68956.72,
    "track": {
     "d1": -0.06,
-    "d5": null,
+    "d5": 4.78,
     "d20": null,
-    "last": 7.72,
-    "last_date": "2026-10-05",
-    "excess": 6.28,
-    "days": 2,
-    "x5": null,
+    "last": 2.12,
+    "last_date": "2026-10-09",
+    "excess": 2.01,
+    "days": 6,
+    "x5": 4.66,
     "x20": null,
     "worst": -0.06
    },
@@ -1073,7 +1073,8 @@
    ],
    "why": [
     "売買代金 14位に新規ランクイン（-10.83%）",
-    "テーマ初動: 電子部品"
+    "テーマ初動: 電子部品",
+    "売買代金 19位に新規ランクイン（+0.00%）"
    ],
    "themes": [
     "電子部品",
@@ -1083,15 +1084,15 @@
    "nikkei_at_flag": 68956.72,
    "track": {
     "d1": 0.81,
-    "d5": null,
+    "d5": 1.9,
     "d20": null,
-    "last": 3.81,
-    "last_date": "2026-10-05",
-    "excess": 2.37,
-    "days": 2,
-    "x5": null,
+    "last": -4.29,
+    "last_date": "2026-10-09",
+    "excess": -4.4,
+    "days": 6,
+    "x5": 1.78,
     "x20": null,
-    "worst": 0.81
+    "worst": -4.29
    },
    "status": "watching",
    "notes": "売買代金14位に新規ランクインしたが-10.83%の急落で、買いではなく売りで商いが膨らんだ形。26年3月期の有価証券報告書に監査法人が意見不表明としたことが背景で(トレーダーズ・ウェブ・ブルームバーグ)、ロイターは戒田新社長が経営トップの再交代をおわびしたと伝えている。",
@@ -1118,15 +1119,15 @@
    "nikkei_at_flag": 68309.46,
    "track": {
     "d1": 4.17,
-    "d5": null,
+    "d5": 1.71,
     "d20": null,
-    "last": 4.17,
-    "last_date": "2026-10-05",
-    "excess": 1.77,
-    "days": 1,
-    "x5": null,
+    "last": 1.71,
+    "last_date": "2026-10-09",
+    "excess": 0.65,
+    "days": 5,
+    "x5": 0.65,
     "x20": null,
-    "worst": 4.17
+    "worst": 0.9
    },
    "status": "watching",
    "notes": "売買代金18位に新規ランクインし+8.71%で、東証プライムの値上がり率1位。株探は米キャピタル・リサーチらの買い増しを巡る思惑を材料に挙げている(買い増しそのものは記事で確認できない)。",
@@ -1153,13 +1154,13 @@
    "nikkei_at_flag": 68309.46,
    "track": {
     "d1": 3.68,
-    "d5": null,
+    "d5": 4.13,
     "d20": null,
-    "last": 3.68,
-    "last_date": "2026-10-05",
-    "excess": 1.28,
-    "days": 1,
-    "x5": null,
+    "last": 4.13,
+    "last_date": "2026-10-09",
+    "excess": 3.07,
+    "days": 5,
+    "x5": 3.07,
     "x20": null,
     "worst": 3.68
    },
@@ -1178,7 +1179,8 @@
    ],
    "why": [
     "売買代金 30位に新規ランクイン（+3.34%）",
-    "テーマ初動: 半導体材料"
+    "テーマ初動: 半導体材料",
+    "売買代金 26位に新規ランクイン（-5.73%）"
    ],
    "themes": [
     "半導体材料"
@@ -1187,15 +1189,15 @@
    "nikkei_at_flag": 68309.46,
    "track": {
     "d1": 1.64,
-    "d5": null,
+    "d5": -4.52,
     "d20": null,
-    "last": 1.64,
-    "last_date": "2026-10-05",
-    "excess": -0.76,
-    "days": 1,
-    "x5": null,
+    "last": -4.52,
+    "last_date": "2026-10-09",
+    "excess": -5.58,
+    "days": 5,
+    "x5": -5.58,
     "x20": null,
-    "worst": 1.64
+    "worst": -4.52
    },
    "status": "watching",
    "notes": "売買代金30位に新規ランクインし+3.34%で、半導体材料のテーマ初動として引っかかった。記事での裏付けなし。",
@@ -1217,15 +1219,15 @@
    "nikkei_at_flag": 68309.46,
    "track": {
     "d1": -1.18,
-    "d5": null,
+    "d5": 0.98,
     "d20": null,
-    "last": -1.18,
-    "last_date": "2026-10-05",
-    "excess": -3.58,
-    "days": 1,
-    "x5": null,
+    "last": 0.98,
+    "last_date": "2026-10-09",
+    "excess": -0.08,
+    "days": 5,
+    "x5": -0.08,
     "x20": null,
-    "worst": -1.18
+    "worst": -1.55
    },
    "status": "watching",
    "notes": "15:00に中間配当と期末配当予想の修正(増配)を開示し引っかかった。記事での裏付けなし。",
@@ -1247,13 +1249,13 @@
    "nikkei_at_flag": 68309.46,
    "track": {
     "d1": -5.06,
-    "d5": null,
+    "d5": 7.61,
     "d20": null,
-    "last": -5.06,
-    "last_date": "2026-10-05",
-    "excess": -7.46,
-    "days": 1,
-    "x5": null,
+    "last": 7.61,
+    "last_date": "2026-10-09",
+    "excess": 6.55,
+    "days": 5,
+    "x5": 6.55,
     "x20": null,
     "worst": -5.06
    },
@@ -1272,7 +1274,9 @@
    ],
    "why": [
     "売買代金 14位に新規ランクイン（+15.36%）",
-    "上昇率 5位、かつ売買代金上位"
+    "上昇率 5位、かつ売買代金上位",
+    "売買代金 11位に新規ランクイン（+15.97%）",
+    "上昇率 16位、かつ売買代金上位"
    ],
    "themes": [
     "自動運転"
@@ -1280,15 +1284,16 @@
    "price_at_flag": 2193.0,
    "nikkei_at_flag": 69946.86,
    "track": {
-    "d1": null,
+    "d1": -4.38,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-10-05",
-    "excess": null,
-    "days": 0,
+    "last": 5.61,
+    "last_date": "2026-10-09",
+    "excess": 6.92,
+    "days": 4,
     "x5": null,
-    "x20": null
+    "x20": null,
+    "worst": -4.38
    },
    "status": "watching",
    "notes": "経産省の「グローバルサウス未来志向型共創等事業費補助金」に採択されたと発表し、急騰した(トレーダーズ・ウェブ)。売買代金14位に新規ランクイン。",
@@ -1314,15 +1319,16 @@
    "price_at_flag": 3862.0,
    "nikkei_at_flag": 69946.86,
    "track": {
-    "d1": null,
+    "d1": 3.44,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-10-05",
-    "excess": null,
-    "days": 0,
+    "last": -6.78,
+    "last_date": "2026-10-09",
+    "excess": -5.47,
+    "days": 4,
     "x5": null,
-    "x20": null
+    "x20": null,
+    "worst": -6.78
    },
    "status": "watching",
    "notes": "電気機器の上昇率上位に入った。米雇用統計後の利上げ観測の後退を受け、半導体関連の値がさ株に買いが集まった流れ(時事通信)。個別の材料は記事・開示に見当たらない。",
@@ -1345,15 +1351,16 @@
    "price_at_flag": 800.0,
    "nikkei_at_flag": 69946.86,
    "track": {
-    "d1": null,
+    "d1": -1.62,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-10-05",
-    "excess": null,
-    "days": 0,
+    "last": -14.12,
+    "last_date": "2026-10-09",
+    "excess": -12.81,
+    "days": 4,
     "x5": null,
-    "x20": null
+    "x20": null,
+    "worst": -14.12
    },
    "status": "watching",
    "notes": "前引けのグロース市場で年初来高値を更新した銘柄の一つに挙がった(株探)。出来高は前日の約50倍に膨らんだ。個別の材料は記事・開示に見当たらない。",
@@ -1374,15 +1381,16 @@
    "price_at_flag": 1664.0,
    "nikkei_at_flag": 69946.86,
    "track": {
-    "d1": null,
+    "d1": -0.12,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-10-05",
-    "excess": null,
-    "days": 0,
+    "last": -0.54,
+    "last_date": "2026-10-09",
+    "excess": 0.77,
+    "days": 4,
     "x5": null,
-    "x20": null
+    "x20": null,
+    "worst": -2.34
    },
    "status": "watching",
    "notes": "14:30に通期の最終利益予想を151億円から159億円へ上方修正し、期末配当も55円から58円に増額した。株価は下落し、ウエルスアドバイザーは6〜8月の営業減益を警戒した売りと伝えた。",
@@ -1403,15 +1411,16 @@
    "price_at_flag": 690.0,
    "nikkei_at_flag": 69946.86,
    "track": {
-    "d1": null,
+    "d1": -0.87,
     "d5": null,
     "d20": null,
-    "last": null,
-    "last_date": "2026-10-05",
-    "excess": null,
-    "days": 0,
+    "last": 3.77,
+    "last_date": "2026-10-09",
+    "excess": 5.08,
+    "days": 4,
     "x5": null,
-    "x20": null
+    "x20": null,
+    "worst": -0.87
    },
    "status": "watching",
    "notes": "年初来高値を更新し、出来高は前日の約111倍に膨らんだ。個別の材料は記事・開示に見当たらない。",
@@ -1434,32 +1443,622 @@
    "price_at_flag": 1305.0,
    "nikkei_at_flag": 69946.86,
    "track": {
+    "d1": -8.89,
+    "d5": null,
+    "d20": null,
+    "last": -8.35,
+    "last_date": "2026-10-09",
+    "excess": -7.04,
+    "days": 4,
+    "x5": null,
+    "x20": null,
+    "worst": -11.11
+   },
+   "status": "watching",
+   "notes": "前引けのスタンダード市場で年初来高値を更新した銘柄の一つに挙がった(株探)。出来高は前日の約19倍。個別の材料は記事・開示に見当たらない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/ae3b57ee63ce34e4c08c29092b07c073cdfe6111",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "436A",
+   "name": "サイバーソリューションズ",
+   "first_seen": "2026-10-06",
+   "signals": [
+    "出来高急増×上昇",
+    "年初来高値×商い"
+   ],
+   "why": [
+    "上昇率 7位、かつ出来高急増",
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 1703.0,
+   "nikkei_at_flag": 70683.98,
+   "track": {
+    "d1": -2.47,
+    "d5": null,
+    "d20": null,
+    "last": 11.74,
+    "last_date": "2026-10-09",
+    "excess": 14.08,
+    "days": 3,
+    "x5": null,
+    "x20": null,
+    "worst": -2.47
+   },
+   "status": "watching",
+   "notes": "ストップ高で引けた銘柄の一つで、「AiSE」提供開始記念キャンペーンの実施が株探に出ている。同日のサイバーセキュリティ関連の急騰に連れた動きの可能性もあるが、株価との因果は記事では確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0d660999cf627794e60d89298de4327006c819ff",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6469",
+   "name": "放電精密",
+   "first_seen": "2026-10-06",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:00 2027 年２月期第２四半期（中間期）連結業績予想と実績との差異及び通期業績予想の修正並びに期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 3105.0,
+   "nikkei_at_flag": 70683.98,
+   "track": {
+    "d1": -4.25,
+    "d5": null,
+    "d20": null,
+    "last": -13.04,
+    "last_date": "2026-10-09",
+    "excess": -10.7,
+    "days": 3,
+    "x5": null,
+    "x20": null,
+    "worst": -13.04
+   },
+   "status": "watching",
+   "notes": "16:00に通期経常を13.1億円から17.1億円に30.2%上方修正し、配当も5円増額した。AIの普及による電力需要の増加で環境・エネルギー分野が伸びたと会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/284e743a520765755255b1f3685c960d79fb3752",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4493",
+   "name": "サイバーセキュリティクラウド",
+   "first_seen": "2026-10-07",
+   "signals": [
+    "新規の資金流入",
+    "上昇率×売買代金",
+    "年初来高値×商い"
+   ],
+   "why": [
+    "売買代金 12位に新規ランクイン（+9.17%）",
+    "上昇率 8位、かつ売買代金上位",
+    "売買代金 19位に新規ランクイン（+10.12%）",
+    "上昇率 17位、かつ売買代金上位",
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [
+    "ITサービス"
+   ],
+   "price_at_flag": 2858.0,
+   "nikkei_at_flag": 70035.71,
+   "track": {
+    "d1": 17.56,
+    "d5": null,
+    "d20": null,
+    "last": 29.46,
+    "last_date": "2026-10-09",
+    "excess": 30.89,
+    "days": 2,
+    "x5": null,
+    "x20": null,
+    "worst": 17.56
+   },
+   "status": "watching",
+   "notes": "+9.2%で売買代金12位に新顔入り。緊急セキュリティ相談窓口の開設を発表しており、サイバーセキュリティ関連株の連日の急伸に連れた動き。株価との因果は記事では確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/fc4651807713acbba2f598312b170fd024dd614c",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "3723",
+   "name": "Ｇ－ファルコム",
+   "first_seen": "2026-10-07",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 配当予想の修正（増配及び「軌跡シリーズ1,000万本突破」記念配当）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 2600.0,
+   "nikkei_at_flag": 70035.71,
+   "track": {
+    "d1": -2.58,
+    "d5": null,
+    "d20": null,
+    "last": -4.96,
+    "last_date": "2026-10-09",
+    "excess": -3.53,
+    "days": 2,
+    "x5": null,
+    "x20": null,
+    "worst": -4.96
+   },
+   "status": "watching",
+   "notes": "15:30に26年9月期の経常を22億円から28億円へ27.3%上方修正し、最高益予想を上乗せ。新作『空の軌跡 the 2nd』などの販売が堅調と会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/e814dacb64c63f0647ebbc2fbc640f1acd843b4e",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4421",
+   "name": "ディ・アイ・システム",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [
+    "ITサービス"
+   ],
+   "price_at_flag": 1000.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": -6.1,
+    "d5": null,
+    "d20": null,
+    "last": -6.1,
+    "last_date": "2026-10-09",
+    "excess": -6.08,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": -6.1
+   },
+   "status": "watching",
+   "notes": "年初来高値×商いで入った。株探はサイバーセキュリティー専門イベントへの出展を材料に挙げており、サイバー関連の連日の急騰に連れた動きとみられる。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/14651d5e346580ecce620636efbff7fd4a8a4d93",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "9983",
+   "name": "ファーストリテ",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "決算で商い"
+   ],
+   "why": [
+    "決算短信の当日に売買代金／上昇率上位"
+   ],
+   "themes": [
+    "小売"
+   ],
+   "price_at_flag": 74800.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": -4.04,
+    "d5": null,
+    "d20": null,
+    "last": -4.04,
+    "last_date": "2026-10-09",
+    "excess": -4.02,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": -4.04
+   },
+   "status": "watching",
+   "notes": "15:31に26年8月期の最終利益が前の期比25.3%増の5,425億円、27年8月期も7期連続の最高益と発表し、決算で商いが増えた。ブルームバーグは営業利益計画が市場予想を下回ると報じた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/47a43eac7cc1e22f9aa9fa7c26aa646358b6e781",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4763",
+   "name": "Ｃ＆Ｒ社",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 業績予想及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1495.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": -2.61,
+    "d5": null,
+    "d20": null,
+    "last": -2.61,
+    "last_date": "2026-10-09",
+    "excess": -2.59,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": -2.61
+   },
+   "status": "watching",
+   "notes": "15:30に27年2月期の通期経常を53.5億円から55.5億円へ3.7%上方修正し、配当も1円増額した。クリエイティブ分野と医療分野、高橋書店グループが順調と会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/f8c177cb7f22d3d078f47eff5996c2bb7f591d62",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "7818",
+   "name": "トランザクション",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 通期業績予想の修正及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1184.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": 1.6,
+    "d5": null,
+    "d20": null,
+    "last": 1.6,
+    "last_date": "2026-10-09",
+    "excess": 1.62,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": 1.6
+   },
+   "status": "watching",
+   "notes": "15:30に26年8月期の経常を64.5億円から65.9億円へ2.2%上方修正し、配当も1.5円増額した。11期連続の最高益予想の上乗せ。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/49d58f20529eea388acf35ea6073e72007973853",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4361",
+   "name": "川口化",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1693.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": 4.55,
+    "d5": null,
+    "d20": null,
+    "last": 4.55,
+    "last_date": "2026-10-09",
+    "excess": 4.57,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": 4.55
+   },
+   "status": "watching",
+   "notes": "15:30に今期経常を3.4億円から4.7億円へ上方修正し、配当を10円増額した。3Q累計経常が2.4倍に急拡大した好調を反映している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/f61859e796956c47bd7f145433fc21f4cc38961c",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "9861",
+   "name": "吉野家ＨＤ",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:00 剰余金の配当（中間配当の増配）および配当予想の修正に関するお知らせ"
+   ],
+   "themes": [
+    "外食"
+   ],
+   "price_at_flag": 3747.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": 5.42,
+    "d5": null,
+    "d20": null,
+    "last": 5.42,
+    "last_date": "2026-10-09",
+    "excess": 5.44,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": 5.42
+   },
+   "status": "watching",
+   "notes": "16:00に27年2月期の通期経常を88億円から104億円へ18.2%上方修正し、配当も2円増額した。客数獲得施策の奏功とデジタル化が要因と会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/02d8aa826bf054bf67a624c20e4b6bea86fdd76f",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4615",
+   "name": "神東塗料",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 134.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": 0.75,
+    "d5": null,
+    "d20": null,
+    "last": 0.75,
+    "last_date": "2026-10-09",
+    "excess": 0.77,
+    "days": 1,
+    "x5": null,
+    "x20": null,
+    "worst": 0.75
+   },
+   "status": "watching",
+   "notes": "年初来高値×商いで入った。記事での裏付けなし。",
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "2795",
+   "name": "日本プリメックス",
+   "first_seen": "2026-10-08",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 996.0,
+   "nikkei_at_flag": 69042.11,
+   "track": {
+    "d1": 1.31,
+    "d5": null,
+    "d20": null,
+    "last": 1.31,
+    "last_date": "2026-10-09",
+    "excess": 1.33,
+    "days": 1,
+    "worst": 1.31,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "年初来高値×商いで入った。記事での裏付けなし。",
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6323",
+   "name": "ローツェ",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "新規の資金流入",
+    "上昇率×売買代金"
+   ],
+   "why": [
+    "売買代金 29位に新規ランクイン（+15.79%）",
+    "上昇率 12位、かつ売買代金上位"
+   ],
+   "themes": [
+    "半導体製造装置"
+   ],
+   "price_at_flag": 5134.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
     "d1": null,
     "d5": null,
     "d20": null,
     "last": null,
-    "last_date": "2026-10-05",
+    "last_date": "2026-10-09",
     "excess": null,
     "days": 0,
     "x5": null,
     "x20": null
    },
    "status": "watching",
-   "notes": "前引けのスタンダード市場で年初来高値を更新した銘柄の一つに挙がった(株探)。出来高は前日の約19倍。個別の材料は記事・開示に見当たらない。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/ae3b57ee63ce34e4c08c29092b07c073cdfe6111",
+   "notes": "前営業日の引け後に通期経常を382億円から548億円へ43.5%上方修正し、配当も8円増額した。今日は+15.8%で売買代金29位に新顔入り。半導体製造装置の他銘柄が動かない中での単独の急伸。",
+   "note_url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFAxb0t4VU1OUTVsajh4dHY4MzdKUndHbHF6OGJodXUyVW5PNTVEZ3lKMzZSa0xiUks3UzZlckFQemd4eWVYdlpVdVF6LTRDOXZhb3lES2NUYU14TGRQT1BEdw?oc=5",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "2914",
+   "name": "ＪＴ",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "新規の資金流入",
+    "年初来高値×商い"
+   ],
+   "why": [
+    "売買代金 22位に新規ランクイン（+3.88%）",
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [
+    "食品"
+   ],
+   "price_at_flag": 7230.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "+3.9%で年初来高値を更新し、食料品の上昇(+2.08%)の一角に入った。ウエルスアドバイザーはR&D組織の医学論文探索AI導入を伝えるが、株価との因果は確認できない。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/40baf9a31815df59d805ea20520d08b245a23a10",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "7713",
+   "name": "シグマ光機",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "決算で商い"
+   ],
+   "why": [
+    "決算短信の当日に売買代金／上昇率上位"
+   ],
+   "themes": [],
+   "price_at_flag": 3100.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "15:00に27年5月期の通期経常を14.4億円から21.3億円へ47.9%上方修正し、4期ぶりの最高益予想。株価はストップ高(+19.2%)。生成AI・データセンター関連の需要拡大が背景と会社は説明。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/5f423aaa2f125e840e48f25149eacb8920076e8f",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6814",
+   "name": "古野電気",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 連結業績予想及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 7930.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "15:30に通期経常を170億円から220億円へ29.4%上方修正し、配当も50円増額。舶用事業の堅調な販売が上振れの要因と会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/27451b80b052f6b9a5781b1a23735eef42a54347",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "7069",
+   "name": "Ｇ－サイバー・バズ",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 連結業績予想の修正（上方修正）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 490.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "15:30に前期経常を33%上方修正し、最高益予想を上乗せ。個別の詳細は株探の速報(上方修正・増配)による。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/2ab0b8920b995a46680277c79d81216d82defd70",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6264",
+   "name": "マルマエ",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 2026年８月期配当予想の修正(増配)に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 2243.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "15:30に27年8月期の経常を前期比61.4%増の63億円と見込み、2期連続の最高益予想。配当は2円増額。半導体分野の設備投資拡大が背景と会社は説明。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/6e7c6ea085857f7cc778ad9d7371aea3d86cf3f5",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "153A",
+   "name": "カウリス",
+   "first_seen": "2026-10-09",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [
+    "ITサービス"
+   ],
+   "price_at_flag": 2651.0,
+   "nikkei_at_flag": 69030.92,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-10-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": "グロース市場で年初来高値を更新した銘柄の一つ。ただ終値は前日の急騰からの反落(-4.8%)で、サイバー関連の分かれた動きの中にいる。記事での材料の裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/68789398017d1004c9994d040062ebf87da14100",
    "tracked_by": "日足"
   }
  ],
  "stats": {
-  "asof": "2026-10-05",
+  "asof": "2026-10-09",
   "by_signal": [
    {
     "signal": "上方修正・増配",
-    "count": 11,
-    "d5_median": -0.93,
-    "hit_rate": 0.45,
+    "count": 15,
+    "d5_median": 0.51,
+    "hit_rate": 0.53,
     "x5_median": -4.41,
-    "beat5": 0.18,
+    "beat5": 0.2,
     "n20": 0,
     "d20_median": null,
     "x20_median": null,
@@ -1467,11 +2066,23 @@
    },
    {
     "signal": "年初来高値×商い",
-    "count": 9,
+    "count": 13,
     "d5_median": -1.5,
-    "hit_rate": 0.33,
-    "x5_median": -4.32,
-    "beat5": 0.33,
+    "hit_rate": 0.31,
+    "x5_median": -5.66,
+    "beat5": 0.31,
+    "n20": 0,
+    "d20_median": null,
+    "x20_median": null,
+    "enough": true
+   },
+   {
+    "signal": "新規の資金流入",
+    "count": 9,
+    "d5_median": 1.9,
+    "hit_rate": 0.67,
+    "x5_median": 1.78,
+    "beat5": 0.67,
     "n20": 0,
     "d20_median": null,
     "x20_median": null,
@@ -1479,35 +2090,11 @@
    },
    {
     "signal": "出来高急増×上昇",
-    "count": 5,
-    "d5_median": -2.81,
-    "hit_rate": 0.4,
+    "count": 7,
+    "d5_median": -2.42,
+    "hit_rate": 0.43,
     "x5_median": -5.74,
-    "beat5": 0.4,
-    "n20": 0,
-    "d20_median": null,
-    "x20_median": null,
-    "enough": false
-   },
-   {
-    "signal": "新規の資金流入",
-    "count": 4,
-    "d5_median": 1.53,
-    "hit_rate": 0.5,
-    "x5_median": -1.28,
-    "beat5": 0.5,
-    "n20": 0,
-    "d20_median": null,
-    "x20_median": null,
-    "enough": false
-   },
-   {
-    "signal": "上昇率×売買代金",
-    "count": 4,
-    "d5_median": 2.69,
-    "hit_rate": 0.5,
-    "x5_median": -1.4,
-    "beat5": 0.5,
+    "beat5": 0.43,
     "n20": 0,
     "d20_median": null,
     "x20_median": null,
@@ -1515,11 +2102,23 @@
    },
    {
     "signal": "テーマ初動",
-    "count": 2,
-    "d5_median": 5.91,
-    "hit_rate": 1.0,
-    "x5_median": 1.94,
-    "beat5": 1.0,
+    "count": 7,
+    "d5_median": 4.13,
+    "hit_rate": 0.86,
+    "x5_median": 1.82,
+    "beat5": 0.86,
+    "n20": 0,
+    "d20_median": null,
+    "x20_median": null,
+    "enough": false
+   },
+   {
+    "signal": "上昇率×売買代金",
+    "count": 6,
+    "d5_median": 4.52,
+    "hit_rate": 0.67,
+    "x5_median": 1.83,
+    "beat5": 0.67,
     "n20": 0,
     "d20_median": null,
     "x20_median": null,
@@ -1539,11 +2138,11 @@
    }
   ],
   "overall": {
-   "count": 24,
-   "d5_median": -1.49,
-   "hit_rate": 0.38,
-   "x5_median": -4.52,
-   "beat5": 0.25,
+   "count": 39,
+   "d5_median": -0.74,
+   "hit_rate": 0.49,
+   "x5_median": -4.32,
+   "beat5": 0.36,
    "n20": 0,
    "d20_median": null,
    "x20_median": null,
@@ -1551,13 +2150,14 @@
   },
   "min_count": 10
  },
- "updated_at": "2026-10-05",
+ "updated_at": "2026-10-09",
  "added_today": [
-  "593A",
-  "6723",
-  "3967",
-  "8923",
-  "3161",
-  "2449"
+  "6323",
+  "2914",
+  "7713",
+  "6814",
+  "7069",
+  "6264",
+  "153A"
  ]
 }
