@@ -2084,8 +2084,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "出来高急増×上昇と年初来高値×商いで入った。記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0d91dc84d2a6a4360678d7cf7892fa596bb561b9"
   },
   {
    "code": "6217",
@@ -2112,8 +2112,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:00に3Q累計の経常が800万円の黒字に浮上し、同時に債権の株式化(DES)を開示した。後場に買い気配となり+20.4%(DZH)。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d0de43a27ff04947cc1d5b3f95ed8d66eff9a27c",
    "tracked_by": "日足"
   },
   {
@@ -2141,8 +2141,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:30に27年3月期の上期経常を18億円から21億円へ16.7%上方修正した。AI・データセンター需要でFAシステムと電源設備が伸びたと会社は説明。通期は据え置き。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d85869c4e8bca9b1100c5287592578909ef5c0d5",
    "tracked_by": "日足"
   },
   {
@@ -2170,7 +2170,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "場中に配当予想の修正を開示して引っかかった。詳細は記事で確認できていない。",
    "note_url": null,
    "tracked_by": "日足"
   }
