@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-10-12",
+"updated_at": "2026-10-13",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -72,9 +72,9 @@
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 2668.5
+"last": 2654.0
 },
 {
 "asof": "2026-09-28",
@@ -598,9 +598,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 2344.73,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2355.5
+"last": 2366.0
 },
 {
 "asof": "2026-10-08",
@@ -613,9 +613,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 4550.64,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4576.0
+"last": 4613.0
 },
 {
 "asof": "2026-10-08",
@@ -632,27 +632,45 @@
 "code": "9984",
 "name": "ＳＢＧ",
 "limit": 5630,
-"stop": 4620,
+"stop": 4390.71,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-13",
+"entry": 5400.0,
+"days": 1,
+"open": true,
+"last": 5310.0
 },
 {
 "asof": "2026-10-09",
 "code": "6963",
 "name": "ローム",
 "limit": 4840,
-"stop": 4280,
+"stop": 4129.86,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-13",
+"entry": 4687.0,
+"days": 1,
+"open": true,
+"last": 4566.0
 },
 {
 "asof": "2026-10-09",
 "code": "4440",
 "name": "ヴィッツ",
 "limit": 2076,
-"stop": 1288,
+"stop": 1289.75,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-13",
+"entry": 2076.82,
+"days": 1,
+"open": true,
+"last": 2090.0
 },
 {
 "asof": "2026-10-09",
@@ -660,8 +678,9 @@
 "name": "日本郵政",
 "limit": 2322,
 "stop": 2121,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-09",
@@ -669,6 +688,52 @@
 "name": "コマツ",
 "limit": 7160,
 "stop": 6380,
+"done": true,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-13",
+"code": "9984",
+"name": "ＳＢＧ",
+"limit": 5130,
+"stop": 4055,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "6963",
+"name": "ローム",
+"limit": 4460,
+"stop": 3845,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "6770",
+"name": "アルプスアル",
+"limit": 2133,
+"stop": 1956,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "336A",
+"name": "ダイナミックマッププラットフォーム",
+"limit": 1283,
+"stop": 796,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "4588",
+"name": "オンコリスバイオファーマ",
+"limit": 5460,
+"stop": 3765,
 "done": false,
 "earn": "none"
 }
@@ -690,13 +755,13 @@
 "times": 0,
 "small": 44,
 "big_loss": 0,
-"fill": 36,
-"open": 3,
-"issued": 58,
+"fill": 38,
+"open": 6,
+"issued": 63,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-10-12",
+"updated_at": "2026-10-13",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -709,9 +774,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 2141.0
+"last": 2151.5
 },
 {
 "asof": "2026-10-01",
@@ -791,15 +856,17 @@
 "name": "Terra Drone",
 "limit": 8190,
 "stop": 7480.71,
-"done": false,
+"done": true,
 "low": 8550.0,
 "earn": "none",
 "filled": true,
 "in": "2026-10-07",
 "entry": 8193.57,
-"days": 3,
-"open": true,
-"last": 7970.0
+"days": 4,
+"out": "2026-10-13",
+"exit": 7480.71,
+"why": "stop",
+"ret": -8.8
 },
 {
 "asof": "2026-10-07",
@@ -868,29 +935,41 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 17100.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 17505.0
+"last": 15180.0
 },
 {
 "asof": "2026-10-09",
 "code": "285A",
 "name": "キオクシア",
 "limit": 17060,
-"stop": 11910,
+"stop": 11919.04,
 "done": false,
 "low": 12793.3205,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-13",
+"entry": 16000.0,
+"days": 1,
+"open": true,
+"last": 15180.0
 },
 {
 "asof": "2026-10-09",
 "code": "6981",
 "name": "村田製",
 "limit": 7770,
-"stop": 5840,
+"stop": 5842.07,
 "done": false,
 "low": 6231.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-13",
+"entry": 7615.0,
+"days": 1,
+"open": true,
+"last": 7582.0
 },
 {
 "asof": "2026-10-09",
@@ -898,31 +977,92 @@
 "name": "ファストリ",
 "limit": 70700,
 "stop": 64500,
-"done": false,
+"done": true,
 "low": 66480.0,
-"earn": "up"
+"earn": "up",
+"filled": false
+},
+{
+"asof": "2026-10-13",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 7030,
+"stop": 6450,
+"done": false,
+"low": 7320.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "285A",
+"name": "キオクシア",
+"limit": 14680,
+"stop": 11800,
+"done": false,
+"low": 12793.3205,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "6981",
+"name": "村田製",
+"limit": 7380,
+"stop": 5830,
+"done": false,
+"low": 6231.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "3436",
+"name": "ＳＵＭＣＯ",
+"limit": 3035,
+"stop": 2666,
+"done": false,
+"low": 2856.5,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "5803",
+"name": "フジクラ",
+"limit": 4945,
+"stop": 4495,
+"done": false,
+"low": 4744.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-13",
+"code": "6723",
+"name": "ルネサス",
+"limit": 3300,
+"stop": 2986,
+"done": false,
+"low": 3155.0,
+"earn": "none"
 }
 ],
 "stats": {
-"n": 3,
+"n": 4,
 "win": 0,
-"avg": -10.7,
-"med": -9.28,
+"avg": -10.22,
+"med": -9.21,
 "pf": 0.0,
 "avg_win": null,
-"avg_loss": -10.7,
+"avg_loss": -10.22,
 "worst": -13.68,
 "days": 4,
 "d2": 0,
-"per_day": -2.67,
+"per_day": -2.56,
 "stops": 100,
 "sells": 0,
 "times": 0,
 "small": 0,
 "big_loss": 100,
-"fill": 46,
-"open": 3,
-"issued": 16,
+"fill": 50,
+"open": 4,
+"issued": 22,
 "since": "2026-10-01"
 }
 }
