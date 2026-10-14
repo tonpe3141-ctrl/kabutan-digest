@@ -2204,8 +2204,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に上期の経常を1.57億円の赤字(前年同期は1.61億円の赤字)で着地と開示し、決算で商いが増えた。6〜8月は赤字幅が拡大した。開示前に+7.6%と上げていた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a272b1de43f472022b669f1553c0cb809fbded72",
    "tracked_by": "日足"
   },
   {
@@ -2237,7 +2237,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "売買代金24位に新顔入りし、年初来高値を更新した。サイバーセキュリティ関連の急落の中で+0.5%と持ちこたえた。個別材料は記事で確認できない。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -2266,8 +2266,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に通期最終を12億円から27.6億円へ2.3倍に上方修正し、配当も15円増額した。米国事業に注力するため子会社の全株式を譲渡し、特別利益を計上する見込みと会社は説明。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/7e750f5c9f28c6c35f95b35bb15630651de41d8c",
    "tracked_by": "日足"
   },
   {
@@ -2295,8 +2295,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に通期経常を2億円から3.45億円へ72.5%上方修正した。構造改革とAI活用の業務効率化で人件費・採用費が計画を下回ったと会社は説明している。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/5bf7f1e22f4147d95632354775fd776d9f59ff8b",
    "tracked_by": "日足"
   },
   {
@@ -2324,8 +2324,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:30に通期経常を32.3億円から32.9億円へ1.6%上方修正し、配当も57.5円増額した。一方で通期最終は22億円から21億円へ下方修正し、Jootoの事業撤退に伴い売上高予想も下げた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/911f8adec7f7cf51acfdf0bdc4960a992195cd5d",
    "tracked_by": "日足"
   },
   {
@@ -2353,8 +2353,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "14:30に上期経常が前年同期比54.5%増の3.06億円と従来予想を上回って着地し、3年ぶり高値をつけた。通期計画は据え置き。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/1ed455e737b70a5de2b20cb6b8cd2a5ee7857e7f",
    "tracked_by": "日足"
   },
   {
@@ -2382,7 +2382,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値×商いで入った。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   }
