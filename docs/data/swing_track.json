@@ -68,13 +68,15 @@
 "name": "中部電",
 "limit": 2791,
 "stop": 2489.14,
-"done": false,
+"done": true,
 "filled": true,
 "in": "2026-09-29",
 "entry": 2755.5,
-"days": 10,
-"open": true,
-"last": 2654.0
+"days": 11,
+"out": "2026-10-14",
+"exit": 2670.0,
+"why": "time",
+"ret": -3.2
 },
 {
 "asof": "2026-09-28",
@@ -598,9 +600,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 2344.73,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2366.0
+"last": 2335.5
 },
 {
 "asof": "2026-10-08",
@@ -608,14 +610,16 @@
 "name": "ブラザー工業",
 "limit": 4550,
 "stop": 4248.5,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-09",
 "entry": 4550.64,
-"days": 2,
-"open": true,
-"last": 4613.0
+"days": 3,
+"out": "2026-10-14",
+"exit": 4623.25,
+"why": "sell",
+"ret": 1.5
 },
 {
 "asof": "2026-10-08",
@@ -638,9 +642,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 5400.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 5310.0
+"last": 5351.0
 },
 {
 "asof": "2026-10-09",
@@ -653,9 +657,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 4687.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4566.0
+"last": 4581.0
 },
 {
 "asof": "2026-10-09",
@@ -668,9 +672,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2090.0
+"last": 1982.0
 },
 {
 "asof": "2026-10-09",
@@ -698,8 +702,9 @@
 "name": "ＳＢＧ",
 "limit": 5130,
 "stop": 4055,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -707,8 +712,9 @@
 "name": "ローム",
 "limit": 4460,
 "stop": 3845,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -716,8 +722,9 @@
 "name": "アルプスアル",
 "limit": 2133,
 "stop": 1956,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -725,39 +732,91 @@
 "name": "ダイナミックマッププラットフォーム",
 "limit": 1283,
 "stop": 796,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
 "code": "4588",
 "name": "オンコリスバイオファーマ",
 "limit": 5460,
-"stop": 3765,
+"stop": 3775.0,
+"done": false,
+"earn": "none",
+"filled": true,
+"in": "2026-10-14",
+"entry": 5467.86,
+"days": 1,
+"open": true,
+"last": 5400.0
+},
+{
+"asof": "2026-10-14",
+"code": "6963",
+"name": "ローム",
+"limit": 4480,
+"stop": 3880,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "6203",
+"name": "豊和工業",
+"limit": 2030,
+"stop": 1520,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "6770",
+"name": "アルプスアル",
+"limit": 2126,
+"stop": 1950,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "4588",
+"name": "オンコリスバイオファーマ",
+"limit": 5120,
+"stop": 3455,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "5801",
+"name": "古河電",
+"limit": 3765,
+"stop": 3060,
 "done": false,
 "earn": "none"
 }
 ],
 "stats": {
-"n": 16,
-"win": 100,
-"avg": 1.3,
+"n": 18,
+"win": 94,
+"avg": 1.06,
 "med": 0.79,
-"pf": null,
-"avg_win": 1.3,
-"avg_loss": null,
-"worst": 0.1,
-"days": 3.2,
-"d2": 25,
-"per_day": 0.4,
+"pf": 6.97,
+"avg_win": 1.31,
+"avg_loss": -3.2,
+"worst": -3.2,
+"days": 3.7,
+"d2": 22,
+"per_day": 0.29,
 "stops": 0,
-"sells": 100,
-"times": 0,
-"small": 44,
+"sells": 94,
+"times": 6,
+"small": 39,
 "big_loss": 0,
-"fill": 38,
-"open": 6,
-"issued": 63,
+"fill": 37,
+"open": 5,
+"issued": 68,
 "since": "2026-09-25"
 },
 "mid": {
@@ -774,9 +833,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 2151.5
+"last": 2110.0
 },
 {
 "asof": "2026-10-01",
@@ -935,9 +994,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 17100.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 15180.0
+"last": 14690.0
 },
 {
 "asof": "2026-10-09",
@@ -951,9 +1010,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 16000.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 15180.0
+"last": 14690.0
 },
 {
 "asof": "2026-10-09",
@@ -967,9 +1026,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 7582.0
+"last": 7501.0
 },
 {
 "asof": "2026-10-09",
@@ -988,19 +1047,26 @@
 "name": "Terra Drone",
 "limit": 7030,
 "stop": 6450,
-"done": false,
+"done": true,
 "low": 7320.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
 "code": "285A",
 "name": "キオクシア",
 "limit": 14680,
-"stop": 11800,
+"stop": 11806.89,
 "done": false,
 "low": 12793.3205,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-14",
+"entry": 14686.79,
+"days": 1,
+"open": true,
+"last": 14690.0
 },
 {
 "asof": "2026-10-13",
@@ -1008,9 +1074,10 @@
 "name": "村田製",
 "limit": 7380,
 "stop": 5830,
-"done": false,
+"done": true,
 "low": 6231.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -1018,9 +1085,10 @@
 "name": "ＳＵＭＣＯ",
 "limit": 3035,
 "stop": 2666,
-"done": false,
+"done": true,
 "low": 2856.5,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -1028,9 +1096,10 @@
 "name": "フジクラ",
 "limit": 4945,
 "stop": 4495,
-"done": false,
+"done": true,
 "low": 4744.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-13",
@@ -1038,8 +1107,69 @@
 "name": "ルネサス",
 "limit": 3300,
 "stop": 2986,
-"done": false,
+"done": true,
 "low": 3155.0,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-14",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 6970,
+"stop": 6410,
+"done": false,
+"low": 7250.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "285A",
+"name": "キオクシア",
+"limit": 14210,
+"stop": 11840,
+"done": false,
+"low": 12793.3205,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "336A",
+"name": "ダイナミックマッププラットフォーム",
+"limit": 1227,
+"stop": 1064,
+"done": false,
+"low": 1263.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "5831",
+"name": "しずおかＦＧ",
+"limit": 3190,
+"stop": 3090,
+"done": false,
+"low": 3242.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "6981",
+"name": "村田製",
+"limit": 7300,
+"stop": 5830,
+"done": false,
+"low": 6231.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-14",
+"code": "3436",
+"name": "ＳＵＭＣＯ",
+"limit": 2986,
+"stop": 2670,
+"done": false,
+"low": 2856.5,
 "earn": "none"
 }
 ],
@@ -1060,9 +1190,9 @@
 "times": 0,
 "small": 0,
 "big_loss": 100,
-"fill": 50,
-"open": 4,
-"issued": 22,
+"fill": 41,
+"open": 5,
+"issued": 28,
 "since": "2026-10-01"
 }
 }
