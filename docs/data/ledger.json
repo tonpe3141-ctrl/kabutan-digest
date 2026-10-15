@@ -2424,7 +2424,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "値上がり率1位(+58.0%)で出来高も急増し、年初来高値を更新した。個別材料は記事・開示で確認できない。高値掴み注意の印も付いている。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -2457,8 +2457,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "売買代金29位に新顔入りし年初来高値を更新。医薬品業種が+4.01%で首位となる中の+5.0%で、住友ファーマ・大塚HDなど業種ぐるみの動き。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/1e062d02c53c8f8736bbbab83631c0da8c031498",
    "tracked_by": "日足"
   },
   {
@@ -2486,8 +2486,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:00に通期経常を27億円から48億円へ77.8%上方修正し、配当も40円増額した。価格是正とデータセンター向けHDD表面潤滑剤などの増加が要因と会社は説明。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/450a87c993247ee3476208b749a958294582370d",
    "tracked_by": "日足"
   },
   {
@@ -2515,8 +2515,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:30に前期配当を13円増額し、今期は8円増配する方針と開示した。今期経常は9%増で3期連続の最高益を見込む。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/13276933b9488d48bdc4ce6fdab8df7afc0953b9",
    "tracked_by": "日足"
   },
   {
@@ -2546,8 +2546,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:30に通期経常を2.38億円から6.16億円へ2.6倍に上方修正し、配当も105円増額した。価格是正の促進で3Q累計経常が前年同期の31倍となった。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/c44193ebfb89db3e0ea0150ce833c818e83de21d",
    "tracked_by": "日足"
   },
   {
@@ -2575,8 +2575,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "16:30に期末配当を25円から32円に増額し、株主優待制度も変更・拡充すると開示した。3Q累計の経常は+9.5%、通期計画に対する進捗率は66.4%。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/81aa711424a674a6d821f60e753b63bfd94344cc",
    "tracked_by": "日足"
   },
   {
@@ -2604,7 +2604,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値×商いで入った。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -2633,7 +2633,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値を更新したが、終値は-11.6%と値を消した。出来高も急増。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   }
