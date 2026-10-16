@@ -644,9 +644,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 5400.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 4852.0
+"last": 4944.0
 },
 {
 "asof": "2026-10-09",
@@ -676,9 +676,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 1875.0
+"last": 1879.0
 },
 {
 "asof": "2026-10-09",
@@ -751,9 +751,9 @@
 "filled": true,
 "in": "2026-10-14",
 "entry": 5467.86,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 5010.0
+"last": 5180.0
 },
 {
 "asof": "2026-10-14",
@@ -766,9 +766,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 4275.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4064.0
+"last": 4150.0
 },
 {
 "asof": "2026-10-14",
@@ -781,9 +781,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 2030.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2014.0
+"last": 2098.0
 },
 {
 "asof": "2026-10-14",
@@ -796,9 +796,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 2112.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2106.0
+"last": 2140.5
 },
 {
 "asof": "2026-10-14",
@@ -811,9 +811,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 5123.21,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 5010.0
+"last": 5180.0
 },
 {
 "asof": "2026-10-14",
@@ -826,9 +826,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 3634.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3376.0
+"last": 3366.0
 },
 {
 "asof": "2026-10-15",
@@ -836,8 +836,9 @@
 "name": "コクサイエレ",
 "limit": 7440,
 "stop": 5840,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -845,8 +846,9 @@
 "name": "オンコリスバイオファーマ",
 "limit": 4745,
 "stop": 3180,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -854,8 +856,9 @@
 "name": "ローム",
 "limit": 3945,
 "stop": 3250,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -863,8 +866,9 @@
 "name": "Sansan",
 "limit": 1858,
 "stop": 1590,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -872,8 +876,18 @@
 "name": "ダイナミックマッププラットフォーム",
 "limit": 1145,
 "stop": 656,
+"done": true,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-16",
+"code": "6645",
+"name": "オムロン",
+"limit": 5750,
+"stop": 5140,
 "done": false,
-"earn": "none"
+"earn": "up"
 }
 ],
 "stats": {
@@ -893,9 +907,9 @@
 "times": 5,
 "small": 40,
 "big_loss": 5,
-"fill": 41,
+"fill": 38,
 "open": 8,
-"issued": 73,
+"issued": 74,
 "since": "2026-09-25"
 },
 "mid": {
@@ -912,9 +926,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 2191.5
+"last": 2158.0
 },
 {
 "asof": "2026-10-01",
@@ -1073,9 +1087,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 17100.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 12880.0
+"last": 13375.0
 },
 {
 "asof": "2026-10-09",
@@ -1089,9 +1103,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 16000.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 12880.0
+"last": 13375.0
 },
 {
 "asof": "2026-10-09",
@@ -1105,9 +1119,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 6749.0
+"last": 6900.0
 },
 {
 "asof": "2026-10-09",
@@ -1143,9 +1157,9 @@
 "filled": true,
 "in": "2026-10-14",
 "entry": 14686.79,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 12880.0
+"last": 13375.0
 },
 {
 "asof": "2026-10-13",
@@ -1197,15 +1211,17 @@
 "name": "Terra Drone",
 "limit": 6970,
 "stop": 6418.57,
-"done": false,
+"done": true,
 "low": 7250.0,
 "earn": "none",
 "filled": true,
 "in": "2026-10-15",
 "entry": 6970.0,
-"days": 1,
-"open": true,
-"last": 6600.0
+"days": 2,
+"out": "2026-10-16",
+"exit": 6418.57,
+"why": "stop",
+"ret": -8.01
 },
 {
 "asof": "2026-10-14",
@@ -1219,9 +1235,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 13790.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 12880.0
+"last": 13375.0
 },
 {
 "asof": "2026-10-14",
@@ -1235,9 +1251,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1227.0
+"last": 1318.0
 },
 {
 "asof": "2026-10-14",
@@ -1251,9 +1267,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 3183.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3114.0
+"last": 3189.0
 },
 {
 "asof": "2026-10-14",
@@ -1267,9 +1283,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 6749.0
+"last": 6900.0
 },
 {
 "asof": "2026-10-14",
@@ -1294,10 +1310,16 @@
 "code": "278A",
 "name": "Terra Drone",
 "limit": 6320,
-"stop": 5770,
+"stop": 5778.75,
 "done": false,
 "low": 6600.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-10-16",
+"entry": 6326.25,
+"days": 1,
+"open": true,
+"last": 6260.0
 },
 {
 "asof": "2026-10-15",
@@ -1305,9 +1327,10 @@
 "name": "豊和工業",
 "limit": 1933,
 "stop": 1772,
-"done": false,
+"done": true,
 "low": 2014.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -1315,9 +1338,10 @@
 "name": "しずおかＦＧ",
 "limit": 3060,
 "stop": 2955,
-"done": false,
+"done": true,
 "low": 3114.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -1325,9 +1349,10 @@
 "name": "パナＨＤ",
 "limit": 3875,
 "stop": 3705,
-"done": false,
+"done": true,
 "low": 3963.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -1335,9 +1360,10 @@
 "name": "東エレク",
 "limit": 10080,
 "stop": 9440,
-"done": false,
+"done": true,
 "low": 10000.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-15",
@@ -1345,31 +1371,52 @@
 "name": "QDレーザ",
 "limit": 1873,
 "stop": 1623,
-"done": false,
+"done": true,
 "low": 1780.0,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-16",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 5980,
+"stop": 5430,
+"done": false,
+"low": 6260.0,
 "earn": "none"
+},
+{
+"asof": "2026-10-16",
+"code": "6752",
+"name": "パナＨＤ",
+"limit": 3870,
+"stop": 3700,
+"done": false,
+"low": 3957.0,
+"earn": "up"
 }
 ],
 "stats": {
-"n": 5,
+"n": 6,
 "win": 0,
-"avg": -9.71,
-"med": -9.13,
+"avg": -9.43,
+"med": -8.96,
 "pf": 0.0,
 "avg_win": null,
-"avg_loss": -9.71,
+"avg_loss": -9.43,
 "worst": -13.68,
-"days": 3.4,
-"d2": 20,
-"per_day": -2.86,
+"days": 3.2,
+"d2": 33,
+"per_day": -2.98,
 "stops": 100,
 "sells": 0,
 "times": 0,
 "small": 0,
 "big_loss": 100,
-"fill": 54,
+"fill": 47,
 "open": 10,
-"issued": 34,
+"issued": 36,
 "since": "2026-10-01"
 }
 }
