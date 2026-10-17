@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>マーケット</title>
-<meta name="description" content="日本株の注文・保有銘柄・市況・業種・ニュースを1つにまとめたスマホ向けの売買デスク">
+<meta name="description" content="日本株の市況の振り返り・注文・保有銘柄・業種・ニュースを1つにまとめたスマホ向けの売買デスク">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,7 +21,7 @@
 <header class="appbar">
   <div class="appbar__row">
     <div class="appbar__lead">
-      <h1 class="appbar__title" id="viewTitle">売買</h1>
+      <h1 class="appbar__title" id="viewTitle">市況</h1>
       <div class="appbar__date" id="headDate">読み込み中…</div>
     </div>
     <div class="appbar__meta">
@@ -40,8 +40,8 @@
 </header>
 
 <main id="main">
-  <section class="view" id="view-trade" data-view="trade"></section>
-  <section class="view" id="view-market" data-view="market" hidden></section>
+  <section class="view" id="view-market" data-view="market"></section>
+  <section class="view" id="view-trade" data-view="trade" hidden></section>
   <section class="view" id="view-sectors" data-view="sectors" hidden></section>
   <section class="view" id="view-news" data-view="news" hidden></section>
   <section class="view" id="view-verify" data-view="verify" hidden></section>
@@ -58,13 +58,13 @@
 </footer>
 
 <nav class="bottomnav" aria-label="メイン">
-  <button class="bottomnav__btn" data-view="trade" aria-current="page">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>売買</span>
-  </button>
-  <button class="bottomnav__btn" data-view="market">
+  <button class="bottomnav__btn" data-view="market" aria-current="page">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3.5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>市況</span>
+  </button>
+  <button class="bottomnav__btn" data-view="trade">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>売買</span>
   </button>
   <button class="bottomnav__btn" data-view="sectors">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16v-4M10 16V8M14 16v-6M18 16V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -130,6 +130,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=72785f8f"></script>
+<script src="app.js?v=0d84255e"></script>
 </body>
 </html>

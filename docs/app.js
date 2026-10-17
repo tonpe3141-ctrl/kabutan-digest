@@ -17,7 +17,7 @@
 const SLOTS = ['preopen', 'zenba', 'taibike'];
 const SLOT_LABEL = { preopen: '寄り前', zenba: '前場', taibike: '大引', trend: '推移' };
 const MARKET_TABS = ['preopen', 'zenba', 'taibike', 'trend'];     // 市況の切り替え（推移は旧「履歴」）
-const VIEWS = ['trade', 'market', 'sectors', 'news', 'verify'];
+const VIEWS = ['market', 'trade', 'sectors', 'news', 'verify'];   // 先頭（開いたときの画面）は市況。振り返りから読む
 const VIEW_TITLE = { trade: '売買', market: '市況', sectors: '業種', news: 'ニュース', verify: '検証' };
 const DEFAULT_REPO = 'tonpe3141-ctrl/kabutan-digest';
 const LS = { codes: 'md.watchlist.codes', token: 'md.gh.token', repo: 'md.gh.repo', tab: 'md.tab', view: 'md.view',
@@ -30,7 +30,7 @@ let WEEKLY = null;                  // docs/data/weekly.json（金曜の週報�
 let THERMO = null;                  // docs/data/thermo.json（短期の押し目買いの注文・相場温度計）
 let HIST = { dates: [], byDate: new Map(), loaded: false };
 let activeSlot = null;
-let activeView = 'trade';
+let activeView = 'market';
 const dirty = new Set(VIEWS);       // 描き直しが要る画面（開いている画面だけを描く）
 
 /* ==================== 小道具 ==================== */
@@ -1196,7 +1196,7 @@ function renderNews() {
 
 /* ==================== 市況: 寄り前 ==================== */
 function renderPreopen(d, upd) {
-  const out = [summaryCard(d, 'preopen'), phaseCard(d), reviewCard(d)];
+  const out = [reviewCard(d, 'preopen'), summaryCard(d, 'preopen'), phaseCard(d)];
   const io = d.implied_open;
   if (io) {
     const gapTxt = isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : '';
@@ -1449,7 +1449,7 @@ function rankingCard(d) {
 }
 
 function renderSession(d, slot, upd) {
-  const out = [summaryCard(d, slot), phaseCard(d), reviewCard(d)];
+  const out = [reviewCard(d, slot), summaryCard(d, slot), phaseCard(d)];
   const nk = (d.indices || {}).nikkei;
   let verdict = null, tone = 'neutral';
   if (slot === 'taibike' && d.session_shift) {
@@ -1601,10 +1601,21 @@ function phaseCard(d) {
     false, 'sec-phase');
 }
 
-/* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること */
-function reviewCard(d) {
-  const r = d.ai_review;
-  if (!r || !(r.sections || []).length) return null;
+/* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること。
+   市況タブの先頭に置く。振り返りは大引に書き、寄り前は局面が平常以外のときだけ、前場は書かない。
+   その区分に無ければ、いちばん新しい分（今日の寄り前 → 前営業日の大引 = 寄り前の prev_review）を出し、いつの分かを添える */
+function latestReview(d, slot) {
+  const ok = (r) => (r && (r.sections || []).length ? r : null);
+  if (ok(d.ai_review)) return { r: d.ai_review, when: d.ai_review.generated_at ? String(d.ai_review.generated_at).slice(11, 16) + ' 作成' : null };
+  const pre = slot === 'preopen' ? d : (((DATA && DATA.slots) || {}).preopen || {}).data || {};
+  if (slot !== 'preopen' && ok(pre.ai_review)) return { r: pre.ai_review, when: '今日の寄り前' };
+  if (ok(pre.prev_review)) return { r: pre.prev_review, when: `前営業日（${md(pre.prev_review.date)}）の大引` };
+  return null;
+}
+function reviewCard(d, slot) {
+  const lr = latestReview(d, slot);
+  if (!lr) return null;
+  const { r, when } = lr;
   const kids = [h('p', { class: 'analysis__headline', text: r.headline || '' })];
   r.sections.forEach((s) => kids.push(h('div', { class: 'analysis__sec' }, [
     h('div', { class: 'analysis__t', text: s.title }), h('div', { class: 'analysis__b', text: s.body })])));
@@ -1619,7 +1630,7 @@ function reviewCard(d) {
   if ((r.sources || []).length) {
     kids.push(h('div', { class: 'analysis__srcs' }, r.sources.map((src) => h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
   }
-  return card('振り返り', r.generated_at ? String(r.generated_at).slice(11, 16) + ' 作成' : null, kids,
+  return card('振り返り', when, kids,
     (r.method || 'Claude による振り返り') + '。局面の数字と記事をもとにした分析で、誤りを含む可能性があります。売買を推奨するものではありません。', false, 'sec-review');
 }
 
@@ -5651,9 +5662,9 @@ function bindSheet() {
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
   trade: [['sw-ticket', '次の注文'], ['sw-pos', '保有と売り時'], ['sw-picks', '買い候補'], ['sw-watch', '監視']],
-  preopen: [['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-review', '振り返り'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
+  preopen: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
-  session: [['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-review', '振り返り'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
+  session: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-peer', '押し目の業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],
@@ -5839,7 +5850,7 @@ function boot() {
   const saved = (() => { try { return sessionStorage.getItem(LS.view); } catch (e) { return null; } })();
   if (saved === 'history') { try { sessionStorage.setItem(LS.tab, 'trend'); } catch (e) { /* 非対応環境は無視 */ } }
   const view = OLD_VIEW[saved] || saved;
-  selectView(view && VIEWS.includes(view) ? view : 'trade');
+  selectView(view && VIEWS.includes(view) ? view : VIEWS[0]);
   load();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
   setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);

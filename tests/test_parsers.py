@@ -200,6 +200,17 @@ def test_rerun_carry_over():
           ([h["title"] for h in now["press"]["headlines"]], len(now["press"]["official"]), len(now["press"]["articles"])),
           (["新しい", "窓から落ちた"], 1, 1))
 
+    # 寄り前の市況タブの先頭に出す、前営業日の大引の振り返り
+    from dashboard.build import prev_review
+    rv = {"headline": "急落の翌日", "sections": [{"title": "流れ", "body": "…"}]}
+    prev = {"date": "2026-10-16", "slots": {"taibike": {"data": {"ai_review": rv}}}}
+    check("寄り前: 前営業日の大引の振り返りに日付を付ける", prev_review(prev, date(2026, 10, 19), {}),
+          dict(rv, date="2026-10-16"))
+    check("寄り前: 前営業日に振り返りが無ければ出さない", prev_review({"date": "2026-10-16", "slots": {}}, date(2026, 10, 19), {}), None)
+    check("寄り前の取り直し: 前回の分を引き継ぐ",
+          prev_review({"date": "2026-10-19", "slots": {}}, date(2026, 10, 19), {"prev_review": {"date": "2026-10-16"}}),
+          {"date": "2026-10-16"})
+
     # 大引の保険: その日の大引が既にあっても、注文が前の営業日の引けのまま（当日の日足が未着だった）なら取り直す
     from dashboard import build as build_mod, commentary, store
     from dashboard.thermo_run import next_weekday

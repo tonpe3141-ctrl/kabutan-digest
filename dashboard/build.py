@@ -200,6 +200,7 @@ def build_preopen(target_date: date) -> dict:
     payload["ai_picks"] = before.get("ai_picks")
     payload["ai_news"] = before.get("ai_news")
     payload["ai_review"] = before.get("ai_review")
+    payload["prev_review"] = prev_review(latest, target_date, before)
     payload["_earn_rows"] = after_hours
     payload["_news_disc"] = [dict(r, when="前営業日の引け後") for r in after_hours + prev_others]
     return payload
@@ -382,6 +383,20 @@ def build_session(target_date: date, slot: str) -> dict:
     payload["_after_others"] = [{k: r.get(k) for k in ("code", "name", "title", "time")}
                                 for r in tdnet.split_by_session(disc.get("others") or [])["after"]][:80]
     return payload
+
+
+def prev_review(latest: dict, target_date: date, before: dict) -> dict | None:
+    """前営業日の大引の振り返り（ai_review）に日付を付けて返す。寄り前の市況タブの先頭に出す。
+
+    寄り前は振り返りを書かない日が多い（局面が平常なら書かない）。寄り前の時点の latest.json は
+    まだ前営業日のまま（休場を挟んでも直前の営業日）なので、その大引から取る。同じ日の取り直しでは
+    latest.json はもう今日なので、前回の寄り前の分を引き継ぐ。
+    """
+    if latest.get("date") and latest["date"] != target_date.isoformat():
+        tai = ((latest.get("slots", {}).get("taibike") or {}).get("data") or {})
+        review = tai.get("ai_review")
+        return dict(review, date=latest["date"]) if review else None
+    return (before or {}).get("prev_review")
 
 
 def carry_over(payload: dict, before: dict | None) -> list[str]:
