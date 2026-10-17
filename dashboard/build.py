@@ -15,7 +15,7 @@ import traceback
 from datetime import date, datetime, timedelta
 from statistics import median
 
-from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
     JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
     US_INDICES, US_SECTOR_ETFS,
@@ -199,6 +199,7 @@ def build_preopen(target_date: date) -> dict:
     payload["ai_earnings"] = before.get("ai_earnings")
     payload["ai_picks"] = before.get("ai_picks")
     payload["ai_news"] = before.get("ai_news")
+    payload["ai_review"] = before.get("ai_review")
     payload["_earn_rows"] = after_hours
     payload["_news_disc"] = [dict(r, when="前営業日の引け後") for r in after_hours + prev_others]
     return payload
@@ -367,6 +368,7 @@ def build_session(target_date: date, slot: str) -> dict:
     payload["ai_earnings"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_earnings")
     payload["ai_picks"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_picks")
     payload["ai_news"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_news")
+    payload["ai_review"] = ((slots.get(slot) or {}).get("data") or {}).get("ai_review")
     payload["_earn_rows"] = disc.get("rows") or []
     payload["_after_hours"] = split["after"]
     # 動いた銘柄の材料の照合に使う開示: 今日の開示（分類に当たらない提携・受注・採択なども）と、前営業日の引け後の開示
@@ -553,6 +555,22 @@ def run(slot: str, target_date: date | None = None) -> dict:
         payload["commentary"].setdefault("sections", []).append(sec)
     if th and th.get("history"):
         hist_patch[slot].update(th["history"])
+
+    # 局面と対処（急落・伸びすぎ・崩れの後に、36年の日経平均で同じ形のあと何が起きたか。DESIGN.md 28章）。注文・候補は変えない。
+    # 大引では JPX の市場全体の信用残・投資部門別（週1回）も取り直す
+    print("  [局面] 36年の日経平均で同じ形を数えています...")
+    payload["phase"] = _safe("局面と対処", lambda: phase_mod.run(
+        slot, target_date.isoformat(), payload, fetch_ohlc=cnbc.fetch_ohlc, fetch_close=cnbc.fetch_bars,
+        fetch_flows=phase_mod.fetch_flows_jpx))
+    if not payload["phase"]:
+        # 取り直しで情報を減らさない（同じ日・同じ区分で前回作れていれば引き継ぐ）
+        latest = store.load_latest()
+        if latest.get("date") == target_date.isoformat():
+            payload["phase"] = (((latest.get("slots") or {}).get(slot) or {}).get("data") or {}).get("phase")
+    if payload["phase"]:
+        ph = payload["phase"]
+        hist_patch[slot]["phase"] = {"primary": ph["primary"], "headline": ph["headline"], "asof": ph["asof"]}
+        print(f"    ✅ {ph['label']}: {ph['headline']}")
 
     # マクロ環境（金利・為替・商品の流れと、報道で多かった話題）。温度計が更新した日足キャッシュを読む
     print("  [マクロ] 金利・為替・商品の流れと、報道の話題をまとめ中...")

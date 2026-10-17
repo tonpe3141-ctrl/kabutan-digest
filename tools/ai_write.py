@@ -11,6 +11,7 @@ Routine は中身だけを1つの JSON に書く。決まった形（method・ge
    "ai_earnings":   {"headline", "winds": [...], "items": [...], "sources": [...]},
    "ai_picks":      {"items": [{"code": "4478", "why": "..."}]},
    "ai_news":       {"headline": "...", "topics": [{"title": "...", "body": "...", "codes": ["593A"]}], "sources": ["A2"]},
+   "ai_review":     {"headline": "...", "sections": [{"title": "...", "body": "..."}], "lessons": ["..."], "checks": ["..."], "sources": ["K1"]},
    "ledger_notes":  {"4004": {"notes": "...", "source": "K2"}},
    "themes_add":    {"5803": {"name": "フジクラ", "themes": ["電線", "データセンター"]}}}
 """
@@ -24,9 +25,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "docs", "data")
 REFS = "/tmp/ai_refs_{slot}.json"
-AI_KEYS = ("ai_commentary", "ai_macro", "ai_earnings", "ai_picks", "ai_news")
+AI_KEYS = ("ai_commentary", "ai_macro", "ai_earnings", "ai_picks", "ai_news", "ai_review")
 METHOD = {"ai_commentary": "Claude による分析", "ai_macro": "Claude による分析",
-          "ai_earnings": "Claude による分析", "ai_picks": "Claude による理由づけ", "ai_news": "Claude による分析"}
+          "ai_earnings": "Claude による分析", "ai_picks": "Claude による理由づけ", "ai_news": "Claude による分析",
+          "ai_review": "Claude による振り返り"}
 
 
 def jst_now() -> str:
@@ -50,7 +52,11 @@ def resolve(src, refs: dict) -> list[dict]:
 
 def check(key: str, v: dict) -> list[str]:
     errs = []
-    if key in ("ai_commentary", "ai_macro"):
+    if key == "ai_review":
+        for f in ("lessons", "checks"):
+            if not isinstance(v.get(f) or [], list):
+                errs.append(f"ai_review: {f} は文字列の配列")
+    if key in ("ai_commentary", "ai_macro", "ai_review"):
         if not v.get("headline") or not v.get("sections"):
             errs.append(f"{key}: headline と sections が要る")
         for s in v.get("sections") or []:

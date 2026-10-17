@@ -1196,7 +1196,7 @@ function renderNews() {
 
 /* ==================== 市況: 寄り前 ==================== */
 function renderPreopen(d, upd) {
-  const out = [summaryCard(d, 'preopen')];
+  const out = [summaryCard(d, 'preopen'), phaseCard(d), reviewCard(d)];
   const io = d.implied_open;
   if (io) {
     const gapTxt = isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : '';
@@ -1449,7 +1449,7 @@ function rankingCard(d) {
 }
 
 function renderSession(d, slot, upd) {
-  const out = [summaryCard(d, slot)];
+  const out = [summaryCard(d, slot), phaseCard(d), reviewCard(d)];
   const nk = (d.indices || {}).nikkei;
   let verdict = null, tone = 'neutral';
   if (slot === 'taibike' && d.session_shift) {
@@ -1473,6 +1473,256 @@ function renderSession(d, slot, upd) {
   out.push(heatmapCard(d.constituents, d.breadth));
   out.push(thermoCard());
   return out;
+}
+
+/* ==================== 局面と対処（phase.py。DESIGN.md 28章） ====================
+   急落・伸びすぎ・崩れの後に、36年の日経平均で同じ形のあと何が起きたか（予測ではなく過去の分布）と、次の営業日の備え。
+   形は値動きだけで決め、毎回数え直す。注文・候補・並び順は変えない（買う候補を出すのは swing.py の2つのルールだけ） */
+const PHASE_BADGE = { down: 'down', warn: 'warn', up: 'up', neutral: 'accent' };
+const PB_WHO = { '全体': 'accent', '持ち株': 'warn', '買い': 'up', '注文': 'accent', '需給': 'src' };
+const PH_LADDER_TONE = { crash: 'down', extended: 'warn', ma25: 'accent', top_break: 'down' };
+function PH(d) { return (d && d.phase) || null; }
+function latestPhase() {
+  const slots = (DATA && DATA.slots) || {};
+  for (const s of [latestSlot(), 'taibike', 'zenba', 'preopen']) { const p = s && PH((slots[s] || {}).data); if (p) return p; }
+  return null;
+}
+const pctx = (v, d = 1) => (isNum(v) ? fmtPct(v, d) : '—');
+const nTxt = (n, small) => (isNum(n) ? `${n}回` + (isNum(small) && n < small ? '（少ない）' : '') : '—');
+
+function phaseSupply(ph) {
+  const mg = ph.margin, iv = ph.investors;
+  if (!mg && !iv) return null;
+  const rows = [];
+  if (mg) {
+    rows.push(h('div', { class: 'pb__sup' }, [
+      h('b', { text: `信用買残（市場全体） ${mg.buy}兆円` }),
+      h('span', { class: 'num', text: ` 1週 ${pctx(mg.w1)}・4週 ${pctx(mg.w4)}・26週 ${pctx(mg.w26)}・売残 ${mg.sell}兆円（倍率 ${mg.ratio}倍）` }),
+      h('small', { text: `${md(mg.date)}の週の残高（JPX。翌週の火曜に公表）` }),
+    ]));
+  }
+  if (iv && (iv.rows || []).length) {
+    const oku = (v) => (isNum(v) ? (v > 0 ? '+' : '') + Math.round(v).toLocaleString('ja-JP') : '—');
+    rows.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['週（東証プライム・億円）', '海外投資家', '個人', '信託銀行', '事業法人'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, iv.rows.slice(0, 4).map((r) => h('tr', {}, [
+        h('th', { text: `${md(r.start)}〜${md(r.end)}` }),
+        ...[r.foreign, r.indiv, r.trust, r.corp].map((v) => h('td', { class: 'num ' + cls(v), text: oku(v) })),
+      ]))),
+    ])));
+    rows.push(h('p', { class: 'hint', text: `海外投資家は${iv.foreign_streak}週続けて${(iv.rows[0].foreign || 0) >= 0 ? '買い越し' : '売り越し'}（4週で ${oku(iv.foreign_sum4)}億円）。` +
+      '投資部門別は事実として並べるだけで、先の値動きとの関係はまだ確かめていない（履歴が短い）' }));
+  }
+  return h('div', { class: 'pb__block' }, [h('div', { class: 'check__lh', text: '需給の流れ' }), ...rows]);
+}
+
+function phaseScenarios(ph) {
+  const sc = ph.scenarios;
+  if (!sc || !(sc.rows || []).length) return null;
+  const small = (ph.rules || {}).small;
+  const usLabel = { failed: '−1%以下', rebound_mid: '−1〜+0.5%', rebound_up: '+0.5%以上', crash_us_down: '−1%以下', crash_us_mid: '−1〜+0.5%', crash_us_up: '+0.5%以上' };
+  return h('div', { class: 'pb__block' }, [
+    h('div', { class: 'check__lh', text: sc.root === 'rebound' ? '急落の翌日に反発したあと、その夜の米国（S&P500）で分けると' : '急落の日のあと、その夜の米国（S&P500）で分けると' }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['その夜の米国', '回数', '翌朝の窓', '安値割れ', '5日の最安', '20日後', 'プラス'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, sc.rows.map((r) => h('tr', { class: r.now ? 'is-now' : null }, [
+        h('th', { text: (usLabel[r.key] || r.key) + (r.now ? '（今朝）' : '') }),
+        h('td', { class: 'num', text: nTxt(r.n, small) }),
+        h('td', { class: 'num ' + cls(r.gap_med), text: pctx(r.gap_med) }),
+        h('td', { class: 'num', text: isNum(r.low_break) ? r.low_break + '%' : '—' }),
+        h('td', { class: 'num ' + cls(r.min5_med), text: pctx(r.min5_med) }),
+        h('td', { class: 'num ' + cls(r.r20), text: pctx(r.r20) }),
+        h('td', { class: 'num', text: isNum(r.p20) ? r.p20 + '%' : '—' }),
+      ]))),
+    ])),
+    h('p', { class: 'hint', text: `翌朝の窓・5日の最安は中央値、20日後は平均（基準は${sc.root === 'rebound' ? '反発の日' : '急落の日'}の引け）。安値割れは翌日から${(ph.rules || {}).low_days || 4}日以内に急落の日の安値を割った割合。` +
+      `20日後の前半／後半: ` + sc.rows.map((r) => `${usLabel[r.key]} ${pctx(r.r20_first)}／${pctx(r.r20_second)}`).join('、') }),
+  ]);
+}
+
+function phaseHoldLine() {
+  const pos = (typeof readHold === 'function' ? readHold() : []) || [];
+  if (!pos.length) return null;
+  const own = pos.filter((p) => holdStop(p, hdOf(p.code)).own).length;
+  return h('button', { class: 'badge badge--btn badge--warn', type: 'button', onclick: () => selectView('trade', 'sw-pos'),
+    text: `保有 ${pos.length}銘柄（撤退ラインを自分で決めたのは ${own}）。保有と売り時を見る ›` });
+}
+
+function phaseCard(d) {
+  const ph = PH(d);
+  if (!ph) return null;
+  const st = ph.state || {};
+  const kids = [h('div', { class: 'phase__top' }, [
+    h('span', { class: 'badge badge--' + (PHASE_BADGE[ph.tone] || 'accent'), text: ph.label }),
+    h('p', { class: 'phase__head', text: ph.headline }),
+  ])];
+  kids.push(h('div', { class: 'summary__stats pulse__stats--4' }, [
+    stat('日経', pctx(st.chg, 2), fmtNum(st.close, 0), cls(st.chg)),
+    stat('5日', pctx(st.r5), null, cls(st.r5)),
+    stat('25日線から', pctx(st.dev25), null, cls(st.dev25)),
+    stat('高値から', pctx(st.from_high), st.high_date ? md(st.high_date) : null, cls(st.from_high)),
+  ]));
+  if (st.crash) {
+    const c = st.crash;
+    kids.push(h('p', { class: 'hint', text: `直近の急落: ${md(c.date)} ${pctx(c.r)}（安値 ${fmtNum(c.low, 0)}）。${c.days ? `${c.days}営業日たち、安値を${c.broken ? '割った' : 'まだ割っていない'}（急落の引けから ${pctx(c.since)}）` : '今日'}` +
+      (isNum(st.us) ? `。引けのあとの米国 ${pctx(st.us, 2)}` : '') }));
+  }
+  kids.push(h('div', { class: 'pb' }, (ph.playbook || []).map((p) => h('div', { class: 'pb__row' }, [
+    h('span', { class: 'badge badge--' + (PB_WHO[p.who] || 'accent') + ' pb__who', text: p.who }),
+    h('span', { class: 'pb__t', text: p.text }),
+  ]))));
+  const hl = phaseHoldLine();
+  if (hl) kids.push(h('div', { class: 'summary__line' }, [hl]));
+  kids.push(phaseScenarios(ph));
+  if ((ph.ladder || []).length) {
+    kids.push(h('div', { class: 'pb__block' }, [
+      h('div', { class: 'check__lh', text: '値段のはしご（次の引けがいくらなら形が変わるか）' }),
+      ladder(ph.ladder.map((x) => ({ p: x.price, label: x.text, tone: PH_LADDER_TONE[x.key] })), st.close, `${ph.slot === 'taibike' ? '今日' : '前日'}の引け（${md(st.date)}）`),
+    ]));
+  }
+  kids.push(phaseSupply(ph));
+  const fk = ph.primary === 'after_crash' ? 'crash' : (ph.focus || {})[ph.primary] ? ph.primary : Object.keys(ph.focus || {})[0];
+  const cases = (((ph.focus || {})[fk] || {}).cases) || [];
+  if (cases.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: `過去の同じ形（新しい順に${cases.length}回）` }),
+      h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+        h('thead', {}, h('tr', {}, ['日付', '当日', '翌朝の窓', '5日の最安', '5日後', '20日後'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+        h('tbody', {}, cases.map((c) => h('tr', {}, [
+          h('th', { text: c.date }),
+          ...[c.r, c.gap, c.min5, c.r5, c.r20].map((v) => h('td', { class: 'num ' + cls(v), text: pctx(v) })),
+        ]))),
+      ])),
+    ]));
+  }
+  kids.push(h('button', { class: 'more', type: 'button', text: '36年の検証を見る ›', onclick: () => selectView('verify', 'v-phase') }));
+  return card('局面と対処', ph.stale ? `${md(ph.asof)}の引け（今日の日足なし）` : `${md(ph.asof)}の引けまで`, kids,
+    '36年の日経平均で同じ形を数えた過去の分布で、予測ではありません。形の定義と件数・前半（〜2007）／後半（2008〜）は検証タブに。注文・買い候補は変えていません。売買を推奨するものではありません。',
+    false, 'sec-phase');
+}
+
+/* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること */
+function reviewCard(d) {
+  const r = d.ai_review;
+  if (!r || !(r.sections || []).length) return null;
+  const kids = [h('p', { class: 'analysis__headline', text: r.headline || '' })];
+  r.sections.forEach((s) => kids.push(h('div', { class: 'analysis__sec' }, [
+    h('div', { class: 'analysis__t', text: s.title }), h('div', { class: 'analysis__b', text: s.body })])));
+  if ((r.lessons || []).length) {
+    kids.push(h('div', { class: 'pb__block' }, [h('div', { class: 'check__lh', text: '教訓（次に同じ形が来たら）' }),
+      h('ul', { class: 'reasons' }, r.lessons.map((t) => h('li', { text: t })))]));
+  }
+  if ((r.checks || []).length) {
+    kids.push(h('div', { class: 'pb__block' }, [h('div', { class: 'check__lh', text: '次に確かめること' }),
+      h('ul', { class: 'reasons' }, r.checks.map((t) => h('li', { text: t })))]));
+  }
+  if ((r.sources || []).length) {
+    kids.push(h('div', { class: 'analysis__srcs' }, r.sources.map((src) => h('a', { href: src.url, target: '_blank', rel: 'noopener', text: '📰 ' + src.title }))));
+  }
+  return card('振り返り', r.generated_at ? String(r.generated_at).slice(11, 16) + ' 作成' : null, kids,
+    (r.method || 'Claude による振り返り') + '。局面の数字と記事をもとにした分析で、誤りを含む可能性があります。売買を推奨するものではありません。', false, 'sec-review');
+}
+
+/* 検証: 局面の形ごとの、その後（36年の日経平均）・急落の後の1日ずつ・口座の出し入れ・市場全体の信用残・答え合わせ */
+function phaseProofCard() {
+  const ph = latestPhase();
+  const R = ph && ph.research;
+  if (!R) return card('急落・伸びすぎの後（36年）', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-phase');
+  const small = (ph.rules || {}).small;
+  const P = R.patterns || {};
+  const order = [['crash', '急落'], ['crash_streak', '下げ続きの後の急落'], ['crash_us_down', '急落→その夜の米国 −1%以下'], ['crash_us_up', '急落→その夜の米国 +0.5%以上'],
+    ['rebound', '急落の翌日の反発'], ['failed', '反発→その夜の米国 −1%以下'], ['rebound_mid', '反発→米国 −1〜+0.5%'], ['rebound_up', '反発→米国 +0.5%以上'],
+    ['top_break', '上げの後の最初の崩れ'], ['extended', '伸びすぎ（25日線 +8%）']];
+  const row = (label, a, half) => h('tr', {}, [
+    h('th', { text: half ? '' : label }), h('td', { text: ['全期間', '前半', '後半'][half] }),
+    h('td', { class: 'num', text: a ? nTxt(a.n, small) : '—' }),
+    ...(a ? [a.gap_med, a.min5_med, a.r5, a.r20] : [null, null, null, null]).map((v) => h('td', { class: 'num ' + cls(v), text: pctx(v) })),
+    h('td', { class: 'num', text: a && isNum(a.low_break) ? a.low_break + '%' : '—' }),
+    h('td', { class: 'num', text: a && isNum(a.p20) ? a.p20 + '%' : '—' }),
+    h('td', { class: 'num', text: a && isNum(a.dd20) ? a.dd20 + '%' : '—' }),
+  ]);
+  const head = ['形', '期間', '回数', '翌朝の窓', '5日の最安', '5日後', '20日後', '安値割れ', 'プラス', '−5%の下げ'];
+  const b = R.base || {};
+  const kids = [
+    h('div', { class: 'check__lh', text: `日経平均 ${R.from}〜${R.to}。前半は ${R.split} の前まで。3営業日以内の続きは同じ出来事。翌朝の窓・5日の最安は中央値、5日後・20日後は平均、−5%の下げは20日以内に基準の引けから −5%以下の安値を付けた割合` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, head.map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, [
+        h('tr', {}, [h('th', { text: '全日（比べる相手）' }), h('td', { text: '全期間' }), h('td', { class: 'num', text: (b.n || 0).toLocaleString('ja-JP') + '日' }),
+          ...[null, b.min5_med, b.r5, b.r20].map((v) => h('td', { class: 'num ' + cls(v), text: pctx(v) })),
+          h('td', { class: 'num', text: isNum(b.low_break) ? b.low_break + '%' : '—' }), h('td', { class: 'num', text: isNum(b.p20) ? b.p20 + '%' : '—' }),
+          h('td', { class: 'num', text: isNum(b.dd20) ? b.dd20 + '%' : '—' })]),
+        ...order.flatMap(([k, label]) => P[k] ? [0, 1, 2].map((half) => row(label, P[k][['all', 'first', 'second'][half]], half)) : []),
+      ]),
+    ])),
+    h('p', { class: 'hint', text: '見方: 急落一般は、数日のうちに急落の日の安値を割ることが多い（4日以内に7割台）が、20日後は全日より高かった（戻りやすい）。' +
+      '違ったのは「急落の翌日に反発し、その夜の米国が −1%以下」の組み合わせで、前半・後半とも20日後がマイナス（例は20回未満で少ない）。' +
+      '伸びすぎは次の5日が前半・後半とも弱いが、20日後は全日並みで、下げのサインではない。' }),
+  ];
+  const D = R.days;
+  if (D) {
+    kids.push(h('div', { class: 'check__lh', text: `急落（${D.n}回）の翌日から1日ずつ: 「2日後に投げが来る」は平均で見えるか` }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['', '騰落（平均）', '前半／後半', 'その日に新安値', '全日の新安値', '寄り→安値'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, D.rows.map((r) => h('tr', {}, [
+        h('th', { text: `${r.k}日後` }), h('td', { class: 'num ' + cls(r.ret), text: pctx(r.ret, 2) }),
+        h('td', { class: 'num', text: `${pctx(r.ret_first, 2)}／${pctx(r.ret_second, 2)}` }),
+        h('td', { class: 'num', text: r.new_low + '%' }), h('td', { class: 'num', text: r.base_new_low + '%' }),
+        h('td', { class: 'num down', text: pctx(r.dip, 2) }),
+      ]))),
+    ])));
+    kids.push(h('p', { class: 'hint', text: `10日の最安値を付けた日（急落の日=0日目〜10日目）: ${D.bottom.map((n, k) => `${k}日目 ${n}`).join('・')}。` +
+      '急落の2日後（追証の入金の期限とされる日）の騰落は平均でプラスで、特別に弱い日ではなかった。数日のうちに安値を割るのは多いが、それは急落の翌日が一番多い。' +
+      '「2日後に投げ」は、反発のあと米国が下げた組み合わせ（上の表）で起きやすい形として見るのが数字に合う' }));
+  }
+  const E = R.exposure;
+  if (E) {
+    const lab = { hold: '持ち続ける', trend: `崩れたら売る（20日の高値 −${(ph.rules || {}).trend_atr || 3}ATR、25日線の上で買い戻し）`, trim: '伸びすぎで半分減らす（25日線 +8%、+2%か10日で戻す）' };
+    kids.push(h('div', { class: 'check__lh', text: '利確の逃しを「売りのルール」で解けるか（日経を持つ口座で。翌日の寄りで売買、片道0.05%）' }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['', ...E.hold.map((x) => x.label)].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, ['hold', 'trend', 'trim'].map((m) => h('tr', {}, [
+        h('th', { text: lab[m] }),
+        ...E[m].map((x) => h('td', { class: 'num', text: isNum(x.cagr) ? `年率 ${fmtPct(x.cagr, 1)}・最大の下げ ${x.mdd}%` : '—' })),
+      ]))),
+    ])));
+    kids.push(h('p', { class: 'hint', text: '見方: 崩れたら全部売るは、どの期間でも年率を大きく下げ、2013年以降は最大の下げも浅くならなかった（売ったあと戻りで買い戻す往復が負ける）。' +
+      '伸びすぎの日に半分だけ減らすは、持ち続けるのと同じか少し上。利確は「全部か0か」ではなく、伸びすぎの日に一部だけ、が平均を下げない形。個別株の利確の指値は27章（勝率は上がるが平均が下がる）' }));
+  }
+  const M = R.margin;
+  if (M && M.base) {
+    const r2 = (k, label) => [0, 1, 2].map((half) => {
+      const a = (M[k] || {})[['all', 'first', 'second'][half]];
+      return h('tr', {}, [h('th', { text: half ? '' : label }), h('td', { text: ['全期間', '前半', '後半'][half] }),
+        h('td', { class: 'num', text: a ? a.n + '週' : '—' }), h('td', { class: 'num ' + cls(a && a.f20), text: pctx(a && a.f20) }),
+        h('td', { class: 'num', text: a ? a.p20 + '%' : '—' }), h('td', { class: 'num', text: a ? a.dd20 + '%' : '—' })]);
+    });
+    const ru = ph.rules || {};
+    kids.push(h('div', { class: 'check__lh', text: `市場全体の信用買残（JPX、${M.from}〜${M.to} の週）の形ごとの、公表の翌日（水曜）から4週の日経。前半は ${ru.msplit || '2014-01-01'} の前まで` }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['買残の形', '期間', '週', '4週後', 'プラス', '−5%の下げ'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, [...r2('base', '全週'), ...r2('nage', `投げ（1週で ${ru.nage}%以下）`), ...r2('seiri', `整理（4週で ${ru.seiri}%以下）`),
+        ...r2('tsumi', `積み上がり（26週で +${ru.tsumi}%以上・4週でも増）`)]),
+    ])));
+    kids.push(h('p', { class: 'hint', text: '見方: 投げ（買残が1週で大きく減った週）の後は、前半・後半とも全週より強く、−5%の下げも少なかった（売りたい人が売り終えた）。' +
+      '積み上がりは平均の騰落は全週並みだが、−5%の下げが来た割合が高い（下げると投げの燃料になる）。どちらも振れ幅の物差しで、注文の条件には使っていない。半年前の積み上がり（期日）は効いていなかった' }));
+  }
+  const L = (ph.log || []).filter((x) => x.actual);
+  if (L.length) {
+    kids.push(h('div', { class: 'check__lh', text: '答え合わせ（アプリが局面を出した日の見込みと、その後の実際）' }));
+    kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['日付・局面', '見込み 翌朝', '実際 翌朝', '米国', '安値割れ', '5日後', '20日後（見込み）'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, L.map((x) => {
+        const e = x.expect || {}, a = x.actual || {};
+        return h('tr', {}, [h('th', { text: `${md(x.date)} ${x.label}` }), h('td', { class: 'num', text: pctx(e.gap_med) }),
+          h('td', { class: 'num ' + cls(a.gap), text: pctx(a.gap, 2) }), h('td', { class: 'num ' + cls(a.us), text: pctx(a.us, 2) }),
+          h('td', { class: 'num', text: 'low_broken' in a ? (a.low_broken ? 'あり' : 'なし') + `（${a.low_days}日）` : '—' }),
+          h('td', { class: 'num ' + cls(a.r5), text: pctx(a.r5) }),
+          h('td', { class: 'num', text: `${pctx(a.r20)}（${pctx(e.r20)}）` })]);
+      })),
+    ])));
+  }
+  return card('急落・伸びすぎの後（36年）', '局面の根拠', kids, '形の定義は dashboard/phase.py の定数。毎回の収集で36年分を数え直しています。注文・買い候補には使っていません。', false, 'v-phase');
 }
 
 /* ==================== ウォッチリスト ==================== */
@@ -4000,8 +4250,13 @@ function pulseCard() {
   }
   const mk = (THERMO || {}).market;
   if (mk && isNum(mk.temp) && stats.length < 4) stats.push(stat('温度', String(mk.temp), mk.zone, ZONE_TONE[mk.tone] === 'up' ? 'up' : ZONE_TONE[mk.tone] === 'down' ? 'down' : ''));
-  return h('button', { class: 'card pulse', type: 'button', id: 'sw-pulse', onclick: () => selectView('market') }, [
+  const lp = latestPhase();
+  const phLine = lp && lp.primary !== 'normal'
+    ? h('div', { class: 'pulse__phase' }, [h('span', { class: 'badge badge--' + (PHASE_BADGE[lp.tone] || 'accent'), text: '局面: ' + lp.label }),
+      h('span', { class: 'pulse__phase-t', text: lp.headline })]) : null;
+  return h('button', { class: 'card pulse', type: 'button', id: 'sw-pulse', onclick: () => selectView('market', phLine ? 'sec-phase' : null) }, [
     h('div', { class: 'pulse__todo', text: todo }),
+    phLine,
     picked && picked.c.headline ? h('p', { class: 'pulse__head', text: picked.c.headline }) : null,
     stats.length ? h('div', { class: 'summary__stats pulse__stats' + (stats.length > 3 ? ' pulse__stats--4' : '') }, stats) : null,
     h('div', { class: 'pulse__go', text: ls ? `${SLOT_LABEL[ls]}の市況を読む ›` : '市況を開く ›' }),
@@ -5199,6 +5454,7 @@ function renderVerify() {
     out.push(midStatsCard());
     out.push(ruleCard());
     out.push(holdProofCard());
+    out.push(phaseProofCard());
     out.push(crowdProofCard());
     out.push(supplyProofCard());
     out.push(spillProofCard());
@@ -5229,6 +5485,7 @@ const VSEC = {
   'v-mid': '4年の再現と口座、大勝ちの数銘柄に頼っていないか',
   'v-rule': 'ルールの中身と決めた経緯（入口・指値・損切り・売り・並べ方）',
   'v-hold': '判定ごとの次の5〜20日、利確・損切り・追いかけ売りの比較、売り方',
+  'v-phase': '急落・反発・伸びすぎの後の日経（36年）、崩れたら売る・一部利確の損得、市場全体の信用残、答え合わせ',
   'v-supply': '上値のしこり（価格帯別の出来高）と信用残ごとの、その後の値動き',
   'v-crowd': '混み合った銘柄の翌日の振れ幅（天井のサインではない）',
   'v-spill': '同業の急騰に動かなかった仲間は追いつくか、決算への反応',
@@ -5394,9 +5651,9 @@ function bindSheet() {
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
   trade: [['sw-ticket', '次の注文'], ['sw-pos', '保有と売り時'], ['sw-picks', '買い候補'], ['sw-watch', '監視']],
-  preopen: [['sec-summary', '要点'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
+  preopen: [['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-review', '振り返り'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
-  session: [['sec-summary', '要点'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
+  session: [['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-review', '振り返り'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-peer', '押し目の業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],

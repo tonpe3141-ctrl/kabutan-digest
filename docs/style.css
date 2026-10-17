@@ -1089,3 +1089,18 @@ details.vsec > .vsec__card > .card__head > .card__title { display: none; }
   background: linear-gradient(to bottom, transparent, var(--surface) 55%); }
 /* 長いチップはカードの幅で折り返す（はみ出さない） */
 .chips > .badge { max-width: 100%; white-space: normal; text-align: left; line-height: 1.45; border-radius: 12px; }
+
+/* 局面と対処（DESIGN.md 28章） */
+.phase__top { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.phase__top .badge { align-self: flex-start; }
+.phase__head { font-size: 15px; font-weight: 750; line-height: 1.5; margin: 0; }
+.pb { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.pb__row { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; align-items: start; }
+.pb__who { justify-self: start; white-space: nowrap; }
+.pb__t { font-size: 13px; line-height: 1.65; }
+.pb__block { margin-top: 14px; }
+.pb__sup { display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: 13px; line-height: 1.6; margin-bottom: 6px; }
+.pb__sup small { flex-basis: 100%; color: var(--text-faint); font-size: 11.5px; }
+.bt tr.is-now th, .bt tr.is-now td { background: var(--accent-soft); font-weight: 700; }
+.pulse__phase { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 6px 0 2px; text-align: left; }
+.pulse__phase-t { font-size: 12.5px; font-weight: 650; line-height: 1.5; }
