@@ -2055,6 +2055,140 @@ def test_supply():
     check("Routine の要約: ウォッチと注文（重複しない）", (len(br["watch"]), len(br["orders"]), br["watch"][0]["mg"]["buy"]), (1, 1, 1000))
 
 
+def _xlsx(sheets: list[list[list]]) -> bytes:
+    """テスト用の最小の xlsx（インライン文字列）を作る。"""
+    import io
+    import zipfile
+    from xml.sax.saxutils import escape
+
+    def ref(r, c):
+        name = ""
+        c += 1
+        while c:
+            c, m = divmod(c - 1, 26)
+            name = chr(65 + m) + name
+        return f"{name}{r + 1}"
+    buf = io.BytesIO()
+    z = zipfile.ZipFile(buf, "w")
+    z.writestr("xl/workbook.xml", '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets>'
+               + "".join(f'<sheet name="s{i}" sheetId="{i + 1}"/>' for i in range(len(sheets))) + "</sheets></workbook>")
+    for i, rows in enumerate(sheets):
+        xml = ['<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>']
+        for r, row in enumerate(rows):
+            xml.append(f'<row r="{r + 1}">')
+            for c, v in enumerate(row):
+                if v is None:
+                    continue
+                if isinstance(v, (int, float)):
+                    xml.append(f'<c r="{ref(r, c)}"><v>{v}</v></c>')
+                else:
+                    xml.append(f'<c r="{ref(r, c)}" t="inlineStr"><is><t>{escape(str(v))}</t></is></c>')
+            xml.append("</row>")
+        xml.append("</sheetData></worksheet>")
+        z.writestr(f"xl/worksheets/sheet{i + 1}.xml", "".join(xml))
+    z.close()
+    return buf.getvalue()
+
+
+def test_phase():
+    import random
+
+    from dashboard import phase as PH
+    from dashboard.sources import jpx
+
+    print("\n[局面と対処・JPX の需給]")
+    # JPX 信用取引現在高（2026-10-09 の実物の行の並び。列 [4]=売残 [6]=買残、株数の次の行が金額）
+    blob = _xlsx([[["x"]], [
+        [None, "46304.0"],
+        [None, None, None, None, "二市場", None, None, None, "東京"],
+        [None, "制度信用取引残高", "自己", "株数Shs.", "76217.0", "-3701.0", "1590.0", "495.0"],
+        [None, "信用取引残高合計\nTotal Outstanding Margin Trading", None, "株数Shs.", "366905.0", "12518.0", "3830621.0", "65049.0"],
+        [None, None, None, "金額Val.", "762053.0", "11327.0", "6708057.0", "184505.0"],
+    ]])
+    check("信用残: 合計の行の金額・株数", jpx.parse_margin(blob, "20261009"),
+          {"date": "2026-10-09", "sell_sh": 366905.0, "sell": 762053.0, "buy_sh": 3830621.0, "buy": 6708057.0})
+    check("信用残: 表が無ければ None", jpx.parse_margin(_xlsx([[["a", "b"]]]), "20261009"), None)
+    # 投資部門別（見出し3段。海外投資家は法人＋個人、個人は現金＋信用。値は千円 → 億円）
+    def blk(sell, buy):
+        return [sell, buy, buy - sell, sell + buy]
+    head = [["投資部門別"], [None, None, None, "自己", None, None, None, None, None, None, None, "委託"],
+            [None, None, None, "自己", None, None, None, None, None, None, None, "個人", None, None, None, None, None, None, None,
+             "海外投資家", None, None, None, None, None, None, None, "証券会社", None, None, None, "法人"],
+            [None, None, None, "現金", None, None, None, "信用", None, None, None, "現金", None, None, None, "信用", None, None, None,
+             "法人", None, None, None, "個人", None, None, None, "証券会社", None, None, None, "投資信託", None, None, None, "事業法人", None, None, None, "金融機関"],
+            [None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             "生保・損保", None, None, None, "信託銀行"],
+            ["年月週", "市場", "株数／金額"]]
+    vals = blk(100, 50) + blk(10, 0) + blk(200, 100) + blk(0, 300) + blk(1000, 2000) + blk(5, 7) + blk(0, 0) + blk(40, 10) + blk(0, 60) + blk(0, 0) + blk(80, 20)
+    vals = [v * 100000 for v in vals]
+    rows = head + [["2026101", "東証プライム\nTSE Prime Market", "株数 Shares"] + [0] * len(vals),
+                   [None, None, "金額 Value"] + vals]
+    got = jpx.parse_investors(_xlsx([rows]), "20261005", "20261009")
+    check("投資部門別: 海外＝法人＋個人・個人＝現金＋信用・自己＝現金＋信用・信託銀行（億円）",
+          {k: got.get(k) for k in ("foreign", "indiv", "prop", "trust", "fund", "corp")} if got else None,
+          {"foreign": 1002.0, "indiv": 200.0, "prop": -60.0, "trust": -60.0, "fund": -30.0, "corp": 60.0})
+
+    # 局面: 合成の日経（緩やかな上げ）に、急落 → 翌日反発 を置く
+    random.seed(1)
+    rows, c = [], 10000.0
+    from datetime import date, timedelta
+    d0 = date(2000, 1, 3)
+    days = []
+    while len(days) < 400:
+        if d0.weekday() < 5:
+            days.append(d0.isoformat())
+        d0 += timedelta(days=1)
+    for i, d in enumerate(days):
+        r = 0.001 + random.uniform(-0.008, 0.008)
+        if i in (300, 350):
+            r = -0.05                                   # 急落
+        if i in (301, 351):
+            r = 0.01                                    # 翌日の反発
+        o = c
+        c = c * (1 + r)
+        rows.append([d, o, max(o, c) * 1.002, min(o, c) * 0.998, c])
+    spx = [[d, 100.0 + i * 0.01 - (2.0 if i >= 351 else 0)] for i, d in enumerate(days)]   # 反発の日（351）の夜に約 −2%
+    S = PH.Series(rows, spx)
+    check("急落の判定（−5%）", (PH.is_crash(S, 300), PH.is_crash(S, 299)), (True, False))
+    check("翌日の反発", PH.is_rebound(S, 301), True)
+    check("反発の夜の米国（351の夜に 103.5 → 101.5 で −1.9%）", round(S.us_after(351), 1), -1.9)
+    ev = PH.events(S, PH.PATTERNS["failed"][0])
+    check("急落→反発→米国安 の出来事は 351 の1回", [S.d[i] for i in ev], [days[351]])
+    cut = PH.Series(rows[:302], spx)
+    st = cut and PH.state(cut, None)
+    check("大引: 反発の日は primary=rebound、米国はまだ", (st["primary"], st["us"], st["crash"]["days"]), ("rebound", None, 1))
+    st2 = PH.state(cut, -1.5)
+    check("寄り前: 米国 −1.5% なら failed", (st2["primary"], "failed" in st2["keys"]), ("failed", True))
+    check("寄り前: 米国 +0.8% なら反発のまま（rebound_up）", ("rebound_up" in PH.state(cut, 0.8)["keys"], PH.state(cut, 0.8)["primary"]), (True, "rebound"))
+    lad = {x["key"]: x["price"] for x in PH.ladder(cut)}
+    check("はしご: 急落の値段 = 引け × 0.97", lad["crash"], int(round(cut.c[-1] * 0.97)))
+    s24 = sum(cut.c[-24:])
+    x = lad["extended"]
+    check("はしご: 伸びすぎの値段で引けると 25日線 +8% ちょうど", round((x / ((s24 + x) / 25) - 1) * 100, 1), 8.0)
+    # 答え合わせ: 記録して、あとの日足で実際を埋める
+    log = PH.log_update([], cut, st, {"rebound": {"all": {"n": 5, "r20": 1.0}}}, record=True)
+    check("答え合わせ: 局面の日を1件記録", (len(log), log[0]["key"], log[0]["expect"]["n"]), (1, "rebound", 5))
+    log = PH.log_update(log, PH.Series(rows[:330], spx), None, None, record=False)
+    a = log[0]["actual"]
+    check("答え合わせ: 翌朝の窓・5日後・20日後が埋まる", all(k in a for k in ("gap", "r5", "r20", "low_broken")), True)
+    check("平常の日は記録しない", len(PH.log_update([], cut, {**st, "primary": "normal"}, {}, record=True)), 0)
+    # 信用買残の形（1週で −5%以下＝投げ、26週で +25%以上かつ4週で増＝積み上がり）
+    mg = [{"date": (date(2020, 1, 3) + timedelta(weeks=k)).isoformat(), "buy": 100 + k, "sell": 10} for k in range(30)]
+    check("積み上がり", PH.margin_now(mg)["flags"], ["tsumi"])
+    mg[-1]["buy"] = mg[-2]["buy"] * 0.94
+    check("投げ（1週で −6%）", "nage" in PH.margin_now(mg)["flags"], True)
+    ex = PH.exposure(PH.Series(rows, spx))
+    check("口座の出し入れ: 3つのやり方", sorted(ex), ["hold", "trend", "trim"])
+    # 長い日足の更新: 大引のクォートで今日を足す（CNBC が取れないとき）
+    long = {"n225": [r[:5] for r in rows[:10]], "spx": [x[:2] for x in spx[:10]]}
+    pay = {"indices": {"nikkei": {"asof": "2099-01-05", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "stale": False}}}
+    PH.update_long(long, pay, "taibike", today="2099-01-05")
+    check("長い日足: 大引のクォートで今日を足す", long["n225"][-1], ["2099-01-05", 1, 2, 0.5, 1.5])
+    PH.update_long(long, {"indices": {"nikkei": {**pay["indices"]["nikkei"], "asof": "2099-01-06", "stale": True}}}, "taibike", today="2099-01-06")
+    check("長い日足: 休場日（stale）は足さない", long["n225"][-1][0], "2099-01-05")
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -2085,6 +2219,7 @@ if __name__ == "__main__":
     test_spill()
     test_picks_materials()
     test_supply()
+    test_phase()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

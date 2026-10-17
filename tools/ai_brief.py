@@ -443,6 +443,54 @@ def articles(b: Brief, d: dict, slot: str):
         b.add("Yahoo AIトピックス（AI生成。裏付けに使わない）: " + "／".join(cut(x.get("headline"), 50) for x in nw[:6]))
 
 
+def phase(b: Brief, d: dict, slot: str):
+    """局面と対処（phase.py）。振り返り（ai_review）と見立ての土台。数字は付け直さない。"""
+    ph = d.get("phase") or {}
+    if not ph:
+        return
+    st = ph.get("state") or {}
+    b.h(f"局面と対処（36年の日経平均で同じ形を数えた。{ph.get('asof')} の引けまで。予測ではなく過去の分布）")
+    b.add(f"局面: {ph.get('label')}｜{ph.get('headline')}" + ("（今日の日足なし＝前の営業日の形）" if ph.get("stale") else ""))
+    cr = st.get("crash") or {}
+    b.add(f"日経 {num(st.get('close'))}（{pct(st.get('chg'), 2)}）・5日 {pct(st.get('r5'))}・25日線から {pct(st.get('dev25'))}・"
+          f"1年の高値 {num(st.get('high'))}（{st.get('high_date')}）から {pct(st.get('from_high'))}"
+          + (f"・引けのあとの米国 {pct(st.get('us'), 2)}" if st.get("us") is not None else "・今夜の米国はまだ")
+          + (f"｜直近の急落 {cr.get('date')} {pct(cr.get('r'))}（安値 {num(cr.get('low'))}、{cr.get('days')}営業日前、"
+             f"{'安値を割った' if cr.get('broken') else '安値はまだ割っていない'}）" if cr else ""))
+    for p in ph.get("playbook") or []:
+        b.add(f"- {p.get('who')}: {p.get('text')}")
+    sc = ph.get("scenarios") or {}
+    for r in sc.get("rows") or []:
+        b.add(f"  米国別: {r.get('def')}{'（今朝はこれ）' if r.get('now') else ''} {r.get('n')}回 翌朝の窓 中央値 {pct(r.get('gap_med'))}・"
+              f"安値割れ {r.get('low_break')}%・5日の最安値 中央値 {pct(r.get('min5_med'))}・20日後 {pct(r.get('r20'))}"
+              f"（プラス {r.get('p20')}%。前半 {pct(r.get('r20_first'))}／後半 {pct(r.get('r20_second'))}）")
+    for x in ph.get("ladder") or []:
+        b.add(f"  はしご: {num(x.get('price'))} {x.get('text')}")
+    for k, v in (ph.get("focus") or {}).items():
+        cs = v.get("cases") or []
+        if cs:
+            b.add(f"  過去の例（{k}、新しい順）: " + "／".join(
+                f"{c['date']} 当日{pct(c['r'])} 翌朝{pct(c['gap'])} 5日の最安{pct(c['min5'])} 20日後{pct(c['r20'])}" for c in cs[:6]))
+    mg = ph.get("margin") or {}
+    if mg:
+        b.add(f"信用買残（市場全体・JPX、{mg.get('date')}の週）: {mg.get('buy')}兆円（1週 {pct(mg.get('w1'))}・4週 {pct(mg.get('w4'))}・"
+              f"26週 {pct(mg.get('w26'))}）・売残 {mg.get('sell')}兆円・倍率 {mg.get('ratio')}倍")
+    iv = ph.get("investors") or {}
+    if iv:
+        rows = iv.get("rows") or []
+        b.add("投資部門別（東証プライムの差引・億円、新しい週から）: " + "／".join(
+            f"{r['end'][5:]}週 海外{r.get('foreign', 0):+,.0f} 個人{r.get('indiv', 0):+,.0f} 信託{r.get('trust', 0):+,.0f} 事業法人{r.get('corp', 0):+,.0f}"
+            for r in rows[:4]) + f"｜海外は{iv.get('foreign_streak')}週続けて同じ向き、4週で {iv.get('foreign_sum4'):+,.0f}億円")
+    lg = [x for x in ph.get("log") or [] if x.get("actual")]
+    if lg:
+        b.h("答え合わせ（局面の日の見込みと、その後の実際）")
+        for x in lg[:6]:
+            e, a = x.get("expect") or {}, x.get("actual") or {}
+            b.add(f"{x['date']} {x.get('label')}: 見込み（過去{e.get('n')}回）翌朝 {pct(e.get('gap_med'))}・安値割れ {e.get('low_break')}%・20日後 {pct(e.get('r20'))}"
+                  f" → 実際 米国 {pct(a.get('us'))}・翌朝 {pct(a.get('gap'))}" + (f"・安値割れ {'あり' if a.get('low_broken') else 'なし'}（{a.get('low_days')}日）" if 'low_broken' in a else "")
+                  + (f"・5日後 {pct(a.get('r5'))}" if 'r5' in a else "") + (f"・20日後 {pct(a.get('r20'))}" if 'r20' in a else ""))
+
+
 def extras(b: Brief, d: dict, slot: str, date: str):
     if slot == "taibike":
         try:
@@ -471,6 +519,7 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
         preopen_session(b, d)
     else:
         market_session(b, d, slot)
+    phase(b, d, slot)
     macro(b, d)
     thermo(b, d, d.get("picks") or {})
     earnings(b, d)
