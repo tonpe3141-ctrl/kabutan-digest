@@ -2200,6 +2200,95 @@ def test_phase():
     check("長い日足: 休場日（stale）は足さない", long["n225"][-1][0], "2099-01-05")
 
 
+# ==================== 夜間の値動き（DESIGN.md 30章） ====================
+def test_overnight():
+    print("\n夜間の値動き")
+    from datetime import datetime, timedelta, timezone
+    from dashboard import analyze, overnight as O
+    JST = timezone(timedelta(hours=9))
+
+    q = _quote({"symbol": "NVDA", "last": "180.00", "previous_day_closing": "182.00",
+                "ExtendedMktQuote": {"type": "POST_MKT", "last": "169.20", "change": "-10.80",
+                                     "last_time": "2026-10-15T18:08:00.000-0400"}})
+    check("時間外: 通常取引の終値との差を出し直す", (round(q["ext"]["pct"], 2), q["ext"]["type"]), (-6.0, "POST_MKT"))
+    check("時間外が無ければ ext を付けない", "ext" in _quote({"symbol": ".SPX", "last": "7,000"}), False)
+
+    cash = {"change_pct": 0.5, "last_time": "2026-10-15T17:16:00.000-0400"}
+    check("先物: 次の取引日のセッション（18:10 ET）は前日比がそのまま引け後",
+          O.futures_post({"change_pct": -1.2, "last_time": "2026-10-15T18:10:00.000-0400"}, cash), -1.2)
+    check("先物: 引け後〜休止（17:00 ET）は現物のその日の分を除く",
+          round(O.futures_post({"change_pct": -0.5, "last_time": "2026-10-15T17:00:00.000-0400"}, cash), 2), -1.0)
+    check("先物: 週明けの再開（日曜 18:05 ET）は金曜の清算値からの動き",
+          O.futures_post({"change_pct": -2.1, "last_time": "2026-10-18T18:05:00.000-0400"}, cash), -2.1)
+
+    now = datetime(2026, 10, 16, 7, 12, tzinfo=JST)
+
+    def nq(sym, chg, ext, t="2026-10-15T18:08:00.000-0400"):
+        return {"symbol": sym, "last": 100.0, "change_pct": chg,
+                "ext": {"last": 100 * (1 + ext / 100), "pct": ext, "last_time": t}}
+    us = {"spx": {"change_pct": 0.3, "asof": "2026-10-15"}, "ndq": {"change_pct": 0.1, "asof": "2026-10-15"},
+          "sox": {"change_pct": -0.9, "asof": "2026-10-15"}}
+    fut = O.pick_futures({"@NQ.1": {"symbol": "@NQ.1", "last": 24000, "change_pct": -1.5,
+                                    "last_time": "2026-10-15T18:10:00.000-0400"}})
+    check("先物は候補の表記のうち返ったものを使う", fut["nq"]["symbol"], "@NQ.1")
+    ov = O.collect(fut, {"SPY": nq("SPY", 0.3, -0.9), "SMH": nq("SMH", -1.0, -3.2), "NVDA": nq("NVDA", -1.5, -6.1),
+                         "QQQ": nq("QQQ", 0.1, -1.8, "2026-10-13T19:00:00.000-0400")}, us, now, "2026-10-15", 64000.0)
+    check("引け後: ETF の時間外を先に、古い時間外（QQQ）は使わず先物で",
+          ({k: v["pct"] for k, v in ov["post"].items()}, ov["post"]["ndq"]["src"].startswith("NASDAQ100先物")),
+          ({"spx": -0.9, "sox": -3.2, "ndq": -1.5}, True))
+    check("米国の夜の合計（終値 + 引け後）", ov["total"], {"spx": -0.6, "ndq": -1.4, "sox": -4.1})
+    check("大きく動いた・下げ", (ov["level"], ov["dir"], ov["moved"]), ("big", -1, ["nvda"]))
+    ov_hol = O.collect({}, {}, {**us, "spx": {"change_pct": 0.3, "asof": "2026-10-14"}}, now, "2026-10-15", 64000.0)
+    check("米国の終値は東京の前の引けより後に終わった分だけ（米国の休場明けは 0）", ov_hol["cash"]["spx"], 0.0)
+    check("値段が取れなければ none", ov_hol["level"], "none")
+    nk_ok = O.collect(O.pick_futures({"@NK.1": {"symbol": "@NK.1", "last": 63000, "change_pct": -1.0,
+                                                "last_time": "2026-10-16T06:50:00.000+0900"}}), {}, us, now, "2026-10-15", 64000.0)
+    nk_bad = O.collect(O.pick_futures({"@NK.1": {"symbol": "@NK.1", "last": 420, "change_pct": -1.0,
+                                                 "last_time": "2026-10-16T06:50:00.000+0900"}}), {}, us, now, "2026-10-15", 64000.0)
+    check("日経平均先物: 前日の終値との差（桁違いの値は使わない）", (nk_ok["nk"]["gap_pct"], nk_bad["nk"]), (-1.56, None))
+
+    hs = O.match_headlines([("海外", [
+        {"title": "Nvidia shares slide after hours as DeepSeek unveils new model", "published": "2026-10-16T06:40+09:00", "source": "CNBC"},
+        {"title": "生成AIの新モデルで半導体株が時間外で下落", "published": "2026-10-16T05:00+09:00", "source": "ロイター"},
+        {"title": "MAINSTREET retail update", "published": "2026-10-16T05:00+09:00", "source": "CNBC"},
+        {"title": "エヌビディアが新製品", "published": "2026-10-15T12:00+09:00", "source": "日経"}])],
+        O.since_of("2026-10-15", now), now, ["nvda"])
+    check("見出し: 動いた銘柄の社名が先、語の途中の AI には当てない、東京の前の引けより前は捨てる",
+          [(x["source"], x["names"]) for x in hs], [("CNBC", ["nvda"]), ("ロイター", [])])
+
+    m = O.fit([(x / 10, x / 10 + (x % 7 - 3) / 5, 0.1 + 0.9 * x / 10 + 0.6 * ((x % 7 - 3) / 5)) for x in range(-100, 100)])
+    check("回帰: 窓 = a + bm×S&P500 + bs×(SOX − S&P500) を取り戻す",
+          (round(m["a"], 3), round(m["bm"], 3), round(m["bs"], 3), round(m["r2"], 3)), (0.1, 0.9, 0.6, 1.0))
+    nights = O.us_nights(["2026-10-14", "2026-10-15", "2026-10-16"],
+                         {"d": ["2026-10-13", "2026-10-14", "2026-10-15"], "c": [100, 101, 99.99]},
+                         {"d": ["2026-10-13", "2026-10-14", "2026-10-15"], "c": [100, 95, 95]})
+    check("米国の夜: 東京の朝より前に終わった米国の日付だけ（10/15 の朝は 10/14 の米国）",
+          {k: (round(v[0], 2), round(v[1], 2)) for k, v in nights.items()}, {"2026-10-15": (1.0, -5.0), "2026-10-16": (-1.0, 0.0)})
+
+    st = lambda avg, f=60, n=10: {"n": n, "nights": 25, "avg": avg, "win": 90, "worst": -9.0, "fill": f, "signals": 20}
+    rs = {"hold": {"shock": {"all": {"n": 9, "nights": 25, "gap": -2, "oc": 0.3, "oc_up": 55, "o5": 2},
+                             "first": {"oc": 0.2}, "second": {"oc": 0.4}}, "all": {"all": {"oc": 0.0, "o5": 0.8}}},
+          "orders": {"rows": {"shock": {"all": st(3.0), "first": st(2.0), "second": st(4.0)},
+                              "other": {"all": st(1.0, 30), "first": st(1.4, 30), "second": st(0.9, 30)},
+                              "surge": {"all": st(1.1, 20), "first": st(1.0, 20), "second": st(1.2, 20)}}}}
+    pb = O.playbook({"level": "big", "dir": -1}, rs)
+    check("対処（下げ）: 前半・後半とも寄りから引けが上なら投げない・注文は取り消さない",
+          [(p["who"], p["text"][:12]) for p in pb], [("持ち株", "寄りの成行で慌てて売らな"), ("注文", "押し目買いのルールの指値"), ("買い", "候補・並び順は変えていな")])
+    rs["orders"]["rows"]["shock"]["second"] = st(0.5)
+    check("対処（下げ）: 片方の半分で負けたら取り消さないとは言わない",
+          O.playbook({"level": "big", "dir": -1}, rs)[1]["text"].startswith("押し目買い"), False)
+    check("対処: 静かな夜は出さない", O.playbook({"level": "quiet", "dir": -1}, rs), [])
+    check("対処（上げ）: 約定しにくいことを数字で", O.playbook({"level": "big", "dir": 1}, rs)[0]["text"][:35],
+          "上げの夜の翌朝は買いの指値に届きにくい（約定 20%、ほかの朝 30%")
+
+    io = analyze.implied_open({"spx_pct": 0.3, "sox_pct": -0.9, "usdjpy_pct": 0.0}, 64000.0, None,
+                              {"spx": {"pct": -1.0}, "sox": {"pct": -3.0}})
+    check("想定オープン: 引け後の動きを同じ係数で足す",
+          (round(io["gap_pct"], 3), round(io["close_only_pct"], 3), io["contributions"][-1]["driver"]), (-1.36, -0.06, "SOX の引け後"))
+    io_f = analyze.implied_open({"spx_pct": 0.3}, 64000.0, {"last": 63000, "symbol": "@NK.1", "asof": "10/16 06:50"}, None)
+    check("想定オープン: 先物があれば先物、モデルは参考に残す", (io_f["method"], round(io_f["model"]["gap_pct"], 3)), ("futures", 0.165))
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -2231,6 +2320,7 @@ if __name__ == "__main__":
     test_picks_materials()
     test_supply()
     test_phase()
+    test_overnight()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

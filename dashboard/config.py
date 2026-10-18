@@ -56,11 +56,57 @@ US_SECTOR_ETFS = [
     {"key": "xlre", "symbol": "XLRE", "label": "不動産"},
 ]
 
-# 日本の指数。日経平均先物は CNBC に無いため、想定オープンはモデル推計になる。
+# 日本の指数。日経平均先物は OVERNIGHT_FUTURES の候補で試し、取れなければ想定オープンはモデル推計になる。
 JP_INDICES = [
     {"key": "nikkei", "symbol": ".N225",     "label": "日経平均"},
     {"key": "topix",  "symbol": ".TOPX",     "label": "TOPIX"},
     {"key": "jpx400", "symbol": ".JPXNK400", "label": "JPX日経400"},
+]
+
+# ==================== 夜間の値動き（dashboard/overnight.py、DESIGN.md 30章） ====================
+# 米国の引け後〜東京の寄りの前に、ニュースで動いた先物と時間外の値段。クォート API（exthrs=1）の時間外の約定と、先物の期近。
+# symbols は候補を順に試す（CNBC の表記が違っても止まらない。どれが返るかは tools/probe_overnight.py で実測する）。
+# cash は同じものを表す現物の指数（引け後の動きを出すのに使う）。
+OVERNIGHT_FUTURES = [
+    {"key": "nq", "symbols": ["@ND.1", "@NQ.1"], "label": "NASDAQ100先物", "cash": "ndq"},
+    {"key": "es", "symbols": ["@SP.1", "@ES.1"], "label": "S&P500先物", "cash": "spx"},
+    {"key": "ym", "symbols": ["@DJ.1", "@YM.1"], "label": "NYダウ先物", "cash": "dji"},
+    {"key": "nk", "symbols": ["@NK.1", "@NKD.1", "@NIY.1"], "label": "日経平均先物", "cash": None},
+]
+# 時間外の値段を見る米国の ETF と銘柄。role の ETF は引け後の動き（S&P500・NASDAQ・SOX の代わり）に使う。
+# pattern は見出しの照合（社名が出た見出しを夜間の材料の候補に挙げる。理由かどうかの読みは Routine）
+OVERNIGHT_NAMES = [
+    {"key": "spy",  "symbol": "SPY",  "label": "S&P500 ETF",     "role": "spx"},
+    {"key": "qqq",  "symbol": "QQQ",  "label": "NASDAQ100 ETF",  "role": "ndq"},
+    {"key": "smh",  "symbol": "SMH",  "label": "米半導体ETF",    "role": "sox"},
+    {"key": "nvda", "symbol": "NVDA", "label": "エヌビディア",   "pattern": r"Nvidia|NVIDIA|エヌビディア"},
+    {"key": "avgo", "symbol": "AVGO", "label": "ブロードコム",   "pattern": r"Broadcom|ブロードコム"},
+    {"key": "amd",  "symbol": "AMD",  "label": "AMD",            "pattern": r"(?<![A-Za-z])AMD(?![A-Za-z])|Advanced Micro"},
+    {"key": "tsm",  "symbol": "TSM",  "label": "TSMC",           "pattern": r"TSMC|Taiwan Semiconductor|台湾積体電路"},
+    {"key": "mu",   "symbol": "MU",   "label": "マイクロン",     "pattern": r"Micron|マイクロン"},
+    {"key": "asml", "symbol": "ASML", "label": "ASML",           "pattern": r"ASML"},
+    {"key": "amat", "symbol": "AMAT", "label": "アプライド・マテリアルズ", "pattern": r"Applied Materials|アプライド・?マテリアルズ"},
+    {"key": "lrcx", "symbol": "LRCX", "label": "ラムリサーチ",   "pattern": r"Lam Research|ラム・?リサーチ"},
+    {"key": "arm",  "symbol": "ARM",  "label": "アーム",         "pattern": r"Arm Holdings|英アーム|アーム・ホールディングス"},
+    {"key": "msft", "symbol": "MSFT", "label": "マイクロソフト", "pattern": r"Microsoft|マイクロソフト"},
+    {"key": "googl", "symbol": "GOOGL", "label": "アルファベット", "pattern": r"Alphabet|Google|グーグル|アルファベット"},
+    {"key": "meta", "symbol": "META", "label": "メタ",           "pattern": r"(?<![A-Za-z])Meta(?![A-Za-z])|メタ・プラットフォームズ|米メタ"},
+    {"key": "amzn", "symbol": "AMZN", "label": "アマゾン",       "pattern": r"Amazon|アマゾン"},
+    {"key": "aapl", "symbol": "AAPL", "label": "アップル",       "pattern": r"Apple|アップル"},
+    {"key": "orcl", "symbol": "ORCL", "label": "オラクル",       "pattern": r"Oracle|オラクル"},
+    {"key": "tsla", "symbol": "TSLA", "label": "テスラ",         "pattern": r"Tesla|テスラ"},
+]
+# 夜間の見出しの話題（マクロの話題 MACRO_TOPICS に足して照合する）。見出しは NFKC で半角にそろえてから照合する
+OVERNIGHT_TOPICS = [
+    {"key": "ai",      "label": "AI・半導体",
+     "pattern": r"DeepSeek|ディープシーク|OpenAI|オープンAI|Anthropic|アンソロピック|生成AI|AIモデル|大規模言語モデル|LLM|"
+                r"人工知能|(?<![A-Za-z])AI(?![A-Za-z])|半導体|semiconductor|chips?\b|chipmakers?|GPU|データセンター|data cent(er|re)"},
+    {"key": "export",  "label": "輸出規制・制裁",
+     "pattern": r"輸出規制|輸出管理|エンティティー?・?リスト|禁輸|export (control|curb|ban|restriction)s?|Entity List"},
+    {"key": "results", "label": "決算・見通し",
+     "pattern": r"決算|業績見通し|ガイダンス|売上高見通し|guidance|earnings|quarterly (results|revenue)|forecast|outlook"},
+    {"key": "futures", "label": "先物・夜間取引",
+     "pattern": r"日経平均先物|シカゴ|夜間取引|ナイト・?セッション|時間外|先物|futures|after[- ]hours|premarket|pre-market"},
 ]
 
 # ==================== 米国 → 日本セクターの連想マップ ====================
@@ -339,6 +385,13 @@ PRESS_FEEDS = [
      "url": _GN + "site:nikkei.com " + _MKT + " when:2d", "hosts": ["www.nikkei.com"]},
     {"key": "jiji",      "label": "時事通信",       "kind": "press", "tone": True, "max": 12,
      "url": _GN + "site:jiji.com " + _MKT + " when:2d", "hosts": ["equity.jiji.com", "sp.m.jiji.com"]},
+    # AI・半導体の報道（夜間の値動きの材料。DESIGN.md 30章）。上の3社と同じ配信元だけ。表示の媒体名は配信元ドメインから付ける
+    {"key": "tech",      "label": "報道（AI・半導体）", "kind": "press", "tone": False, "max": 12,
+     "url": _GN + "(site:jp.reuters.com OR site:bloomberg.com/jp OR site:nikkei.com) "
+                  "(半導体 OR 生成AI OR エヌビディア OR ディープシーク OR DeepSeek OR OpenAI OR 輸出規制) when:1d",
+     "hosts": ["jp.reuters.com", "www.bloomberg.com", "bloomberg.com", "www.nikkei.com"],
+     "host_labels": {"jp.reuters.com": "ロイター", "www.bloomberg.com": "ブルームバーグ", "bloomberg.com": "ブルームバーグ",
+                     "www.nikkei.com": "日本経済新聞"}},
     {"key": "nhk",       "label": "NHK",            "kind": "press", "tone": False, "max": 12,
      "url": "https://www.nhk.or.jp/rss/news/cat5.xml",
      "include": r"株|円相場|円安|円高|日銀|金利|物価|景気|為替|決算|関税|財務|GDP|原油|賃金|輸出|輸入|貿易|"
@@ -361,6 +414,8 @@ PRESS_FEEDS = [
      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"},
     {"key": "cnbc_earn", "label": "CNBC Earnings",  "kind": "overseas", "max": 8,
      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135"},
+    {"key": "cnbc_tech", "label": "CNBC Technology", "kind": "overseas", "max": 8,
+     "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910"},
 ]
 # 報道の見出しから常に外すもの（Google ニュースの検索語は本文にも当たるため、スポーツ等が紛れる）
 PRESS_EXCLUDE = (r"^(ゴルフ|テニス|サッカー|野球|大リーグ|ＭＬＢ|MLB|ＮＢＡ|NBA|ＮＦＬ|NFL|ＮＨＬ|Ｆ１|F1|ラグビー|"

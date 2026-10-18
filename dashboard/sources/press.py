@@ -6,7 +6,7 @@
   press    … 報道。ロイター・ブルームバーグ・日本経済新聞・時事通信・NHK の見出し
              （NHK 以外は Google ニュース RSS 経由。本文なし）と、Yahoo!ファイナンスに本文付きで
              配信される 時事通信・トレーダーズ・ウェブ（DZH）・ウエルスアドバイザー の記事
-  overseas … 海外報道。CNBC の Markets / Economy / Earnings（英語。見出しと要約）
+  overseas … 海外報道。CNBC の Markets / Economy / Earnings / Technology（英語。見出しと要約）
   wire     … トレーダーズ・ウェブ（DZH）の短信の表題。経済指標の結果（【指標】）・発表予定・要人発言。
              表題そのものが事実なので表題だけを持つ
   macro_articles … マクロの材料になる本文（1日のイベント予定・FF 金利の織り込み度・国内外の指標の一覧・
@@ -160,8 +160,9 @@ def select_feed_items(items: list[dict], feed: dict, now: datetime) -> list[dict
         pub = it.get("published")
         if pub is None or pub < cutoff or pub > now + timedelta(hours=1):
             continue
+        source = (feed.get("host_labels") or {}).get(it.get("source_host") or "", feed["label"])
         row = {"title": title, "published": pub.isoformat(timespec="minutes"),
-               "url": it.get("url"), "source": feed["label"], "source_key": feed["key"]}
+               "url": it.get("url"), "source": source, "source_key": feed["key"]}
         if it.get("summary") and feed["kind"] == "overseas":
             row["summary"] = it["summary"]
         out.append(row)

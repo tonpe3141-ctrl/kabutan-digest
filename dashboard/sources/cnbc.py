@@ -46,7 +46,7 @@ def _quote(raw: dict) -> dict:
     if change is not None and prev:
         change_pct = change / prev * 100
 
-    return {
+    out = {
         "symbol": raw.get("symbol"),
         "name": raw.get("name"),
         "last": last,
@@ -61,6 +61,24 @@ def _quote(raw: dict) -> dict:
         "last_time": raw.get("last_time") or None,       # 最後の約定の時刻（東証の個別株は引けで "…T15:30:00.000+0900"）
         "market_status": raw.get("curmktstatus"),
     }
+    ext = _extended(raw.get("ExtendedMktQuote"), last)
+    if ext:
+        out["ext"] = ext
+    return out
+
+
+def _extended(raw, close: float | None) -> dict | None:
+    """時間外（引け後・寄り前）の約定。exthrs=1 のときだけ ExtendedMktQuote に入る（米国の株・ETF）。
+
+    騰落は通常取引の終値（close）との差で出し直す（CNBC の change の基準に頼らない）。取れなければ None。"""
+    if not isinstance(raw, dict):
+        return None
+    last = _num(raw.get("last"))
+    if last is None or not close:
+        return None
+    return {"type": raw.get("type"), "last": last, "pct": (last / close - 1) * 100,
+            "last_time": raw.get("last_time") or raw.get("last_timedate") or None,
+            "volume": _num(raw.get("volume"))}
 
 
 def fetch_symbols(symbols: list[str]) -> dict:

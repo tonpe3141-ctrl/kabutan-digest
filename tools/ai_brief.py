@@ -126,8 +126,10 @@ def preopen_session(b: Brief, d: dict):
         b.add("米セクター: " + "、".join(f"{x.get('label')}{pct(x.get('change_pct'))}" for x in rows))
     io = d.get("implied_open") or {}
     if io:
+        m = io.get("model") or io
         b.add(f"想定オープン（{io.get('method_label')}）: {pct(io.get('gap_pct'), 2)}・{num(io.get('gap'), 0)}円（"
-              + "、".join(f"{c.get('driver')} {c.get('display')}" for c in io.get("contributions") or []) + "）")
+              + "、".join(f"{c.get('driver')} {c.get('display')}" for c in m.get("contributions") or []) + "）"
+              + (f"。米国の終値だけなら {pct(m.get('close_only_pct'), 2)}" if m.get("close_only_pct") is not None else ""))
     rk = d.get("risk") or {}
     if rk:
         b.add(f"リスク環境: {rk.get('label')}（" + "／".join(rk.get("reasons") or []) + "）")
@@ -144,6 +146,51 @@ def preopen_session(b: Brief, d: dict):
     ah = co.get("after_hours_kessan") or []
     if ah:
         b.add(f"前営業日の引け後の開示（{len(ah)}件）: " + "、".join(f"{name(r.get('name'))}({r.get('code')}) {r.get('category')}" for r in ah[:15]))
+
+
+LEVEL = {"big": "大きく動いた", "move": "動いた", "quiet": "大きな動きなし", "none": "値段が取れず"}
+
+
+def overnight(b: Brief, d: dict):
+    """夜間の値動き（overnight.py）。米国の引け後の先物・時間外、照合した見出し、日本株への響き（朝の窓の目安）、対処。数字は付け直さない。"""
+    ov = d.get("overnight") or {}
+    if not ov:
+        return
+    b.h(f"夜間の値動き（米国の引け後〜今朝。{str(ov.get('asof') or '')[11:16]} 時点。先物・時間外の値段と、過去2年の連動から出した目安。予測ではない）")
+    b.add(f"判定: {LEVEL.get(ov.get('level'), ov.get('level'))}｜{ov.get('headline')}")
+    fs = [f for f in ov.get("futures") or [] if f.get("fresh")]
+    if fs:
+        b.add("先物: " + "、".join(f"{f['label']} {num(f.get('last'))}（前日比 {pct(f.get('chg'), 2)}"
+                                     + (f"・引け後 {pct(f.get('post'), 2)}" if f.get("post") is not None else "") + f"、{f.get('time')}）" for f in fs))
+    nk = ov.get("nk")
+    if nk:
+        b.add(f"日経平均先物: {num(nk.get('last'))}（前日の日経平均の終値から {pct(nk.get('gap_pct'), 2)}、{nk.get('time')}）")
+    ext = [n for n in ov.get("names") or [] if n.get("ext") is not None]
+    if ext:
+        ext.sort(key=lambda n: (n.get("role") is None, -abs(n["ext"])))
+        b.add("時間外（通常取引の終値から）: " + "、".join(f"{n['label']} {pct(n['ext'])}（終値 {pct(n.get('chg'))}）" for n in ext[:12]))
+    tot, cash = ov.get("total") or {}, ov.get("cash") or {}
+    b.add("米国の夜（東京の前の引けのあと）: " + "、".join(
+        f"{lab} 終値 {pct(cash.get(k))} → 引け後を足して {pct(tot.get(k))}" for k, lab in (("spx", "S&P500"), ("ndq", "NASDAQ"), ("sox", "SOX"))))
+    hs = ov.get("headlines") or []
+    lab = {n["key"]: n["label"] for n in ov.get("names") or []}
+    if hs:
+        b.add(f"見出し（{str(ov.get('since') or '')[5:16].replace('T', ' ')}〜。社名・話題に当たったものだけ。値動きの理由かどうかは確かめる）:")
+        for x in hs[:10]:
+            tag = "／".join(filter(None, ["社名: " + "・".join(lab.get(k, k) for k in x["names"]) if x.get("names") else "",
+                                          "話題: " + "・".join(x["topics"]) if x.get("topics") else ""]))
+            b.add(f"- {cut(x.get('title'), 90)}{b.ref('N', x.get('title'), x.get('url'), x.get('source'))}（{x.get('source')}・"
+                  f"{str(x.get('published') or '')[5:16].replace('T', ' ')}。{tag}）")
+    jp = ov.get("jp") or []
+    if jp:
+        b.add("日本株への響き（朝の窓の目安。米国の終値まで → 引け後を足した分。決定係数は過去の連動の強さ）: " + "、".join(
+            f"{name(r.get('name'))}({r['code']}) {pct(r.get('est_close'))}→{pct(r.get('est'))}（{r.get('r2')}）" for r in jp[:10]))
+    for p in ov.get("playbook") or []:
+        b.add(f"- 対処・{p.get('who')}: {p.get('text')}")
+    gm = ((ov.get("research") or {}).get("gap_model")) or {}
+    if gm:
+        b.add(f"窓の目安の確かめ（前半の係数で {gm.get('from')} 以降の大きく動いた夜）: 相関 {gm.get('corr')}・平均の誤差 {gm.get('mae')}%"
+              f"（目安なし {gm.get('mae0')}%）・向きの一致 {gm.get('hit')}%")
 
 
 def macro(b: Brief, d: dict):
@@ -517,6 +564,7 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
     b.add(f"# {slot} {latest.get('date')} 収集 {s.get('updated_at')}（数字はここと同じものだけを書く）")
     if slot == "preopen":
         preopen_session(b, d)
+        overnight(b, d)
     else:
         market_session(b, d, slot)
     phase(b, d, slot)

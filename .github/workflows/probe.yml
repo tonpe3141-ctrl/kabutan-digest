@@ -37,3 +37,6 @@ jobs:
       - name: 信用残（Yahoo の信用残の時系列・JPX）
         run: python tools/probe_margin.py
         if: always()
+      - name: 夜間の値動き（先物・時間外・AI と半導体の報道）
+        run: python tools/probe_overnight.py
+        if: always()
