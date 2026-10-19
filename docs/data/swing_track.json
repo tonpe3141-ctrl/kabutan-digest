@@ -644,9 +644,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 5400.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 4944.0
+"last": 4845.0
 },
 {
 "asof": "2026-10-09",
@@ -676,9 +676,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 1879.0
+"last": 1865.0
 },
 {
 "asof": "2026-10-09",
@@ -751,9 +751,9 @@
 "filled": true,
 "in": "2026-10-14",
 "entry": 5467.86,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 5180.0
+"last": 5160.0
 },
 {
 "asof": "2026-10-14",
@@ -766,9 +766,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 4275.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 4150.0
+"last": 4060.0
 },
 {
 "asof": "2026-10-14",
@@ -781,9 +781,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 2030.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2098.0
+"last": 2083.0
 },
 {
 "asof": "2026-10-14",
@@ -791,14 +791,16 @@
 "name": "アルプスアル",
 "limit": 2126,
 "stop": 1936.18,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-15",
 "entry": 2112.0,
-"days": 2,
-"open": true,
-"last": 2140.5
+"days": 3,
+"out": "2026-10-19",
+"exit": 2141.12,
+"why": "sell",
+"ret": 1.28
 },
 {
 "asof": "2026-10-14",
@@ -811,9 +813,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 5123.21,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 5180.0
+"last": 5160.0
 },
 {
 "asof": "2026-10-14",
@@ -826,9 +828,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 3634.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3366.0
+"last": 3322.0
 },
 {
 "asof": "2026-10-15",
@@ -885,31 +887,55 @@
 "code": "6645",
 "name": "オムロン",
 "limit": 5750,
-"stop": 5140,
+"stop": 5062.64,
+"done": false,
+"earn": "up",
+"filled": true,
+"in": "2026-10-19",
+"entry": 5665.0,
+"days": 1,
+"open": true,
+"last": 5830.0
+},
+{
+"asof": "2026-10-19",
+"code": "6645",
+"name": "オムロン",
+"limit": 5720,
+"stop": 5100,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-10-19",
+"code": "4021",
+"name": "日産化",
+"limit": 8390,
+"stop": 7700,
+"done": false,
+"earn": "none"
 }
 ],
 "stats": {
-"n": 20,
+"n": 21,
 "win": 90,
-"avg": 0.38,
-"med": 0.58,
-"pf": 1.5,
-"avg_win": 1.26,
+"avg": 0.42,
+"med": 0.7,
+"pf": 1.58,
+"avg_win": 1.27,
 "avg_loss": -7.6,
 "worst": -11.99,
 "days": 3.6,
-"d2": 20,
-"per_day": 0.1,
+"d2": 19,
+"per_day": 0.12,
 "stops": 5,
 "sells": 90,
 "times": 5,
-"small": 40,
+"small": 38,
 "big_loss": 5,
-"fill": 38,
+"fill": 39,
 "open": 8,
-"issued": 74,
+"issued": 76,
 "since": "2026-09-25"
 },
 "mid": {
@@ -926,9 +952,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 2158.0
+"last": 2074.0
 },
 {
 "asof": "2026-10-01",
@@ -1087,9 +1113,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 17100.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 13375.0
+"last": 13600.0
 },
 {
 "asof": "2026-10-09",
@@ -1103,9 +1129,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 16000.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 13375.0
+"last": 13600.0
 },
 {
 "asof": "2026-10-09",
@@ -1119,9 +1145,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 6900.0
+"last": 6798.0
 },
 {
 "asof": "2026-10-09",
@@ -1157,9 +1183,9 @@
 "filled": true,
 "in": "2026-10-14",
 "entry": 14686.79,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 13375.0
+"last": 13600.0
 },
 {
 "asof": "2026-10-13",
@@ -1235,9 +1261,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 13790.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 13375.0
+"last": 13600.0
 },
 {
 "asof": "2026-10-14",
@@ -1251,9 +1277,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 1318.0
+"last": 1309.0
 },
 {
 "asof": "2026-10-14",
@@ -1267,9 +1293,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 3183.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3189.0
+"last": 3176.0
 },
 {
 "asof": "2026-10-14",
@@ -1283,9 +1309,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 6900.0
+"last": 6798.0
 },
 {
 "asof": "2026-10-14",
@@ -1317,9 +1343,9 @@
 "filled": true,
 "in": "2026-10-16",
 "entry": 6326.25,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 6260.0
+"last": 6250.0
 },
 {
 "asof": "2026-10-15",
@@ -1382,19 +1408,36 @@
 "name": "Terra Drone",
 "limit": 5980,
 "stop": 5430,
-"done": false,
+"done": true,
 "low": 6260.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-16",
 "code": "6752",
 "name": "パナＨＤ",
 "limit": 3870,
-"stop": 3700,
+"stop": 3684.14,
 "done": false,
 "low": 3957.0,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-10-19",
+"entry": 3850.0,
+"days": 1,
+"open": true,
+"last": 3977.0
+},
+{
+"asof": "2026-10-19",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 5980,
+"stop": 5440,
+"done": false,
+"low": 6250.0,
+"earn": "none"
 }
 ],
 "stats": {
@@ -1415,8 +1458,8 @@
 "small": 0,
 "big_loss": 100,
 "fill": 47,
-"open": 10,
-"issued": 36,
+"open": 11,
+"issued": 37,
 "since": "2026-10-01"
 }
 }
