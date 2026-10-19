@@ -1097,6 +1097,7 @@ details.vsec > .vsec__card > .card__head > .card__title { display: none; }
 .pb { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
 .pb__row { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; align-items: start; }
 .pb__who { justify-self: start; white-space: nowrap; }
+table.bt tr.is-stale th, table.bt tr.is-stale td { opacity: .5; }   /* 夜間の値動き: 古い約定（使っていない値段） */
 .pb__t { font-size: 13px; line-height: 1.65; }
 .pb__block { margin-top: 14px; }
 .pb__sup { display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: 13px; line-height: 1.6; margin-bottom: 6px; }

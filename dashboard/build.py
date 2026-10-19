@@ -15,9 +15,9 @@ import traceback
 from datetime import date, datetime, timedelta
 from statistics import median
 
-from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, overnight, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
-    JP_INDICES, MACRO_SYMBOLS, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
+    JP_INDICES, MACRO_SYMBOLS, OVERNIGHT_FUTURES, OVERNIGHT_NAMES, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
     US_INDICES, US_SECTOR_ETFS,
 )
 
@@ -171,12 +171,25 @@ def build_preopen(target_date: date) -> dict:
         if len(prev_disc) > len(after_hours):
             after_hours = prev_disc
 
+    # 夜間の値動き（米国の引け後の先物・時間外。DESIGN.md 30章）。日本株への響きと対処は run() で日足キャッシュの更新のあとに足す
+    print("  [CNBC] 夜間の先物・時間外を取得中...")
+    fut_q = _safe("先物", lambda: cnbc.fetch_symbols([s for f in OVERNIGHT_FUTURES for s in f["symbols"]]), {}) or {}
+    name_q = _safe("時間外", lambda: cnbc.fetch_symbols([n["symbol"] for n in OVERNIGHT_NAMES]), {}) or {}
+    prev_jp = (prev_summary or {}).get("date")
+    ov = _safe("夜間の値動き", lambda: overnight.collect(overnight.pick_futures(fut_q), name_q, us, store.now_jst(),
+                                                     prev_jp, prev_close))
+    if ov:
+        print(f"    {'✅' if ov['level'] != 'none' else '⚠️ '} {ov['headline']}")
+    nk = (ov or {}).get("nk")
+    futures = {"last": nk["last"], "symbol": nk["symbol"], "asof": nk.get("time")} if nk else None
+
     spx = us.get("spx") or {}
     payload = {
         "us": us,
         "macro": macro,
         "sectors_us": sectors_us,
-        "implied_open": analyze.implied_open(drivers, prev_close, None),
+        "overnight": ov,
+        "implied_open": analyze.implied_open(drivers, prev_close, futures, (ov or {}).get("post")),
         "risk": analyze.risk_regime(us, macro),
         "sector_outlook": analyze.sector_outlook(drivers),
         "carryover": {"prev_session": prev_summary, "after_hours_kessan": after_hours[:80]},
@@ -587,6 +600,14 @@ def run(slot: str, target_date: date | None = None) -> dict:
         hist_patch[slot]["phase"] = {"primary": ph["primary"], "headline": ph["headline"], "asof": ph["asof"]}
         print(f"    ✅ {ph['label']}: {ph['headline']}")
 
+    # 夜間の値動き: 見出しの照合・日本株への響き（朝の窓の目安）・対処の根拠（DESIGN.md 30章）。注文・候補は変えない
+    if slot == "preopen":
+        payload["overnight"] = _overnight(target_date, payload)
+        ov = payload["overnight"]
+        if ov:
+            hist_patch[slot]["overnight"] = {"level": ov.get("level"), "headline": ov.get("headline"),
+                                             "post": ov.get("post"), "total": ov.get("total")}
+
     # マクロ環境（金利・為替・商品の流れと、報道で多かった話題）。温度計が更新した日足キャッシュを読む
     print("  [マクロ] 金利・為替・商品の流れと、報道の話題をまとめ中...")
     payload["macro_view"] = _safe("マクロ環境", lambda: macro_mod.build(
@@ -622,6 +643,32 @@ def run(slot: str, target_date: date | None = None) -> dict:
 
     print(f"\n✅ {slot} を更新しました → {store.latest_path()}")
     return payload
+
+
+def _overnight(target_date: date, payload: dict) -> dict | None:
+    """寄り前の夜間の値動きに、見出し・日本株への響き・対処を足す。取り直しで値段が取れなければ前回を引き継ぐ。"""
+    ov = payload.get("overnight")
+    latest = store.load_latest()
+    before = ((((latest.get("slots") or {}).get("preopen") or {}).get("data") or {}).get("overnight")
+              if latest.get("date") == target_date.isoformat() else None)
+    if (not ov or ov.get("level") == "none") and before and before.get("level") != "none":
+        print("  ↩︎ 夜間の値動き: 今回は値段が取れず、前回の分を引き継ぎ")
+        return before
+    if not ov:
+        return before
+    pr, kb = payload.get("press") or {}, payload.get("kabutan") or {}
+    groups = [("海外", pr.get("overseas")), ("報道", pr.get("headlines")), ("公的機関", pr.get("official")),
+              ("短信", pr.get("wire")), ("株探", kb.get("headlines"))]
+    prev_jp = (((payload.get("carryover") or {}).get("prev_session")) or {}).get("date")
+    print("  [夜間] 見出しの照合と、日本株への響き（朝の窓の目安）・対処の根拠を数えています...")
+    out = _safe("夜間の値動き（日本株への響き）", lambda: overnight.finish(
+        ov, bars_mod.load_ohlc(), bars_mod.load().get("macro") or {}, names.known(), groups, prev_jp, store.now_jst()))
+    if out:
+        rs = out.get("research") or {}
+        print(f"    ✅ 見出し {len(out.get('headlines') or [])} 本・響きやすい銘柄 {len(out.get('jp') or [])}・"
+              f"係数 {out.get('n_models')} 銘柄・対処 {len(out.get('playbook') or [])} 行"
+              + (f"（窓の目安の確かめ: 相関 {(rs.get('gap_model') or {}).get('corr')}）" if rs.get("gap_model") else ""))
+    return out or ov
 
 
 def _build_picks(target_date: date, newsflow: dict | None = None) -> dict | None:

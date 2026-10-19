@@ -1196,7 +1196,9 @@ function renderNews() {
 
 /* ==================== 市況: 寄り前 ==================== */
 function renderPreopen(d, upd) {
-  const out = [reviewCard(d, 'preopen'), summaryCard(d, 'preopen'), phaseCard(d)];
+  const ovc = overnightCard(d);
+  const ovTop = d.overnight && ['big', 'move'].includes(d.overnight.level);
+  const out = [reviewCard(d, 'preopen'), summaryCard(d, 'preopen'), ovTop ? ovc : null, phaseCard(d)];
   const io = d.implied_open;
   if (io) {
     const gapTxt = isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : '';
@@ -1206,15 +1208,17 @@ function renderPreopen(d, upd) {
     if (io.method === 'futures') {
       if (isNum(io.futures_last)) aside.push(h('div', { class: 'num', text: `先物 ${fmtNum(io.futures_last, 0)}` }));
       const m = io.model;
-      note = `${io.source_label || '日経平均先物'}の清算値（${io.asof || '日付不明'}）と前日終値の差。` +
+      note = `${io.source_label || '日経平均先物'}（${io.asof || '時刻不明'}）と前日終値の差。` +
         (m && isNum(m.gap_pct) ? `参考: ${m.method_label || '簡易推計'}では ${fmtPct(m.gap_pct)}` + (isNum(m.gap) ? `（${fmtSigned(m.gap, 0)}円）` : '') : '');
     } else if (io.method === 'model' && io.contributions) {
       note = (io.futures_note ? io.futures_note + '。' : '') +
         '内訳: ' + io.contributions.map((c) => `${c.driver} ${c.display || ''} → ${fmtSigned(c.value)}pt`).join('　/　') +
-        (io.formula ? `　（係数: ${io.formula}）` : '');
+        (io.formula ? `　（係数: ${io.formula}）` : '') +
+        (isNum(io.close_only_pct) ? `。米国の終値だけなら ${fmtPct(io.close_only_pct)}` : '');
     }
     out.push(hero('日経平均 想定オープン', fmtPct(io.gap_pct), gapTxt, io.gap_pct, aside, note, 'neutral', 'sec-open'));
   }
+  if (!ovTop) out.push(ovc);
   if (d.us && Object.keys(d.us).length) {
     out.push(card('米国市場', d.freshness && d.freshness.us_asof ? d.freshness.us_asof + ' 終値' : null,
       quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix']), null, false, 'sec-us'));
@@ -1599,6 +1603,177 @@ function phaseCard(d) {
   return card('局面と対処', ph.stale ? `${md(ph.asof)}の引け（今日の日足なし）` : `${md(ph.asof)}の引けまで`, kids,
     '36年の日経平均で同じ形を数えた過去の分布で、予測ではありません。形の定義と件数・前半（〜2007）／後半（2008〜）は検証タブに。注文・買い候補は変えていません。売買を推奨するものではありません。',
     false, 'sec-phase');
+}
+
+/* ==================== 夜間の値動き（米国の引け後の先物・時間外と、日本株への響き。DESIGN.md 30章） ====================
+   寄り前の収集（07:10）で、米国の引け後に動いた先物・時間外の ETF と主な銘柄、東京の前の引けからの見出し（社名・話題に当たったもの）、
+   銘柄ごとの朝の窓の目安（過去2年の朝の窓を米国の夜で回帰した係数）、対処（大きな下げの翌朝に寄りで売る／持つ・押し目買いの注文の成績）。
+   市況タブの寄り前に1枚。売買タブの保有・注文の行には、寄りの前だけ「今朝の窓の目安」の一行を添える（同じ数字の要約）。 */
+const OV_LEVEL = { big: ['大きく動いた', 'down'], move: ['動いた', 'warn'], quiet: ['大きな動きなし', 'accent'], none: ['値段が取れず', 'src'] };
+function OV() { return (((((DATA || {}).slots || {}).preopen) || {}).data || {}).overnight || null; }
+/* 寄りの前（今日の寄り前の分があり、前場・大引の更新がまだ）で、米国の引け後が動いた朝だけ */
+function ovLive() {
+  const ov = OV();
+  const slots = (DATA || {}).slots || {};
+  if (!ov || slots.zenba || slots.taibike || DATA.date !== isoToday() || !['big', 'move'].includes(ov.level)) return null;
+  return ov;
+}
+function ovEst(code) {
+  const ov = ovLive();
+  const e = ov && (ov.est || {})[code];
+  return e && isNum(e[0]) ? { pct: e[0], r2: e[1] } : null;
+}
+/* 保有・注文の行に添える一行。base は前日の終値、limit は買いの指値、stop は撤退ライン（逆指値） */
+function ovNote(code, base, opts = {}) {
+  const e = ovEst(code);
+  base = isNum(base) ? base : (stockOf(code) || {}).price;
+  if (!e || !isNum(base) || Math.abs(e.pct) < 1) return null;
+  const px = base * (1 + e.pct / 100);
+  let tail = '', tone = 'info';
+  if (isNum(opts.limit)) {
+    if (px <= opts.limit) { tail = '。指値より下で寄る目安: 寄りで約定し、損切りは約定値 − 3ATR に引き直す'; tone = 'chance'; }
+    else tail = `。指値まで寄りの目安からあと ${fmtPct((opts.limit / px - 1) * 100, 1)}`;
+  } else if (isNum(opts.stop)) {
+    if (px <= opts.stop) { tail = `。撤退ライン ${fmtTick(opts.stop)}円 より下で寄る目安: 逆指値なら寄りで売れる`; tone = 'warn'; }
+    else tail = `。撤退ライン ${fmtTick(opts.stop)}円 までは寄りの目安からあと ${fmtPct((opts.stop / px - 1) * 100, 1)}`;
+  }
+  return { tone, text: `夜間: 米国の引け後の動きから、今朝の窓の目安 ${fmtPct(e.pct, 1)}（約${fmtPrice(px)}円。過去2年の連動 ${isNum(e.r2) ? e.r2.toFixed(2) : '—'}）${tail}` };
+}
+function ovNoteEl(n) { return n ? h('div', { class: 'guard__note guard__note--' + n.tone, text: n.text }) : null; }
+
+function overnightCard(d) {
+  const ov = d.overnight;
+  if (!ov) return null;
+  const lv = OV_LEVEL[ov.level] || OV_LEVEL.none;
+  const tone = ov.level === 'big' ? (ov.dir < 0 ? 'down' : 'up') : lv[1];
+  const post = ov.post || {}, tot = ov.total || {}, cash = ov.cash || {};
+  const kids = [h('div', { class: 'phase__top' }, [
+    h('span', { class: 'badge badge--' + tone, text: '夜間: ' + lv[0] }),
+    h('p', { class: 'phase__head', text: ov.headline || '' }),
+  ])];
+  const pst = (k, label) => {
+    const p = post[k];
+    return stat(label, p ? fmtPct(p.pct, 1) : '—', isNum(tot[k]) ? `計 ${fmtPct(tot[k], 1)}` : null, cls(p && p.pct));
+  };
+  const stats = [pst('ndq', 'NASDAQ'), pst('sox', '半導体'), pst('spx', 'S&P500')];
+  if (ov.nk) stats.push(stat('日経先物', fmtPct(ov.nk.gap_pct, 1), fmtNum(ov.nk.last, 0), cls(ov.nk.gap_pct)));
+  else {
+    const io = d.implied_open || {};
+    if (isNum(io.gap_pct)) stats.push(stat('日経の寄り', fmtPct(io.gap_pct, 1), io.method === 'model' && isNum(io.close_only_pct) ? `終値だけ ${fmtPct(io.close_only_pct, 1)}` : '想定', cls(io.gap_pct)));
+  }
+  kids.push(h('div', { class: 'summary__stats pulse__stats--4' }, stats));
+  kids.push(h('p', { class: 'hint', text: '上の3つは米国の引け後の動き（時間外・先物）。「計」は東京の前の引けのあとの米国の終値の騰落と足した分。' }));
+  if ((ov.playbook || []).length) {
+    kids.push(h('div', { class: 'pb' }, ov.playbook.map((p) => h('div', { class: 'pb__row' }, [
+      h('span', { class: 'badge badge--' + (PB_WHO[p.who] || 'accent') + ' pb__who', text: p.who }),
+      h('span', { class: 'pb__t', text: p.text }),
+    ]))));
+  }
+  // 自分の保有・注文のうち、窓の目安が大きい銘柄（中身は売買タブの各行に）
+  if (['big', 'move'].includes(ov.level)) {
+    const mine = myStocks();
+    const hit = [...mine.values()].filter((x) => x.why.some((w) => w === '保有' || w === '注文'))
+      .map((x) => ({ ...x, e: ((ov.est || {})[x.code] || [])[0] })).filter((x) => isNum(x.e) && Math.abs(x.e) >= 1)
+      .sort((a, b) => a.e - b.e);
+    if (hit.length) {
+      kids.push(h('button', { class: 'evidence', type: 'button', onclick: () => selectView('trade') }, [
+        h('span', { text: '保有・注文: ' + hit.slice(0, 5).map((x) => `${x.name} ${fmtPct(x.e, 1)}`).join('、') + (hit.length > 5 ? ` ほか${hit.length - 5}` : '') }),
+        h('b', { text: '売買タブの各行に ›' }),
+      ]));
+    }
+  }
+  const jp = ov.jp || [];
+  if (jp.length && ov.level !== 'none') {
+    const mine = myStocks();
+    kids.push(h('div', { class: 'pb__block' }, [
+      h('div', { class: 'check__lh', text: '日本株への響き（今朝の窓の目安。米国の終値まで → 引け後を足して）' }),
+      h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+        h('thead', {}, h('tr', {}, ['銘柄', '終値まで', '引け後も', '連動'].map((t) => h('th', { text: t })))),
+        h('tbody', {}, jp.map((r) => h('tr', { onclick: () => openStock(r.code), style: 'cursor:pointer' }, [
+          h('th', {}, [document.createTextNode(cleanName(r.name)), h('small', { text: ' ' + r.code }), mineTag(r.code, mine)]),
+          h('td', { class: 'num ' + cls(r.est_close), text: fmtPct(r.est_close, 1) }),
+          h('td', { class: 'num ' + cls(r.est), text: fmtPct(r.est, 1) }),
+          h('td', { class: 'num', text: isNum(r.r2) ? r.r2.toFixed(2) : '—' }),
+        ]))),
+      ])),
+      h('p', { class: 'hint', text: '窓の目安 = 過去2年の朝の窓（寄り ÷ 前日の引け）を、その夜の S&P500 と「SOX と S&P500 の差」で説明した係数 × 今夜の値。連動は決定係数（1 に近いほど米国の夜で説明できた）。売買代金30億円以上の銘柄から。' }),
+    ]));
+  }
+  const hs = ov.headlines || [];
+  if (hs.length) {
+    kids.push(h('details', { class: 'fold', open: ov.level === 'big' ? 'open' : null }, [
+      h('summary', { text: `見出し（${String(ov.since || '').slice(5, 16).replace('T', ' ').replace('-', '/')} 以降・社名と話題で照合した${hs.length}本）` }),
+      h('div', {}, hs.map((x) => newsItem({ title: x.title, source: x.source, url: x.url, t: x.published },
+        (x.names || []).length ? (ov.names || []).filter((n) => x.names.includes(n.key)).map((n) => n.label).join('・') : (x.topics || [])[0]))),
+      h('p', { class: 'hint', text: '社名・話題が見出しに出ているだけで、値動きの理由とは限りません。理由の読みは見立て（AI）に。' }),
+    ]));
+  }
+  const rows = [];
+  (ov.futures || []).filter((f) => isNum(f.last)).forEach((f) => rows.push([f.label, fmtNum(f.last, 0), f.chg, f.post, f.time, f.fresh]));
+  (ov.names || []).forEach((n) => rows.push([n.label, fmtNum(n.close, 2), n.chg, n.ext, n.time, isNum(n.ext)]));
+  if (rows.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: '先物・時間外の値段' }),
+      h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+        h('thead', {}, h('tr', {}, ['', '値段', '前日比', '引け後', '時刻'].map((t) => h('th', { text: t })))),
+        h('tbody', {}, rows.map((r) => h('tr', { class: r[5] ? null : 'is-stale' }, [
+          h('th', { text: r[0] }), h('td', { class: 'num', text: r[1] }),
+          h('td', { class: 'num ' + cls(r[2]), text: fmtPct(r[2], 1) }),
+          h('td', { class: 'num ' + cls(r[3]), text: isNum(r[3]) ? fmtPct(r[3], 1) : '—' }),
+          h('td', { class: 'num', text: r[4] || '—' }),
+        ]))),
+      ])),
+      h('p', { class: 'hint', text: `引け後 = 時間外の値段と通常取引の終値の差（先物は前日比から現物の引けのあとの分を出した目安）。${ov.defs ? ov.defs.fresh_h : 16}時間より古い約定は使わない（週明けの朝は金曜の時間外を使わない）。時間外は取引が薄く、値段が飛びやすい。` }),
+    ]));
+  }
+  kids.push(h('button', { class: 'more', type: 'button', text: '2年の検証を見る ›', onclick: () => selectView('verify', 'v-overnight') }));
+  return card('夜間の値動き', `${String(ov.asof || '').slice(11, 16)} 時点・米国の引け後〜`, kids,
+    '先物・時間外の値段と、過去2年の朝の窓と米国の夜の連動から出した目安で、予測ではありません。対処の数字は過去の同じ夜の平均（今の採用銘柄・上げ相場の2年）。注文・買い候補は変えていません。売買を推奨するものではありません。',
+    false, 'sec-overnight');
+}
+
+/* 検証: 窓の目安の確かめ・大きな下げの翌朝に寄りで売るか持つか・押し目買いの注文の成績 */
+function overnightProofCard() {
+  const ov = OV();
+  const R = ov && ov.research;
+  if (!R) return card('夜間の米国と翌朝（2年）', null, h('div', { class: 'empty', text: '検証は寄り前の収集から出ます' }), null, false, 'v-overnight');
+  const kids = [];
+  const gm = R.gap_model;
+  if (gm) {
+    kids.push(h('p', { class: 'hint', text: `窓の目安の確かめ: ${md(gm.from)} より前の朝だけで係数を決め、それ以後の米国が大きく動いた夜（${gm.n.toLocaleString('ja-JP')}件）で比べた。` +
+      `実際の窓との相関 ${gm.corr}、平均の誤差 ${gm.mae}%（目安なし＝0% なら ${gm.mae0}%）、向きの一致 ${gm.hit}%。連動の強い銘柄（${R.sens_n}銘柄）で数えた。` }));
+  }
+  const hd = R.hold || {};
+  const hrow = (label, x) => h('tr', {}, [h('th', { text: label }), h('td', { class: 'num', text: x && x.nights ? `${x.nights}` : '—' }),
+    ...['gap', 'oc'].map((k) => h('td', { class: 'num ' + cls(x && x[k]), text: x ? pctx(x[k], 2) : '—' })),
+    h('td', { class: 'num', text: x && isNum(x.oc_up) ? x.oc_up + '%' : '—' }),
+    h('td', { class: 'num ' + cls(x && x.o5), text: x ? pctx(x.o5, 1) : '—' })]);
+  kids.push(h('div', { class: 'check__lh', text: `寄りで売るか、持つか（${R.defs.shock}の翌朝・連動の強い銘柄）` }));
+  kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+    h('thead', {}, h('tr', {}, ['', '朝', '窓', '寄り→引け', '上げ', `寄り→${R.defs.hold_n}日後`].map((t) => h('th', { text: t })))),
+    h('tbody', {}, [
+      hrow('大きな下げ', (hd.shock || {}).all), hrow('　前半', (hd.shock || {}).first), hrow('　後半', (hd.shock || {}).second),
+      hrow('全部の朝', (hd.all || {}).all), hrow('　前半', (hd.all || {}).first), hrow('　後半', (hd.all || {}).second),
+    ]),
+  ])));
+  const od = (R.orders || {}).rows || {};
+  const orow = (label, x) => h('tr', {}, [h('th', { text: label }),
+    h('td', { class: 'num', text: x && x.nights ? String(x.nights) : '—' }),
+    h('td', { class: 'num', text: x && isNum(x.fill) ? x.fill + '%' : '—' }),
+    h('td', { class: 'num', text: x ? String(x.n || 0) : '—' }),
+    h('td', { class: 'num ' + cls(x && x.avg), text: x ? pctx(x.avg, 2) : '—' }),
+    h('td', { class: 'num', text: x && isNum(x.win) ? x.win + '%' : '—' }),
+    h('td', { class: 'num ' + cls(x && x.worst), text: x ? pctx(x.worst, 1) : '—' })]);
+  const KIND = { shock: '大きな下げの翌朝', surge: '大きな上げの翌朝', other: 'そのほかの朝' };
+  kids.push(h('div', { class: 'check__lh', text: '押し目買いの指値（短期のルールの入口がそろった全銘柄。前半／後半は約定の日付で）' }));
+  kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+    h('thead', {}, h('tr', {}, ['', '朝', '約定', '件数', '1回平均', '勝ち', '最悪'].map((t) => h('th', { text: t })))),
+    h('tbody', {}, Object.keys(KIND).flatMap((k) => od[k] ? [orow(KIND[k], od[k].all), orow('　前半', od[k].first), orow('　後半', od[k].second)] : [])),
+  ])));
+  kids.push(h('p', { class: 'hint', text: `前半／後半: 寄りで売るかは ${md(R.half)} の前後、注文は ${md((R.orders || {}).split)} の前後。連動の強い銘柄は前半の朝だけで決めた（${R.defs.sens}）。` +
+    '米国は終値どうし（時間外・先物の日足は持っていない）。日本の個別株は今の採用銘柄の2年で、生存者の偏りと上げ相場の偏りがある。朝の数が20未満の行は少ない。' }));
+  return card('夜間の米国と翌朝（2年）', '夜間の値動きの根拠', kids,
+    '形の定義は dashboard/overnight.py の定数。寄り前の収集のたびに日足キャッシュから数え直しています。注文・買い候補には使っていません。', false, 'v-overnight');
 }
 
 /* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること。
@@ -2199,6 +2374,8 @@ function pickCard(o, kind, rank, day, inSheet) {
   const chips = earnBadges(o.code, mid ? r.mid_hold : r.max_hold);
   if (!mid && o.peer && PEER_INFO[o.peer.cls] && !['plain', 'none'].includes(o.peer.cls) && why) chips.push(peerBadge(o.peer.cls));
   if (chips.length) body.push(h('div', { class: 'chips pick__chips' }, chips));
+  const ovn = ovNote(o.code, o.close, { limit: o.limit });
+  if (ovn) body.push(ovNoteEl(ovn));
   body.push(h('div', { class: 'pick__foot' }, [
     held ? h('span', { class: 'badge badge--ok', text: '保有に記録済み' })
       : h('button', { class: 'btn', type: 'button', text: '買えた', onclick: (ev) => {
@@ -2225,6 +2402,7 @@ function pickCard(o, kind, rank, day, inSheet) {
       mid ? null : h('b', { class: 'num up', text: fmtTick(o.sell) }),
     ]),
     held ? h('div', { class: 'frow__note' }, [h('span', { class: 'badge badge--ok', text: '保有に記録済み' })]) : null,
+    ovn ? h('div', { class: 'frow__note' }, [h('span', { class: 'badge badge--' + (ovn.tone === 'chance' ? 'ok' : 'accent'), text: `夜間 窓の目安 ${fmtPct(ovEst(o.code).pct, 1)}` })]) : null,
   ];
   return foldRow('pickrow', summary, body, false);
 }
@@ -2341,6 +2519,8 @@ function positionRow(p, inSheet) {
     '売りの指値は置かない（伸びる銘柄を早く売らない）。損切りの逆指値だけを置いておき、上げても下げても決めた日まで持つ' }));
   const crowdTxt = crowdNote(st);
   if (crowdTxt) lines.push(h('div', { class: 'guard__note guard__note--warn', text: crowdTxt }));
+  const ovp = ovNoteEl(ovNote(p.code, null, { stop: p.stop }));
+  if (ovp) lines.push(ovp);
   const doneBox = h('div', {});
   const exitBtn = h('button', { class: 'btn', type: 'button', text: '売った', onclick: (ev) => {
     ev.currentTarget.disabled = true;
@@ -2565,6 +2745,8 @@ function holdRow(p, inSheet) {
   } else if (['am', 'lunch', 'pm'].includes(marketPhase()) && ((DATA || {}).slots || {}).zenba && !((DATA.slots.zenba.data || {}).watchlist || []).some((w) => w.code === p.code)) {
     note('info', 'ウォッチリスト（リポジトリに反映したもの）に入れておくと、前場の更新で前場の安値・高値も撤退ライン・売り指値と突き合わせます');
   }
+  const ovh = ovNote(p.code, isNum((hd || {}).c) ? hd.c : null, { stop: stop.v });
+  if (ovh) note(ovh.tone, ovh.text);
   const lagTxt = lagNote(am);
   if (lagTxt) note('warn', lagTxt);
   const crowdTxt = crowdNote(st);
@@ -4265,8 +4447,12 @@ function pulseCard() {
   const phLine = lp && lp.primary !== 'normal'
     ? h('div', { class: 'pulse__phase' }, [h('span', { class: 'badge badge--' + (PHASE_BADGE[lp.tone] || 'accent'), text: '局面: ' + lp.label }),
       h('span', { class: 'pulse__phase-t', text: lp.headline })]) : null;
-  return h('button', { class: 'card pulse', type: 'button', id: 'sw-pulse', onclick: () => selectView('market', phLine ? 'sec-phase' : null) }, [
+  const ov = ovLive();
+  const ovLine = ov ? h('div', { class: 'pulse__phase' }, [h('span', { class: 'badge badge--' + OV_LEVEL[ov.level][1], text: '夜間: ' + OV_LEVEL[ov.level][0] }),
+    h('span', { class: 'pulse__phase-t', text: ov.headline })]) : null;
+  return h('button', { class: 'card pulse', type: 'button', id: 'sw-pulse', onclick: () => selectView('market', ovLine ? 'sec-overnight' : phLine ? 'sec-phase' : null) }, [
     h('div', { class: 'pulse__todo', text: todo }),
+    ovLine,
     phLine,
     picked && picked.c.headline ? h('p', { class: 'pulse__head', text: picked.c.headline }) : null,
     stats.length ? h('div', { class: 'summary__stats pulse__stats' + (stats.length > 3 ? ' pulse__stats--4' : '') }, stats) : null,
@@ -5466,6 +5652,7 @@ function renderVerify() {
     out.push(ruleCard());
     out.push(holdProofCard());
     out.push(phaseProofCard());
+    out.push(overnightProofCard());
     out.push(crowdProofCard());
     out.push(supplyProofCard());
     out.push(spillProofCard());
@@ -5497,6 +5684,7 @@ const VSEC = {
   'v-rule': 'ルールの中身と決めた経緯（入口・指値・損切り・売り・並べ方）',
   'v-hold': '判定ごとの次の5〜20日、利確・損切り・追いかけ売りの比較、売り方',
   'v-phase': '急落・反発・伸びすぎの後の日経（36年）、崩れたら売る・一部利確の損得、市場全体の信用残、答え合わせ',
+  'v-overnight': '米国が大きく下げた夜の翌朝: 窓の目安の当たり方、寄りで売るか持つか、押し目買いの注文の成績',
   'v-supply': '上値のしこり（価格帯別の出来高）と信用残ごとの、その後の値動き',
   'v-crowd': '混み合った銘柄の翌日の振れ幅（天井のサインではない）',
   'v-spill': '同業の急騰に動かなかった仲間は追いつくか、決算への反応',
@@ -5662,7 +5850,7 @@ function bindSheet() {
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
   trade: [['sw-ticket', '次の注文'], ['sw-pos', '保有と売り時'], ['sw-picks', '買い候補'], ['sw-watch', '監視']],
-  preopen: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
+  preopen: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-overnight', '夜間'], ['sec-phase', '局面'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
   session: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],

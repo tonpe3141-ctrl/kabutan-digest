@@ -62,43 +62,64 @@ def build_drivers(us: dict, macro: dict, sectors: dict) -> dict:
 
 # ==================== 想定オープン ====================
 def implied_open(drivers: dict, jp_prev_close: float | None,
-                 futures: dict | None) -> dict | None:
+                 futures: dict | None, post: dict | None = None) -> dict | None:
     """今日の日経平均の寄りをどう見るか。
 
     先物が取れていればそれを最優先（実勢）。取れなければ公開係数モデルで推計する。
     どちらを使ったかは必ず method に残し、UI 側でも明示する。
+
+    post（overnight.collect の引け後の動き {"spx": {"pct": ...}, "sox": ...}）があれば、モデルに
+    「米国の引け後」の分を同じ係数で足す（夜間のニュースで先物・時間外が動いた分。DESIGN.md 30章）。
     """
+    model = _open_model(drivers, jp_prev_close, post)
     if futures and jp_prev_close and futures.get("last"):
         gap = futures["last"] - jp_prev_close
         return {
             "method": "futures",
             "method_label": "日経平均先物ベース",
             "source": futures.get("symbol"),
+            "source_label": f"日経平均先物（CNBC {futures.get('symbol')}）",
             "futures_last": futures["last"],
             "prev_close": jp_prev_close,
             "gap": gap,
             "gap_pct": gap / jp_prev_close * 100,
             "asof": futures.get("asof"),
+            "model": model,
         }
+    return model
 
+
+POST_LABEL = {"spx_pct": ("spx", "S&P500 の引け後"), "sox_pct": ("sox", "SOX の引け後")}
+
+
+def _open_model(drivers: dict, jp_prev_close: float | None, post: dict | None) -> dict | None:
     parts = {k: drivers[k] * w for k, w in OPEN_MODEL.items() if k in drivers}
     if not parts:
         return None
-    gap_pct = sum(parts.values())
+    contributions = [
+        {"driver": DRIVER_LABEL.get(k, k), "value": round(v, 3),
+         "display": driver_display(k, drivers[k])}
+        for k, v in sorted(parts.items(), key=lambda x: -abs(x[1]))
+    ]
+    after = []
+    for k, (role, label) in POST_LABEL.items():
+        p = ((post or {}).get(role) or {}).get("pct")
+        if p is not None and k in OPEN_MODEL:
+            v = OPEN_MODEL[k] * p
+            after.append({"driver": label, "value": round(v, 3), "display": f"{p:+.2f}%",
+                          "src": (post[role] or {}).get("src"), "after_close": True})
+    gap_pct = sum(parts.values()) + sum(x["value"] for x in after)
     return {
         "method": "model",
-        "method_label": "簡易推計（米株×為替）",
+        "method_label": "簡易推計（米株×為替" + ("・引け後の時間外）" if after else "）"),
         "formula": " + ".join(
             f"{w:g}×{DRIVER_LABEL.get(k, k)}" for k, w in OPEN_MODEL.items()
-        ),
-        "contributions": [
-            {"driver": DRIVER_LABEL.get(k, k), "value": round(v, 3),
-             "display": driver_display(k, drivers[k])}
-            for k, v in sorted(parts.items(), key=lambda x: -abs(x[1]))
-        ],
+        ) + ("（S&P500・SOX は引け後の動きも同じ係数で足す）" if after else ""),
+        "contributions": contributions + after,
         "prev_close": jp_prev_close,
         "gap": (gap_pct / 100 * jp_prev_close) if jp_prev_close else None,
         "gap_pct": gap_pct,
+        "close_only_pct": sum(parts.values()) if after else None,
     }
 
 
