@@ -2799,8 +2799,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "出来高急増と年初来高値の更新が重なった。昨日の+21.1%に続く+38.2%の2日連続の急騰で、記事での裏付けなし。高値掴み注意にも挙がる。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/901e7bda334f8c286f8b6d37c60f5a3664329ca5",
    "tracked_by": "日足"
   },
   {
@@ -2830,8 +2830,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値と商いの数字に引っかかったが、今日は値下がり率上位に入り急反落（-19.4%）。連続ストップ高の後の動きで、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/2f6a8fa17cf3bd76940447c1761f378408e21e56",
    "tracked_by": "日足"
   },
   {
@@ -2861,8 +2861,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値と商いに引っかかったが、大引けは-27.3%のストップ安。株探は「M365監査ログの調査分析レポートを無償提供」と報じたが、株価との関係は未確認。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d1239e07c6828c4df7e256a33c6d778c3b789584",
    "tracked_by": "日足"
   }
  ],
