@@ -644,9 +644,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 5400.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 4554.0
+"last": 4622.0
 },
 {
 "asof": "2026-10-09",
@@ -676,9 +676,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 1771.0
+"last": 1813.0
 },
 {
 "asof": "2026-10-09",
@@ -746,14 +746,16 @@
 "name": "オンコリスバイオファーマ",
 "limit": 5460,
 "stop": 3775.0,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-14",
 "entry": 5467.86,
-"days": 5,
-"open": true,
-"last": 5190.0
+"days": 6,
+"out": "2026-10-21",
+"exit": 5478.79,
+"why": "sell",
+"ret": 0.1
 },
 {
 "asof": "2026-10-14",
@@ -766,9 +768,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 4275.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 3903.0
+"last": 3958.0
 },
 {
 "asof": "2026-10-14",
@@ -832,9 +834,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 3634.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 3126.0
+"last": 3200.0
 },
 {
 "asof": "2026-10-15",
@@ -897,9 +899,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 5665.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 5715.0
+"last": 5693.0
 },
 {
 "asof": "2026-10-19",
@@ -912,9 +914,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 5727.89,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 5715.0
+"last": 5693.0
 },
 {
 "asof": "2026-10-19",
@@ -927,9 +929,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 8394.57,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 8202.0
+"last": 8259.0
 },
 {
 "asof": "2026-10-20",
@@ -937,8 +939,9 @@
 "name": "フェローテックホールディングス",
 "limit": 7960,
 "stop": 5960,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -946,8 +949,9 @@
 "name": "トーメンデバイス",
 "limit": 31200,
 "stop": 22030,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -955,8 +959,9 @@
 "name": "東海カーボン",
 "limit": 1900,
 "stop": 1634,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -964,8 +969,9 @@
 "name": "フルヤ金属",
 "limit": 9280,
 "stop": 7380,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -973,30 +979,49 @@
 "name": "あおぞら銀",
 "limit": 2999,
 "stop": 2744,
+"done": true,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-21",
+"code": "6645",
+"name": "オムロン",
+"limit": 5590,
+"stop": 4970,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-21",
+"code": "3132",
+"name": "マクニカホールディングス",
+"limit": 3895,
+"stop": 3130,
 "done": false,
 "earn": "none"
 }
 ],
 "stats": {
-"n": 23,
-"win": 91,
-"avg": 0.53,
-"med": 0.88,
+"n": 24,
+"win": 92,
+"avg": 0.51,
+"med": 0.79,
 "pf": 1.81,
-"avg_win": 1.31,
+"avg_win": 1.25,
 "avg_loss": -7.6,
 "worst": -11.99,
-"days": 3.7,
+"days": 3.8,
 "d2": 17,
-"per_day": 0.15,
+"per_day": 0.14,
 "stops": 4,
-"sells": 91,
+"sells": 92,
 "times": 4,
-"small": 35,
+"small": 38,
 "big_loss": 4,
-"fill": 41,
-"open": 8,
-"issued": 81,
+"fill": 38,
+"open": 7,
+"issued": 83,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1013,9 +1038,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 2079.5
+"last": 2083.0
 },
 {
 "asof": "2026-10-01",
@@ -1174,9 +1199,9 @@
 "filled": true,
 "in": "2026-10-09",
 "entry": 17100.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 13140.0
+"last": 13510.0
 },
 {
 "asof": "2026-10-09",
@@ -1190,9 +1215,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 16000.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 13140.0
+"last": 13510.0
 },
 {
 "asof": "2026-10-09",
@@ -1206,9 +1231,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 6643.0
+"last": 6756.0
 },
 {
 "asof": "2026-10-09",
@@ -1244,9 +1269,9 @@
 "filled": true,
 "in": "2026-10-14",
 "entry": 14686.79,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 13140.0
+"last": 13510.0
 },
 {
 "asof": "2026-10-13",
@@ -1322,9 +1347,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 13790.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 13140.0
+"last": 13510.0
 },
 {
 "asof": "2026-10-14",
@@ -1338,9 +1363,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 1234.0
+"last": 1314.0
 },
 {
 "asof": "2026-10-14",
@@ -1372,9 +1397,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 6643.0
+"last": 6756.0
 },
 {
 "asof": "2026-10-14",
@@ -1406,9 +1431,9 @@
 "filled": true,
 "in": "2026-10-16",
 "entry": 6326.25,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 6030.0
+"last": 6340.0
 },
 {
 "asof": "2026-10-15",
@@ -1488,9 +1513,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 3850.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3878.0
+"last": 3905.0
 },
 {
 "asof": "2026-10-19",
@@ -1504,9 +1529,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 5980.36,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 6030.0
+"last": 6340.0
 },
 {
 "asof": "2026-10-20",
@@ -1514,9 +1539,10 @@
 "name": "Terra Drone",
 "limit": 5760,
 "stop": 5220,
-"done": false,
+"done": true,
 "low": 6030.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -1524,9 +1550,10 @@
 "name": "しずおかＦＧ",
 "limit": 2980,
 "stop": 2875,
-"done": false,
+"done": true,
 "low": 3033.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -1534,9 +1561,10 @@
 "name": "パナＨＤ",
 "limit": 3790,
 "stop": 3615,
-"done": false,
+"done": true,
 "low": 3878.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -1544,9 +1572,10 @@
 "name": "スクリン",
 "limit": 12400,
 "stop": 10930,
-"done": false,
+"done": true,
 "low": 11730.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -1554,9 +1583,10 @@
 "name": "オムロン",
 "limit": 5610,
 "stop": 5400,
-"done": false,
+"done": true,
 "low": 5715.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-20",
@@ -1564,9 +1594,10 @@
 "name": "太陽誘電",
 "limit": 8640,
 "stop": 7730,
-"done": false,
+"done": true,
 "low": 8714.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 }
 ],
 "stats": {
@@ -1586,7 +1617,7 @@
 "times": 0,
 "small": 0,
 "big_loss": 86,
-"fill": 49,
+"fill": 42,
 "open": 11,
 "issued": 43,
 "since": "2026-10-01"
