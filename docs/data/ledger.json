@@ -2989,8 +2989,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "出来高急増と年初来高値の更新が重なったが、今日は-5.3%と下げた。個別の材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/590d0a3276b66441d488853d76dbdab110e71541",
    "tracked_by": "日足"
   },
   {
@@ -3018,8 +3018,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値と商いに引っかかり、東証スタンダードでストップ高となった。個別の材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/590d0a3276b66441d488853d76dbdab110e71541",
    "tracked_by": "日足"
   },
   {
@@ -3047,8 +3047,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "期末配当を14.45円→20.23円に増額修正（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/90cbe40f5f3cd7f5bb312d17d2648f6cef2d7631",
    "tracked_by": "日足"
   },
   {
@@ -3079,8 +3079,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "決算で商いが膨らんだ。上期経常は前年同期比44.0%増の1,144億円、上期配当は171円→186円に増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/2fe209d47ec8edefba82931d09ec9936fe11f207",
    "tracked_by": "日足"
   }
  ],
