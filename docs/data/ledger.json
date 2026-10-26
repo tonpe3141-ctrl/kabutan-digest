@@ -3212,8 +3212,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "ストップ高（+26.4%）で出来高急増と年初来高値が重なった。記事は終値の事実のみで、材料の裏付けなし。高値掴み注意にも挙がる。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/82df3a4265cd1e233ad961c7510f7f671a65912d",
    "tracked_by": "日足"
   },
   {
@@ -3245,8 +3245,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "ストップ高（+23.5%）で出来高急増と年初来高値が重なった。記事は終値の事実のみで、材料の裏付けなし。高値掴み注意にも挙がる。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/82df3a4265cd1e233ad961c7510f7f671a65912d",
    "tracked_by": "日足"
   },
   {
@@ -3274,7 +3274,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値と商いに引っかかり、出来高急増の一覧にも載った。個別の材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -3303,8 +3303,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期経常を18.8億→25.3億円に34.3%上方修正し、通期も増額、配当も10円増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/7f46556c7826d280d3dec27d65452ecc37a8b85a",
    "tracked_by": "日足"
   },
   {
@@ -3332,8 +3332,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を160億→180億円に12.5%上方修正し、最高益予想を上乗せ、配当も6円増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/ab47024c413ed2fbb570b693161ef839f02dd998",
    "tracked_by": "日足"
   },
   {
@@ -3361,8 +3361,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期経常を24億→34億円に41.7%上方修正し、通期も増額、配当も10円増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/2918b8caf7aad3fb08cde0709bb880ecf2aec5da",
    "tracked_by": "日足"
   }
  ],
