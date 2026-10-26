@@ -678,9 +678,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 1700.0
+"last": 1817.0
 },
 {
 "asof": "2026-10-09",
@@ -905,9 +905,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 5665.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 5330.0
+"last": 5334.0
 },
 {
 "asof": "2026-10-19",
@@ -937,9 +937,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 8394.57,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 8122.0
+"last": 8103.0
 },
 {
 "asof": "2026-10-20",
@@ -1002,9 +1002,9 @@
 "filled": true,
 "in": "2026-10-22",
 "entry": 5590.25,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 5330.0
+"last": 5334.0
 },
 {
 "asof": "2026-10-21",
@@ -1027,9 +1027,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 7480.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 7840.0
+"last": 7550.0
 },
 {
 "asof": "2026-10-22",
@@ -1042,9 +1042,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 5391.89,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 5330.0
+"last": 5334.0
 },
 {
 "asof": "2026-10-22",
@@ -1067,9 +1067,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 6558.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 6708.0
+"last": 6733.0
 },
 {
 "asof": "2026-10-22",
@@ -1082,9 +1082,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 5255.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 5371.0
+"last": 5424.0
 },
 {
 "asof": "2026-10-23",
@@ -1092,8 +1092,9 @@
 "name": "東海カーボン",
 "limit": 1828,
 "stop": 1554,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-23",
@@ -1101,8 +1102,9 @@
 "name": "カプコン",
 "limit": 4230,
 "stop": 3830,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-23",
@@ -1110,8 +1112,9 @@
 "name": "住友重",
 "limit": 5260,
 "stop": 4640,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-23",
@@ -1119,8 +1122,9 @@
 "name": "東レ",
 "limit": 1170,
 "stop": 1090,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-23",
@@ -1128,6 +1132,43 @@
 "name": "三菱ケミＧ",
 "limit": 1096,
 "stop": 1004,
+"done": true,
+"earn": "up",
+"filled": false
+},
+{
+"asof": "2026-10-26",
+"code": "4062",
+"name": "イビデン",
+"limit": 7880,
+"stop": 5680,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-26",
+"code": "5301",
+"name": "東海カーボン",
+"limit": 1815,
+"stop": 1555,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-26",
+"code": "6857",
+"name": "アドテスト",
+"limit": 29940,
+"stop": 23200,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-26",
+"code": "6814",
+"name": "古野電気",
+"limit": 7220,
+"stop": 5730,
 "done": false,
 "earn": "up"
 }
@@ -1149,9 +1190,9 @@
 "times": 4,
 "small": 32,
 "big_loss": 18,
-"fill": 41,
+"fill": 39,
 "open": 8,
-"issued": 93,
+"issued": 97,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1168,9 +1209,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 15,
+"days": 16,
 "open": true,
-"last": 2080.0
+"last": 2146.0
 },
 {
 "asof": "2026-10-01",
@@ -1365,9 +1406,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 6275.0
+"last": 6201.0
 },
 {
 "asof": "2026-10-09",
@@ -1501,9 +1542,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 1298.0
+"last": 1291.0
 },
 {
 "asof": "2026-10-14",
@@ -1535,9 +1576,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 6275.0
+"last": 6201.0
 },
 {
 "asof": "2026-10-14",
@@ -1755,9 +1796,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 3515.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3631.0
+"last": 3581.0
 },
 {
 "asof": "2026-10-22",
@@ -1771,9 +1812,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 1753.79,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1767.0
+"last": 1794.0
 },
 {
 "asof": "2026-10-23",
@@ -1781,9 +1822,10 @@
 "name": "パナＨＤ",
 "limit": 3535,
 "stop": 3340,
-"done": false,
+"done": true,
 "low": 3631.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-23",
@@ -1791,9 +1833,30 @@
 "name": "ヤマハ発",
 "limit": 1746,
 "stop": 1690,
-"done": false,
+"done": true,
 "low": 1731.5,
-"earn": "none"
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-26",
+"code": "6752",
+"name": "パナＨＤ",
+"limit": 3485,
+"stop": 3295,
+"done": false,
+"low": 3581.0,
+"earn": "mixed"
+},
+{
+"asof": "2026-10-26",
+"code": "6971",
+"name": "京セラ",
+"limit": 3365,
+"stop": 3255,
+"done": false,
+"low": 3397.0,
+"earn": "up"
 }
 ],
 "stats": {
@@ -1813,9 +1876,9 @@
 "times": 0,
 "small": 0,
 "big_loss": 86,
-"fill": 44,
+"fill": 43,
 "open": 6,
-"issued": 47,
+"issued": 49,
 "since": "2026-10-01"
 }
 }
