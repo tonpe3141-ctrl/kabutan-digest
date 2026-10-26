@@ -148,6 +148,8 @@ def preopen_session(b: Brief, d: dict):
         ix = ps.get("indices") or {}
         b.add(f"前営業日 {ps.get('date')}: " + "、".join(f"{x.get('label')} {num(x.get('close'), 0)}（{pct(x.get('change_pct'), 2)}）" for x in ix.values())
               + (f"。{(ps.get('session_shift') or {}).get('verdict')}" if (ps.get("session_shift") or {}).get("verdict") else ""))
+        if ps.get("why"):
+            b.add(f"前営業日のなぜ（値動きの分解・機械）: {ps['why']}")
     ah = co.get("after_hours_kessan") or []
     if ah:
         b.add(f"前営業日の引け後の開示（{len(ah)}件）: " + "、".join(f"{name(r.get('name'))}({r.get('code')}) {r.get('category')}" for r in ah[:15]))

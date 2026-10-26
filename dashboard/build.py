@@ -176,7 +176,8 @@ def build_preopen(target_date: date) -> dict:
         if nk and nk.get("close") is not None:
             prev_close = prev_close or nk["close"]
             prev_summary = {"date": hist.get("date"), "indices": idx,
-                            "session_shift": (hist.get("taibike") or {}).get("session_shift")}
+                            "session_shift": (hist.get("taibike") or {}).get("session_shift"),
+                            "why": ((hist.get("taibike") or {}).get("why") or {}).get("headline")}
             after_hours = (hist.get("taibike") or {}).get("after_hours") or []
             break
 

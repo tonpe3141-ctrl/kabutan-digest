@@ -393,6 +393,7 @@ function summaryCard(d, slot) {
     if (tw.length) chips.push(h('span', { class: 'badge badge--up', text: '追い風: ' + tw.join('・') }));
     const ps = ((d.carryover || {}).prev_session || {});
     if (ps.session_shift) chips.push(h('span', { class: 'badge', text: `前営業日（${md(ps.date)}）: ${ps.session_shift.verdict}` }));
+    if (ps.why) chips.push(h('span', { class: 'badge', text: `前営業日のなぜ: ${ps.why.split('。')[0]}` }));
   } else {
     const nk = (d.indices || {}).nikkei, tp = (d.indices || {}).topix, br = d.breadth;
     if (nk) stats.push(stat('日経平均', fmtPct(nk.change_pct), fmtNum(nk.close, 0), cls(nk.change_pct)));
@@ -1822,6 +1823,20 @@ function pathChart(path, swings) {
     `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>` +
     `<text x="${W - P}" y="12" font-size="9" fill="var(--text-faint)" text-anchor="end">高 ${fmtPct(hi, 1)}／安 ${fmtPct(lo, 1)}</text>` + labels + '</svg>';
   return h('div', { class: 'whychart__wrap', html: svg });
+}
+
+/* 銘柄シートの一行: その銘柄が今日の日経平均を何円動かしたか（いちばん新しい区分の分。上位・下位に出た銘柄だけ） */
+function whyOf(code) {
+  for (const slot of ['taibike', 'zenba']) {
+    const c = (((((DATA || {}).slots || {})[slot] || {}).data || {}).why || {}).contrib;
+    if (!c) continue;
+    for (const key of ['neg', 'pos']) {
+      const i = (c[key] || []).findIndex((r) => r.code === code);
+      if (i >= 0) return { r: c[key][i], rank: i + 1, slot };
+    }
+    return null;
+  }
+  return null;
 }
 
 function whyCard(d) {
@@ -5470,6 +5485,11 @@ function dailyCard(sessions) {
         ]) : null,
       ]),
       h('div', { class: 'dt__body' }, [
+        // その日の「なぜ」（値動きの分解の一文。大引の分、無ければ前場の分）と、経済指標の一文（DESIGN.md 31章）
+        ((s.taibike || {}).why || (s.zenba || {}).why || {}).headline
+          ? h('p', { class: 'hint', style: 'margin:6px 14px 0', text: 'なぜ: ' + ((s.taibike || {}).why || (s.zenba || {}).why).headline }) : null,
+        ((s.taibike || {}).indicators_headline || (s.preopen || {}).indicators_headline)
+          ? h('p', { class: 'hint', style: 'margin:2px 14px 0', text: '指標: ' + ((s.taibike || {}).indicators_headline || (s.preopen || {}).indicators_headline) }) : null,
         chips.length ? h('div', { class: 'hist__kv' }, chips) : null,
         secs.length ? h('div', { class: 'dt__secgrid' }, [
           h('div', {}, [h('div', { class: 'dt__subt', text: '強い業種' })].concat(secs.slice(0, 3).map(secChip))),
@@ -5722,6 +5742,12 @@ function stockMaterials(code, name, s) {
     lines.push(h('div', { class: 'sd__line' }, [h('b', { text: `発掘（${md(le.first_seen)}〜） ` }),
       document.createTextNode([(le.signals || []).join('・'), (le.why || []).join('／')].filter(Boolean).join('：'))]));
     if (le.notes) lines.push(h('div', { class: 'sd__line sd__line--dim', text: le.notes }));
+  }
+  const wc = whyOf(code);
+  if (wc) {
+    lines.push(h('button', { class: 'sd__line sd__line--btn', type: 'button', onclick: () => { closeSheet(); selectView('market', 'sec-why'); } }, [
+      h('b', { text: `日経平均への寄与 ${yenTxt(wc.r.yen, 1)}` }),
+      document.createTextNode(`（${wc.r.yen < 0 ? '押し下げ' : '押し上げ'}${wc.rank}位・${SLOT_LABEL[wc.slot]}${wc.r.src === 'kabutan' ? '・株探の公表値' : '・推計'}） ›`)]));
   }
   const mvr = moverFor(code);
   if (mvr) {

@@ -50,7 +50,8 @@ BASE_WIN = 60             # 「ふだん」の時間帯: 発表時刻の前後�
 BASE_MIN = 30             # 「ふだん」の標本がこれ未満なら倍率を出さない
 BIG_RATIO, MOVE_RATIO = 3.0, 1.5   # ふだんの15分の動きの何倍で「大きく反応」「反応」とするか
 STALE_MIN = 30            # 値段の足がこれより古ければ、その時刻の値段は無いとする（分）
-KEEP_DAYS = 250           # indicators.json に残す日数（暦日）
+KEEP_DAYS = 250           # indicators.json に残す日数（暦日。主要国）
+MINOR_KEEP_DAYS = 14      # 主要国以外の記録を残す日数（画面に出す間だけ）
 REACT_DAYS = 10           # 反応が未計算の記録を、何日前まで測り直すか
 STATS_DAYS = 180          # 検証（記録の集計）に使う日数
 SMALL = 20                # 件数がこれ未満なら「少ない」と書く
@@ -687,7 +688,10 @@ def update(hist: dict, press: dict, kabutan_articles: list[dict], now: datetime)
                 hist["week"] = wk
     seen = set(hist.get("seen") or []) | {w["url"] for w in wires if w.get("url")}
     keep_from = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
-    hist["rows"] = {k: v for k, v in rows.items() if (v.get("date") or "9") >= keep_from}
+    minor_from = (now - timedelta(days=MINOR_KEEP_DAYS)).strftime("%Y-%m-%d")
+    # 主要国の記録は検証（反応の記録）に使うので長く、ほかの国は画面に出す間だけ残す（ファイルを大きくしない）
+    hist["rows"] = {k: v for k, v in rows.items()
+                    if (v.get("date") or "9") >= (keep_from if v.get("country") in MAJOR else minor_from)}
     sched_from = (now - timedelta(days=10)).strftime("%Y-%m-%d")
     hist["schedule"] = {k: v for k, v in store.items() if k >= sched_from}
     # 読んだ短信の URL は一覧に載っている間（数日）だけ要る。古いものから捨てる
