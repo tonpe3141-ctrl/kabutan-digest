@@ -156,7 +156,8 @@ function quoteTiles(map, order, three) {
 }
 
 function barList(items, opts = {}) {
-  const max = Math.max(0.5, ...items.map((i) => Math.abs(i.value)));
+  // 区切り（gap）の行は値を持たない。混ぜて最大値を取ると NaN になり、棒が1本も描かれなかった
+  const max = Math.max(0.5, ...items.filter((i) => !i.gap && isNum(i.value)).map((i) => Math.abs(i.value)));
   return h('div', { class: 'bars' }, items.map((it) => {
     if (it.gap) return h('div', { class: 'bars__gap' });
     const pctw = (Math.abs(it.value) / max) * 50;
@@ -167,7 +168,7 @@ function barList(items, opts = {}) {
     if (positive) fill.style.left = '50%'; else fill.style.right = '50%';
     return h('div', { class: 'bar' }, [
       h('div', { class: 'bar__label', text: it.label }),
-      h('div', { class: 'bar__val num ' + cls(it.value), text: opts.raw ? fmtNum(it.value, 2) : fmtPct(it.value) }),
+      h('div', { class: 'bar__val num ' + cls(it.value), text: opts.fmt ? opts.fmt(it.value) : opts.raw ? fmtNum(it.value, 2) : fmtPct(it.value) }),
       h('div', { class: 'bar__track' }, [h('div', { class: 'bar__mid' }), fill]),
       it.sub ? h('div', { class: 'bar__drivers', text: it.sub }) : null,
     ]);
@@ -392,6 +393,7 @@ function summaryCard(d, slot) {
     if (tw.length) chips.push(h('span', { class: 'badge badge--up', text: '追い風: ' + tw.join('・') }));
     const ps = ((d.carryover || {}).prev_session || {});
     if (ps.session_shift) chips.push(h('span', { class: 'badge', text: `前営業日（${md(ps.date)}）: ${ps.session_shift.verdict}` }));
+    if (ps.why) chips.push(h('span', { class: 'badge', text: `前営業日のなぜ: ${ps.why.split('。')[0]}` }));
   } else {
     const nk = (d.indices || {}).nikkei, tp = (d.indices || {}).topix, br = d.breadth;
     if (nk) stats.push(stat('日経平均', fmtPct(nk.change_pct), fmtNum(nk.close, 0), cls(nk.change_pct)));
@@ -438,6 +440,13 @@ function summaryCard(d, slot) {
     const nt = (d.ai_news && d.ai_news.headline) || `動いた${mv.n}銘柄（開示・報道 ${mv.disc + mv.news}・業種ぐるみ ${mv.group}・見当たらない ${mv.none}）`;
     chips.push(h('button', { class: 'badge badge--btn', type: 'button', text: 'ニュース: ' + nt + ' ›',
       onclick: () => selectView('news', d.ai_news ? 'nw-read' : 'nw-move') }));
+  }
+  const jump = (id) => () => { const t = document.getElementById(id); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  if (d.why && d.why.headline) {
+    chips.push(h('button', { class: 'badge badge--btn badge--accent', type: 'button', text: 'なぜ: ' + d.why.headline.split('。')[0] + ' ›', onclick: jump('sec-why') }));
+  }
+  if (d.indicators && d.indicators.headline) {
+    chips.push(h('button', { class: 'badge badge--btn', type: 'button', text: '指標: ' + d.indicators.headline.split('。')[0] + ' ›', onclick: jump('sec-ind') }));
   }
   const mh = (d.ai_macro && d.ai_macro.headline) || (d.macro_view && d.macro_view.headline);
   if (mh) {
@@ -1198,7 +1207,7 @@ function renderNews() {
 function renderPreopen(d, upd) {
   const ovc = overnightCard(d);
   const ovTop = d.overnight && ['big', 'move'].includes(d.overnight.level);
-  const out = [reviewCard(d, 'preopen'), summaryCard(d, 'preopen'), ovTop ? ovc : null, phaseCard(d)];
+  const out = [reviewCard(d, 'preopen'), summaryCard(d, 'preopen'), ovTop ? ovc : null, indicatorsCard(d), phaseCard(d)];
   const io = d.implied_open;
   if (io) {
     const gapTxt = isNum(io.gap) ? `${fmtSigned(io.gap, 0)}円` : '';
@@ -1220,8 +1229,12 @@ function renderPreopen(d, upd) {
   }
   if (!ovTop) out.push(ovc);
   if (d.us && Object.keys(d.us).length) {
-    out.push(card('米国市場', d.freshness && d.freshness.us_asof ? d.freshness.us_asof + ' 終値' : null,
-      quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix']), null, false, 'sec-us'));
+    const eu = (d.world || []).filter((x) => isNum(x.pct));
+    out.push(card('米国市場', d.freshness && d.freshness.us_asof ? d.freshness.us_asof + ' 終値' : null, [
+      quoteTiles(d.us, ['spx', 'ndq', 'dji', 'sox', 'rut', 'vix']),
+      eu.length ? h('div', { class: 'summary__line' }, [h('span', { class: 'hint', text: '欧州（前の夜の引け）' }),
+        ...eu.map((x) => h('span', { class: 'badge badge--' + (x.pct >= 0 ? 'up' : 'down'), text: `${x.label} ${fmtPct(x.pct)}` }))]) : null,
+    ], null, false, 'sec-us'));
   }
   out.push(macroCard(d, upd));
   if (d.risk) {
@@ -1453,7 +1466,7 @@ function rankingCard(d) {
 }
 
 function renderSession(d, slot, upd) {
-  const out = [reviewCard(d, slot), summaryCard(d, slot), phaseCard(d)];
+  const out = [reviewCard(d, slot), summaryCard(d, slot), whyCard(d), indicatorsCard(d), phaseCard(d)];
   const nk = (d.indices || {}).nikkei;
   let verdict = null, tone = 'neutral';
   if (slot === 'taibike' && d.session_shift) {
@@ -1774,6 +1787,269 @@ function overnightProofCard() {
     '米国は終値どうし（時間外・先物の日足は持っていない）。日本の個別株は今の採用銘柄の2年で、生存者の偏りと上げ相場の偏りがある。朝の数が20未満の行は少ない。' }));
   return card('夜間の米国と翌朝（2年）', '夜間の値動きの根拠', kids,
     '形の定義は dashboard/overnight.py の定数。寄り前の収集のたびに日足キャッシュから数え直しています。注文・買い候補には使っていません。', false, 'v-overnight');
+}
+
+/* ==================== なぜ動いたか（attrib.py。DESIGN.md 31章） ====================
+   日経平均の前日比を、寄与度（銘柄・業種）・時間の流れ（窓・前場・後場）・大きく動いた時間と同じ時間の動きに分ける。
+   機械の分解で、理由の読みは見立て（AI）の1つ目のセクション。同じ時間の見出しは並べるだけ（関係は確かめていない） */
+const yenTxt = (v, d = 0) => (isNum(v) ? (v > 0 ? '+' : '') + v.toLocaleString('ja-JP', { maximumFractionDigits: d, minimumFractionDigits: d }) + '円' : '—');
+const sideTxt = (m) => `${m.label} ${m.v > 0 ? '+' : ''}${m.v}${m.unit}`;
+
+/* 日経平均の5分足（前日の終値からの%）。昼休みは詰める。大きく動いた区間に帯を引く */
+function pathChart(path, swings) {
+  const line = (path && path.line) || [];
+  if (line.length < 4) return null;
+  const mins = (t) => { const [hh, mm] = t.split(':').map(Number); const m = hh * 60 + mm; return m >= 750 ? m - 540 - 60 : m - 540; };
+  const W = 320, H = 110, P = 6;
+  const xs = line.map((p) => mins(p.t)), ys = line.map((p) => p.v);
+  const x0 = 0, x1 = Math.max(150, ...xs) + 5;
+  const lo = Math.min(0, ...ys), hi = Math.max(0, ...ys), span = (hi - lo) || 1;
+  const X = (m) => P + (m - x0) / (x1 - x0) * (W - 2 * P);
+  const Y = (v) => H - 16 - (v - lo) / span * (H - 30);
+  const pts = line.map((p, i) => `${X(xs[i]).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  const last = ys[ys.length - 1];
+  const color = last >= 0 ? 'var(--up)' : 'var(--down)';
+  const bands = (swings || []).map((s) => {
+    const a = X(mins(s.from_t)), b = X(mins(s.to_t));
+    return `<rect x="${a.toFixed(1)}" y="4" width="${Math.max(2, b - a).toFixed(1)}" height="${H - 20}" fill="${s.pct >= 0 ? 'var(--up)' : 'var(--down)'}" opacity="0.10"/>`;
+  }).join('');
+  const lunch = X(150);
+  const labels = [['9:00', X(0)], ['前引け', lunch], ['15:30', X(x1 - 5)]].map(([t, x], i) =>
+    `<text x="${x.toFixed(1)}" y="${H - 3}" font-size="9" fill="var(--text-faint)" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}">${t}</text>`).join('');
+  const zero = Y(0);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="whychart" role="img" aria-label="日経平均の5分足（前日の終値からの騰落率）">` + bands +
+    `<line x1="${P}" x2="${W - P}" y1="${zero.toFixed(1)}" y2="${zero.toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 3"/>` +
+    `<line x1="${lunch.toFixed(1)}" x2="${lunch.toFixed(1)}" y1="4" y2="${H - 16}" stroke="var(--border)"/>` +
+    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>` +
+    `<text x="${W - P}" y="12" font-size="9" fill="var(--text-faint)" text-anchor="end">高 ${fmtPct(hi, 1)}／安 ${fmtPct(lo, 1)}</text>` + labels + '</svg>';
+  return h('div', { class: 'whychart__wrap', html: svg });
+}
+
+/* 銘柄シートの一行: その銘柄が今日の日経平均を何円動かしたか（いちばん新しい区分の分。上位・下位に出た銘柄だけ） */
+function whyOf(code) {
+  for (const slot of ['taibike', 'zenba']) {
+    const c = (((((DATA || {}).slots || {})[slot] || {}).data || {}).why || {}).contrib;
+    if (!c) continue;
+    for (const key of ['neg', 'pos']) {
+      const i = (c[key] || []).findIndex((r) => r.code === code);
+      if (i >= 0) return { r: c[key][i], rank: i + 1, slot };
+    }
+    return null;
+  }
+  return null;
+}
+
+function whyCard(d) {
+  const w = d.why;
+  if (!w) return null;
+  const c = w.contrib || {};
+  const kids = [];
+  if (w.headline) kids.push(h('p', { class: 'phase__head', text: w.headline }));
+  if (w.nt_gap && isNum(w.nt_gap.gap_pt) && Math.abs(w.nt_gap.gap_pt) >= 0.3) {
+    kids.push(h('div', { class: 'guard__note guard__note--info', text:
+      `日経とTOPIXの騰落の差 ${fmtSigned(w.nt_gap.gap_pt)}pt のうち、寄与の大きい3銘柄の分が ${fmtSigned(w.nt_gap.top3_pt)}pt。` +
+      (Math.abs(w.nt_gap.top3_pt) >= Math.abs(w.nt_gap.gap_pt) * 0.7 ? '指数の差は値がさの数銘柄で説明できる（市場全体の強弱とは別）。' : '値がさ株だけでは説明しきれない差。') }));
+  }
+  // 1. いつ動いたか（時間の流れ・寄り前の想定とのずれ）
+  const pth = w.path;
+  if (pth) {
+    kids.push(h('div', { class: 'check__lh', text: 'いつ動いたか' }));
+    kids.push(pathChart(pth, w.swings));
+    kids.push(h('div', { class: 'summary__stats pulse__stats--4' }, (pth.legs || []).map((g) =>
+      stat(g.label.split('（')[0], yenTxt(g.yen), fmtPct(g.pct, 2), cls(g.yen)))));
+    const pm = pth.premarket;
+    if (pm && isNum(pm.implied_pct)) {
+      const mv = Object.values(pm.moves || {});
+      const miss = isNum(pm.miss) ? pm.miss : null;
+      kids.push(h('div', { class: 'guard__note guard__note--' + (miss !== null && Math.abs(miss) >= 0.5 ? 'warn' : 'info'), text:
+        `寄り前の想定 ${fmtPct(pm.implied_pct)}（${pm.method || ''}）→ 実際の寄り ${fmtPct(pm.actual_pct)}` + (miss !== null ? `（差 ${fmtSigned(miss)}pt）` : '') + '。' +
+        (mv.length ? `${pm.from}〜9:00 に ${mv.map(sideTxt).join('、')}。` : '') }));
+    }
+  }
+  // 2. 誰が動かしたか（寄与度・業種）
+  const items = [...(c.pos || []).slice(0, 4), { gap: true }, ...(c.neg || []).slice(0, 4).reverse()]
+    .map((r) => (r.gap ? r : { label: `${cleanName(r.name) || r.code}${isNum(r.pct) ? ' ' + fmtPct(r.pct, 1) : ''}`, value: r.yen }));
+  if ((c.neg || []).length || (c.pos || []).length) {
+    kids.push(h('div', { class: 'check__lh', text: '誰が動かしたか（日経平均への寄与）' }));
+    kids.push(h('div', { class: 'bars--tight' }, barList(items, { fmt: (v) => yenTxt(v) })));
+  }
+  const secs = [...(c.sectors_neg || []).slice(0, 3), ...(c.sectors_pos || []).slice(0, 3)];
+  if (secs.length) {
+    kids.push(h('div', { class: 'summary__line' }, [
+      ...secs.map((g) => h('span', { class: 'badge badge--' + (g.yen >= 0 ? 'up' : 'down'), text: `${g.sector} ${yenTxt(g.yen)}` })),
+      c.semi ? h('span', { class: 'badge badge--' + (c.semi.yen >= 0 ? 'up' : 'down'), text: `半導体関連 ${yenTxt(c.semi.yen)}（${c.semi.n}銘柄）` }) : null,
+    ]));
+  }
+  // 3. 何と一緒に動いたか（大きく動いた時間と、同じ時間の動き・見出し）
+  if ((w.swings || []).length) {
+    kids.push(h('div', { class: 'check__lh', text: '何と一緒に動いたか（大きく動いた時間）' }));
+    kids.push(h('div', { class: 'why__swings' }, w.swings.map((s) => h('div', { class: 'why__swing why__swing--' + cls(s.yen) }, [
+      h('div', { class: 'why__swt' }, [
+        h('b', { text: `${s.from_t}〜${s.to_t}` }),
+        h('span', { class: 'num ' + cls(s.yen), text: ` ${yenTxt(s.yen)}（${fmtPct(s.pct)}）` }),
+      ]),
+      (s.side || []).length ? h('div', { class: 'why__side' }, s.side.map((m) => h('span', { class: 'tag ' + cls(m.v), text: sideTxt(m) }))) : null,
+      ...(s.events || []).slice(0, 3).map((e) => h(e.url ? 'a' : 'div', { class: 'why__ev', href: e.url || null, target: e.url ? '_blank' : null, rel: e.url ? 'noopener' : null },
+        [h('span', { class: 'why__evt', text: `${e.time} ${e.kind}` }), document.createTextNode(' ' + e.text)])),
+    ]))));
+    kids.push(h('p', { class: 'hint', text: '同じ時間に出た見出し・開示・指標を並べているだけで、値動きの理由とは限りません（相場そのものを伝える定時の記事は後ろ）。読みは見立て（AI）に。' }));
+  }
+  const wl = (w.world || []).filter((x) => isNum(x.pct));
+  if (wl.length || w.nt) {
+    kids.push(h('div', { class: 'check__lh', text: '同じ日の海外と、規模別' }));
+    kids.push(h('div', { class: 'summary__line' }, [
+      ...wl.map((x) => h('span', { class: 'badge badge--' + (x.stale ? 'src' : x.pct >= 0 ? 'up' : 'down'), text: `${x.label} ${fmtPct(x.pct)}${x.stale ? '（古い値）' : ''}` })),
+      w.nt ? h('span', { class: 'badge', text: `NT倍率 ${w.nt.now}` + (isNum(w.nt.d20) ? `（20日 ${fmtSigned(w.nt.d20)}）` : '') }) : null,
+    ]));
+  }
+  const per = w.period || [];
+  if (per.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: '5日・20日の寄与（ここ数週の日経を誰が動かしたか）' }),
+      h('div', {}, per.map((p) => h('div', { class: 'pb__block' }, [
+        h('div', { class: 'check__lh', text: `${p.days}営業日（${md(p.from)}〜）: 日経 ${yenTxt(p.actual)}` }),
+        h('div', { class: 'hint', text: '押し下げ: ' + p.neg.slice(0, 5).map((r) => `${cleanName(r.name) || r.code} ${yenTxt(r.yen)}`).join('、') }),
+        h('div', { class: 'hint', text: '押し上げ: ' + p.pos.slice(0, 5).map((r) => `${cleanName(r.name) || r.code} ${yenTxt(r.yen)}`).join('、') }),
+        h('div', { class: 'hint', text: '業種: ' + [...(p.sectors_neg || []).slice(0, 3), ...(p.sectors_pos || []).slice(0, 3)].map((g) => `${g.sector} ${yenTxt(g.yen)}`).join('、') }),
+      ]))),
+    ]));
+  }
+  const kb = w.kabutan;
+  const note = (c.only_kabutan ? '寄与度は株探の公表値（上位）だけです（日経のウエートが取れなかった）。'
+    : `寄与度は日経公式のウエート（${w.weights_date || '—'}）と分割調整済みの株価からの推計で、株探が公表した${c.kab_n || 0}銘柄はその値。` +
+      (isNum(c.residual) ? `推計の合計は ${yenTxt(c.sum)}（実際 ${yenTxt(c.actual)}、誤差 ${yenTxt(c.residual)}）。` : '')) +
+    '時間の流れと同じ時間の動きは CNBC の5分足。売買を推奨するものではありません。';
+  if (kb && kb.url) kids.push(h('a', { class: 'evidence', href: kb.url, target: '_blank', rel: 'noopener' }, [h('span', { text: '寄与度の出所: ' + (kb.label || '株探') }), h('b', { text: '›' })]));
+  return card('なぜ動いたか', '値動きの分解', kids, note, false, 'sec-why');
+}
+
+/* ==================== 経済指標（indicators.py。DESIGN.md 31章） ====================
+   結果・予想・前回と向き（公開の表で機械が付ける）、発表の前後15分・60分の値動き、これからの予定、今週の重要な予定 */
+const IND_TONE = { strong: 'up', weak: 'down', hot: 'warn', cool: 'accent' };
+const IND_TONE_LABEL = { strong: '景気が強い方向', weak: '景気が弱い方向', hot: '物価が高い方向', cool: '物価が低い方向' };
+const IND_SUP = { up: '上振れ', down: '下振れ', inline: '予想どおり' };
+function indAt(at) { return at ? `${Number(at.slice(5, 7))}/${Number(at.slice(8, 10))} ${at.slice(11, 16)}` : '—'; }
+function indReact(rx, v) {
+  if (!rx) return null;
+  const spec = Object.fromEntries((v.instr || []).map((s) => [s.key, s]));
+  const lv = { big: ['大きく反応', 'down'], move: ['反応', 'warn'], quiet: ['小さい', 'src'] }[rx.level] || ['', 'src'];
+  return h('div', { class: 'ind__react' }, [
+    h('span', { class: 'badge badge--' + lv[1], text: `15分の動き: ${lv[0]}` }),
+    ...Object.entries(rx.moves || {}).map(([k, m]) => {
+      const sp = spec[k] || { label: k, unit: '', digits: 2 };
+      return h('span', { class: 'tag ' + cls(m.d15), text: `${sp.label} ${m.d15 > 0 ? '+' : ''}${m.d15.toFixed(sp.digits)}${sp.unit}` +
+        (isNum(m.ratio) ? `（×${m.ratio}）` : '') + (isNum(m.d60) ? ` →60分 ${m.d60 > 0 ? '+' : ''}${m.d60.toFixed(sp.digits)}` : '') });
+    }),
+  ]);
+}
+function indRow(r) {
+  const tags = [];
+  if (r.surprise) tags.push(h('span', { class: 'badge badge--' + (r.surprise === 'inline' ? 'src' : 'accent'), text: IND_SUP[r.surprise] }));
+  if (r.tone) tags.push(h('span', { class: 'badge badge--' + (IND_TONE[r.tone] || 'accent'), text: IND_TONE_LABEL[r.tone] || r.tone }));
+  if (r.imp === '高') tags.push(h('span', { class: 'badge badge--warn', text: '重要' }));
+  const vals = r.cat === 'policy'
+    ? `${r.actual || '—'}${r.decision ? 'で' + r.decision : ''}${r.forecast ? '（' + r.forecast + '）' : ''}${r.unexpected ? '（予想外）' : ''}`
+    : `結果 ${r.actual || '—'}` + (r.forecast ? `／予想 ${r.forecast}` : '') + (r.prior ? `／前回 ${r.prior}${r.revised ? '（改定）' : ''}` : '');
+  const body = [
+    h('div', { class: 'ind__t' }, [h('span', { class: 'ind__when', text: r.at ? r.at.slice(11, 16) : '—' }), h('span', { class: 'ind__c', text: r.country }),
+      h('span', { class: 'ind__n', text: r.name })]),
+    h('div', { class: 'ind__v' }, [h('b', { class: 'num', text: vals }), ...tags]),
+  ];
+  const url = (r.src || {}).url;
+  return url ? h('a', { class: 'ind__row', href: url, target: '_blank', rel: 'noopener' }, body) : h('div', { class: 'ind__row' }, body);
+}
+function indicatorsCard(d) {
+  const v = d.indicators;
+  if (!v || !((v.rows || []).length || (v.schedule || []).length || v.week)) return null;
+  const major = new Set((v.rules || {}).major || []);
+  const rows = v.rows || [];
+  const main = rows.filter((r) => major.has(r.country));
+  const other = rows.filter((r) => !major.has(r.country));
+  const kids = [];
+  if (v.headline) kids.push(h('p', { class: 'phase__head', text: v.headline }));
+  // 発表時刻ごとにまとめ、反応はその下に1回だけ
+  const groups = [];
+  main.forEach((r) => {
+    const key = r.at || r.date;
+    let g = groups.find((x) => x.key === key);
+    if (!g) { g = { key, at: r.at, rows: [] }; groups.push(g); }
+    g.rows.push(r);
+  });
+  if (groups.length) {
+    kids.push(h('div', { class: 'check__lh', text: `結果（${indAt(v.since)} 以降・新しい順）` }));
+    kids.push(foldable((n) => h('div', { class: 'ind' }, groups.slice(0, n).map((g) => h('div', { class: 'ind__g' }, [
+      h('div', { class: 'ind__gh', text: g.at ? indAt(g.at) : `${md(g.key)}（時刻不明）` }),
+      ...g.rows.map(indRow),
+      indReact((v.react || {})[g.at], v),
+    ]))), groups.length, 4, '結果'));
+  } else {
+    kids.push(h('p', { class: 'hint', text: `主要国の指標の結果は、${indAt(v.since)} 以降まだありません。` }));
+  }
+  if (other.length) {
+    kids.push(h('details', { class: 'fold' }, [
+      h('summary', { text: `そのほかの国（${other.length}本）` }),
+      h('div', { class: 'ind' }, other.map(indRow)),
+    ]));
+  }
+  const sch = (v.schedule || []).filter((s) => !s.note);
+  const notes = (v.schedule || []).filter((s) => s.note).map((s) => s.name);
+  if (sch.length || notes.length) {
+    kids.push(h('div', { class: 'check__lh', text: 'これからの予定（翌朝 7:00 まで）' }));
+    kids.push(h('div', { class: 'ind' }, sch.map((s) => h('div', { class: 'ind__row ind__row--sch' }, [
+      h('div', { class: 'ind__t' }, [h('span', { class: 'ind__when', text: indAt(s.at).split(' ')[1] }),
+        s.imp ? h('span', { class: 'badge badge--' + (s.imp === '高' ? 'warn' : s.imp === '中' ? 'accent' : 'src'), text: '重要度' + s.imp }) : null,
+        h('span', { class: 'ind__n', text: s.name })]),
+      (s.forecast || s.prior) ? h('div', { class: 'ind__v hint', text: (s.forecast ? `予想 ${s.forecast}` : '予想なし') + (s.prior ? `／前回 ${s.prior}` : '') }) : null,
+    ]))));
+    if (notes.length) kids.push(h('p', { class: 'hint', text: '休場など: ' + notes.join('、') }));
+  }
+  const wk = v.week;
+  if (wk) {
+    const today = (v.asof || '').slice(0, 10);
+    const days = (wk.days || []).filter((x) => x.date >= today && x.items.some((i) => i.star));
+    if (days.length) {
+      kids.push(h('details', { class: 'fold' }, [
+        h('summary', { text: `今週の重要な予定（株探の★・${md(wk.from)}〜${md(wk.to)}）` }),
+        h('div', {}, days.map((x) => h('div', { class: 'pb__block' }, [
+          h('div', { class: 'check__lh', text: fmtDate(x.date) }),
+          ...x.items.filter((i) => i.star).map((i) => h('div', { class: 'hint', text: `${i.time ? i.time + ' ' : ''}${i.area === '決算' ? '決算 ' : ''}${i.name}` })),
+        ]))),
+        wk.src && wk.src.url ? h('a', { class: 'evidence', href: wk.src.url, target: '_blank', rel: 'noopener' }, [h('span', { text: wk.src.title || '株探' }), h('b', { text: '›' })]) : null,
+      ]));
+    }
+  }
+  const st = v.stats || {};
+  if (st.n) {
+    kids.push(h('button', { class: 'evidence', type: 'button', onclick: () => selectView('verify', 'v-ind') }, [
+      h('span', { text: `米国の指標への反応の記録 ${st.n}回（直近${st.days}日）` + ((st.rows || []).some((r) => r.n && r.small) ? '・まだ少ない' : '') }),
+      h('b', { text: '記録を見る ›' }),
+    ]));
+  }
+  const R = v.rules || {};
+  return card('経済指標', '結果・予想と市場の反応', kids,
+    `結果・予想・前回はトレーダーズ・ウェブ（DZH）の短信と一覧、予定は同じ配信と株探の週の予定。向き（景気が強い方向など）は公開の表で機械が付けたもので、相場の上げ下げの予想ではありません。` +
+    `反応は発表時刻の値から${(R.after || [15, 60]).join('分後・')}分後の動き（CNBC の5分足）で、同じ時刻のほかのニュースの分も入ります。×は「ふだん」（直前${R.base_days || 10}営業日の同じ時間帯の15分の動きの中央値）の何倍か。`,
+    false, 'sec-ind');
+}
+
+/* 検証: 米国の指標が出た時刻ごとの向きと、15分の反応の平均（記録がたまるほど「今の相場が指標にどう反応するか」が分かる） */
+function indicatorsProofCard() {
+  const src = (((DATA || {}).slots || {}).taibike || {}).data || (((DATA || {}).slots || {}).preopen || {}).data || {};
+  const v = src.indicators || ((((DATA || {}).slots || {}).zenba || {}).data || {}).indicators;
+  const st = v && v.stats;
+  if (!st || !st.n) return card('経済指標への反応（記録）', null, h('div', { class: 'empty', text: '記録は指標の結果が出るたびにたまります' }), null, false, 'v-ind');
+  const spec = (v.instr || []);
+  const kids = [h('p', { class: 'hint', text: `米国の指標が出た時刻ごとに、出た指標の向き（重要度の高い指標は2倍で数える）をまとめ、発表から15分の動きの平均と、上げた割合を並べた。直近${st.days}日。${(v.rules || {}).small || 20}回未満は少ない（傾向と言えない）。` })];
+  kids.push(h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+    h('thead', {}, h('tr', {}, ['', '回', ...spec.map((s) => s.label)].map((t) => h('th', { text: t })))),
+    h('tbody', {}, (st.rows || []).map((r) => h('tr', {}, [
+      h('th', { text: r.label }), h('td', { class: 'num', text: r.n ? `${r.n}${r.small ? '（少ない）' : ''}` : '—' }),
+      ...spec.map((s) => { const x = r[s.key]; return h('td', { class: 'num ' + cls(x && x.mean), text: x ? `${x.mean > 0 ? '+' : ''}${x.mean}${s.unit}・上げ${x.up}%` : '—' }); }),
+    ]))),
+  ])));
+  kids.push(h('p', { class: 'hint', text: '読み方: 「景気が強い方向」の時に米10年が上げ・S&P500先物が下げる割合が高ければ、良い指標を金利高として嫌う相場。件数が少ないうちは1回の動きに引きずられます。' }));
+  return card('経済指標への反応（記録）', '経済指標の根拠', kids,
+    '向きの表と測り方は dashboard/indicators.py の定数。記録は docs/data/indicators.json。注文・買い候補には使っていません。', false, 'v-ind');
 }
 
 /* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること。
@@ -5209,6 +5485,11 @@ function dailyCard(sessions) {
         ]) : null,
       ]),
       h('div', { class: 'dt__body' }, [
+        // その日の「なぜ」（値動きの分解の一文。大引の分、無ければ前場の分）と、経済指標の一文（DESIGN.md 31章）
+        ((s.taibike || {}).why || (s.zenba || {}).why || {}).headline
+          ? h('p', { class: 'hint', style: 'margin:6px 14px 0', text: 'なぜ: ' + ((s.taibike || {}).why || (s.zenba || {}).why).headline }) : null,
+        ((s.taibike || {}).indicators_headline || (s.preopen || {}).indicators_headline)
+          ? h('p', { class: 'hint', style: 'margin:2px 14px 0', text: '指標: ' + ((s.taibike || {}).indicators_headline || (s.preopen || {}).indicators_headline) }) : null,
         chips.length ? h('div', { class: 'hist__kv' }, chips) : null,
         secs.length ? h('div', { class: 'dt__secgrid' }, [
           h('div', {}, [h('div', { class: 'dt__subt', text: '強い業種' })].concat(secs.slice(0, 3).map(secChip))),
@@ -5462,6 +5743,12 @@ function stockMaterials(code, name, s) {
       document.createTextNode([(le.signals || []).join('・'), (le.why || []).join('／')].filter(Boolean).join('：'))]));
     if (le.notes) lines.push(h('div', { class: 'sd__line sd__line--dim', text: le.notes }));
   }
+  const wc = whyOf(code);
+  if (wc) {
+    lines.push(h('button', { class: 'sd__line sd__line--btn', type: 'button', onclick: () => { closeSheet(); selectView('market', 'sec-why'); } }, [
+      h('b', { text: `日経平均への寄与 ${yenTxt(wc.r.yen, 1)}` }),
+      document.createTextNode(`（${wc.r.yen < 0 ? '押し下げ' : '押し上げ'}${wc.rank}位・${SLOT_LABEL[wc.slot]}${wc.r.src === 'kabutan' ? '・株探の公表値' : '・推計'}） ›`)]));
+  }
   const mvr = moverFor(code);
   if (mvr) {
     const ln = moverLine(mvr);
@@ -5653,6 +5940,7 @@ function renderVerify() {
     out.push(holdProofCard());
     out.push(phaseProofCard());
     out.push(overnightProofCard());
+    out.push(indicatorsProofCard());
     out.push(crowdProofCard());
     out.push(supplyProofCard());
     out.push(spillProofCard());
@@ -5685,6 +5973,7 @@ const VSEC = {
   'v-hold': '判定ごとの次の5〜20日、利確・損切り・追いかけ売りの比較、売り方',
   'v-phase': '急落・反発・伸びすぎの後の日経（36年）、崩れたら売る・一部利確の損得、市場全体の信用残、答え合わせ',
   'v-overnight': '米国が大きく下げた夜の翌朝: 窓の目安の当たり方、寄りで売るか持つか、押し目買いの注文の成績',
+  'v-ind': '米国の指標が上振れ・下振れした時、金利・ドル円・株価指数先物がどう動いたか（記録）',
   'v-supply': '上値のしこり（価格帯別の出来高）と信用残ごとの、その後の値動き',
   'v-crowd': '混み合った銘柄の翌日の振れ幅（天井のサインではない）',
   'v-spill': '同業の急騰に動かなかった仲間は追いつくか、決算への反応',
@@ -5850,9 +6139,9 @@ function bindSheet() {
 /* ==================== 上端: 時間帯とジャンプ ==================== */
 const JUMPS = {
   trade: [['sw-ticket', '次の注文'], ['sw-pos', '保有と売り時'], ['sw-picks', '買い候補'], ['sw-watch', '監視']],
-  preopen: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-overnight', '夜間'], ['sec-phase', '局面'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
+  preopen: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-overnight', '夜間'], ['sec-ind', '指標'], ['sec-phase', '局面'], ['sec-open', '想定オープン'], ['sec-us', '米国'], ['sec-macro', 'マクロ'], ['sec-risk', 'リスク'],
     ['sec-outlook', '連想'], ['sec-temp', '温度']],
-  session: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-phase', '局面'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
+  session: [['sec-review', '振り返り'], ['sec-summary', '要点'], ['sec-why', 'なぜ'], ['sec-ind', '指標'], ['sec-phase', '局面'], ['sec-index', '指数'], ['sec-macro', 'マクロ'], ['sec-sector', '業種'], ['sec-theme', 'テーマ'], ['sec-rank', 'ランキング'],
     ['sec-heat', 'ヒートマップ'], ['sec-temp', '温度']],
   trend: [['tr-index', '指数の推移'], ['tr-daily', '日々の記録'], ['tr-weekly', '週報']],
   sectors: [['sc-hero', '追い風'], ['sc-map', '4象限'], ['sc-list', '全業種'], ['sc-peer', '押し目の業種'], ['sc-nikkei', '日経の業種'], ['sc-themes', 'テーマ']],

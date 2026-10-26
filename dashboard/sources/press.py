@@ -29,8 +29,8 @@ from urllib.parse import urlparse
 
 from ..config import (
     PRESS_ARTICLE_LIMIT, PRESS_ARTICLE_PRIORITY, PRESS_BODY_MAX, PRESS_EXCLUDE, PRESS_FEEDS,
-    PRESS_MACRO_ARTICLES, PRESS_WINDOW_HOURS, PRESS_WIRE_KINDS, PRESS_WIRE_LIMIT, PRESS_YAHOO_CATEGORIES,
-    PRESS_YAHOO_PAGES, PRESS_YAHOO_PROVIDERS,
+    PRESS_MACRO_ARTICLES, PRESS_WINDOW_HOURS, PRESS_WIRE_BODY_MAX, PRESS_WIRE_KINDS, PRESS_WIRE_LIMIT,
+    PRESS_YAHOO_CATEGORIES, PRESS_YAHOO_PAGES, PRESS_YAHOO_PROVIDERS,
 )
 from ..http import get, get_text
 from .kabutan_news import _list_yahoo, parse_yahoo_article
@@ -131,6 +131,7 @@ def _match_source(it: dict, hosts: list[str] | None) -> str | None:
 
 def _clean_title(title: str) -> str:
     title = re.sub(r"[：:]\s*時事ドットコム$", "", title)      # 本文側にも媒体名が付くことがある
+    title = re.sub(r"\s*[|｜]\s*ロイター$", "", title)         # ロイターは表題の末尾に「 | ロイター」が付くことがある
     title = re.sub(r"^[◎○●☆★◇◆]+", "", title)               # 時事の速報記号
     title = re.sub(r"[☆★]?差替$", "", title)
     return title.strip()
@@ -298,6 +299,27 @@ def pick_wire(found: list[dict], now: datetime, limit: int = PRESS_WIRE_LIMIT) -
     return out[:limit]
 
 
+def fetch_wire_bodies(wire: list[dict], known_urls: set | None = None) -> list[dict]:
+    """【指標】の結果と【指標発表予定】の短信の本文を読む（新しい順、種類ごとに上限まで）。経済指標の構造化に使う（indicators.py）。
+
+    本文に、同時に発表された指標（「〜 57.9、予想 58.0」）と詳細の行（〔予想〕（前回発表値・改））、予定なら前回値・予想・重要度が入る。
+    すでに読んで indicators.json に残した短信（known_urls）は読み直さない。"""
+    known = known_urls or set()
+    left = dict(PRESS_WIRE_BODY_MAX)
+    out = []
+    for w in wire:
+        kind = w.get("kind")
+        if kind not in left or left[kind] <= 0 or w.get("url") in known:
+            continue
+        left[kind] -= 1
+        art = _read_article({"url": w["url"], "provider": "トレーダーズ・ウェブ", "time": None})
+        if not art:
+            continue
+        out.append({"title": w["title"], "kind": kind, "url": w["url"], "body": art["body"],
+                    "published_at": art.get("published_at") or w.get("published")})
+    return out
+
+
 def fetch_macro_articles(found: list[dict]) -> list[dict]:
     """マクロの材料になる本文を、型ごとに最新の1本ずつ読む（一覧は新しい順）。"""
     out = []
@@ -313,8 +335,10 @@ def fetch_macro_articles(found: list[dict]) -> list[dict]:
 
 
 # ==================== まとめ ====================
-def fetch_all(now: datetime | None = None) -> dict:
-    """報道・公的機関・海外の素材をまとめて返す。どれが落ちても残りは返す。"""
+def fetch_all(now: datetime | None = None, known_wire: set | None = None) -> dict:
+    """報道・公的機関・海外の素材をまとめて返す。どれが落ちても残りは返す。
+
+    known_wire: 本文をもう読んだ指標の短信の URL（indicators.known_urls）。読み直さない。"""
     now = now or datetime.now(JST)
     groups: dict[str, list[dict]] = {"official": [], "press": [], "overseas": []}
     status = []
@@ -337,7 +361,8 @@ def fetch_all(now: datetime | None = None) -> dict:
                    "ok": bool(articles), "fetched": sum(counts.values()), "kept": len(articles)})
     wire = pick_wire(found, now)
     macro_articles = fetch_macro_articles(found)
-    print(f"    {'✅' if wire else '⚠️ '} 短信(指標・予定・要人発言): {len(wire)} 件")
+    wire_bodies = fetch_wire_bodies(wire, known_wire)
+    print(f"    {'✅' if wire else '⚠️ '} 短信(指標・予定・要人発言): {len(wire)} 件・指標の本文 {len(wire_bodies)} 件")
     status.append({"key": "wire", "label": "短信・マクロの材料（トレーダーズ・ウェブ）", "kind": "press",
                    "ok": bool(wire or macro_articles), "fetched": len(wire), "kept": len(macro_articles)})
     return {
@@ -346,6 +371,7 @@ def fetch_all(now: datetime | None = None) -> dict:
         "overseas": groups["overseas"],
         "articles": articles,
         "wire": wire,
+        "wire_bodies": wire_bodies,        # build が indicators に渡したあと payload から外す（latest.json に残さない）
         "macro_articles": macro_articles,
         "status": status,
         "ok": any(s["ok"] for s in status),

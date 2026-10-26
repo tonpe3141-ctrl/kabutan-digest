@@ -207,9 +207,36 @@ def parse_yahoo_article(html: str, url: str, provider: str = PROVIDER,
     out = {"headline": headline, "timestamp": time_txt, "body": body, "url": url,
            "source": f"{source or provider}（Yahoo!ファイナンス配信）",
            "category": "株探" if provider == PROVIDER else provider}
+    pub = published_at(soup)
+    if pub:
+        out["published_at"] = pub
     if partial:
         out["partial"] = True
     return out
+
+
+def _jst_minute(s: str) -> str | None:
+    try:
+        d = datetime.fromisoformat(str(s).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if d.tzinfo is not None:
+        d = d.astimezone(timezone(timedelta(hours=9)))
+    return d.strftime("%Y-%m-%dT%H:%M")
+
+
+def published_at(soup) -> str | None:
+    """記事の配信時刻（JST、分まで）。<time dateTime> か JSON-LD の datePublished。一覧の「10/23」より細かい。
+
+    トレーダーズ・ウェブの【指標】の短信は発表の時刻ちょうどに配信される（実測 2026-10-23 22:45:33 の PMI）。"""
+    for t in soup.find_all("time"):
+        dt = t.get("datetime") or t.get("dateTime")
+        if dt and "T" in str(dt):
+            got = _jst_minute(dt)
+            if got:
+                return got
+    m = re.search(r'"datePublished"\s*:\s*"([^"]+)"', str(soup))
+    return _jst_minute(m.group(1)) if m else None
 
 
 def fetch_articles(categories=("market", "stocks"), max_pages: int = 3,

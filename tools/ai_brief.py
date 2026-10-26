@@ -20,6 +20,11 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 LATEST = os.path.join(ROOT, "docs", "data", "latest.json")
+
+import re  # noqa: E402
+
+from dashboard import attrib as attrib_mod, indicators as ind_mod, names as names_mod  # noqa: E402（行を作るだけ。取得はしない）
+from dashboard.config import MACRO_TOPICS, OVERNIGHT_TOPICS  # noqa: E402
 REFS = "/tmp/ai_refs_{slot}.json"
 
 
@@ -143,9 +148,43 @@ def preopen_session(b: Brief, d: dict):
         ix = ps.get("indices") or {}
         b.add(f"前営業日 {ps.get('date')}: " + "、".join(f"{x.get('label')} {num(x.get('close'), 0)}（{pct(x.get('change_pct'), 2)}）" for x in ix.values())
               + (f"。{(ps.get('session_shift') or {}).get('verdict')}" if (ps.get("session_shift") or {}).get("verdict") else ""))
+        if ps.get("why"):
+            b.add(f"前営業日のなぜ（値動きの分解・機械）: {ps['why']}")
     ah = co.get("after_hours_kessan") or []
     if ah:
         b.add(f"前営業日の引け後の開示（{len(ah)}件）: " + "、".join(f"{name(r.get('name'))}({r.get('code')}) {r.get('category')}" for r in ah[:15]))
+
+
+def why(b: Brief, d: dict):
+    """値動きの分解（attrib.py）。日経平均の寄与度・時間の流れ・大きく動いた時間と同じ時間の動き・海外。数字は付け直さない。"""
+    w = d.get("why") or {}
+    if not w:
+        return
+    b.h("値動きの分解（なぜ動いたか。寄与度・時間の流れ・同じ時間の動き。機械の分解で、理由の読みはあなたの仕事。数字は付け直さない）")
+    def ref(title, url):
+        # 株探の大引け・前引けの記事（寄与度の出所）は K、同じ時間の見出し・開示は P
+        return b.ref("K", title, url, "株探") if "finance.yahoo" in (url or "") else b.ref("P", title, url)
+    for line in attrib_mod.lines_for_brief(w, ref):
+        b.add(line)
+
+
+def indicators(b: Brief, d: dict):
+    """経済指標（indicators.py）。結果・予想・前回と向き、発表の前後15分・60分の値動き、予定、記録。数字は付け直さない。"""
+    v = d.get("indicators") or {}
+    if not v or not (v.get("rows") or v.get("schedule") or v.get("week")):
+        return
+    b.h(f"経済指標（{str(v.get('since') or '')[5:16].replace('T', ' ')}〜。結果・予想・前回と、発表の前後の値動き。"
+        "向きは公開の表で機械が付けた。反応は同じ時刻のほかのニュースの分も入る。数字は付け直さない）")
+    if v.get("headline"):
+        b.add(f"要点（機械）: {v['headline']}")
+    for line in ind_mod.lines_for_brief(v, lambda t, u: b.ref("W", t, u, "トレーダーズ・ウェブ")):
+        b.add(line)
+
+
+def world_preopen(b: Brief, d: dict):
+    wl = [x for x in d.get("world") or [] if x.get("pct") is not None]
+    if wl:
+        b.add("欧州（前の夜の引け）: " + "、".join(f"{x['label']} {pct(x['pct'], 2)}" for x in wl))
 
 
 LEVEL = {"big": "大きく動いた", "move": "動いた", "quiet": "大きな動きなし", "none": "値段が取れず"}
@@ -449,6 +488,33 @@ def newsflow(b: Brief, d: dict):
 
 # 一覧・ランキング・テクニカルの見出し（読む価値が無く、トークンだけ使う）
 _SKIP_HEAD = ("本日の【", "本日のランキング", "ETF売買動向", "日経会社情報DIGITAL")
+# 報道の見出しの並べ方: 相場・企業・マクロに関わる見出しを先に（Google ニュースの検索語は本文にも当たるので、文化・生活の記事が混ざる）
+_MKT_WORDS = re.compile(r"株|円|金利|物価|景気|決算|業績|売上|利益|増益|減益|赤字|黒字|最高益|上方修正|下方修正|買収|提携|出資|増資|上場|"
+                        r"TOB|M&A|IPO|社長|CEO|受注|工場|投資|輸出|輸入|関税|貿易|半導体|AI|原油|市場|相場|指数|債|日銀|FRB|政策|予算|"
+                        r"税|賃金|雇用|GDP|消費|値上げ|価格|需要|供給|経済|企業|事業|銀行|保険|証券|電力|制裁|中国|米国|米|欧州|中東|イラン|ロシア")
+
+
+def _head_score(title: str, names: list[str]) -> int:
+    t = str(title or "")
+    score = 0
+    if any(re.search(tp["pattern"], t) for tp in MACRO_TOPICS + OVERNIGHT_TOPICS):
+        score += 2
+    if any(n in t for n in names):
+        score += 2
+    if _MKT_WORDS.search(t):
+        score += 1
+    return score
+
+
+def rank_headlines(rows: list[dict]) -> list[dict]:
+    """関わりの強い見出しを先に（同じ点なら元の順＝新しい順）。どれにも当たらない見出しは最後。"""
+    try:
+        names = [n for n in {cleaned for cleaned in (str(x).replace("（株）", "").strip()
+                                                     for x in names_mod.known().values())} if len(n) >= 3]
+    except Exception:
+        names = []
+    return [r for _, _, r in sorted(((-_head_score(r.get("title"), names), i, r) for i, r in enumerate(rows)),
+                                    key=lambda x: (x[0], x[1]))]
 
 
 def articles(b: Brief, d: dict, slot: str):
@@ -469,9 +535,12 @@ def articles(b: Brief, d: dict, slot: str):
     b.h("一次情報・報道")
     for x in (p.get("official") or [])[:12]:
         b.add(f"公式 {x.get('source')}: {cut(x.get('title'), 70)}{b.ref('O', x.get('title'), x.get('url'), x.get('source'))}")
-    for x in (p.get("wire") or [])[:20]:
+    # 指標の結果・予定の短信は「経済指標」の節に構造にして出したので、ここは要人発言だけ（同じ材料を2回読ませない）
+    has_ind = bool((d.get("indicators") or {}).get("rows") or (d.get("indicators") or {}).get("schedule"))
+    for x in [x for x in p.get("wire") or [] if not has_ind or x.get("kind") == "remarks"][:20]:
         b.add(f"短信: {cut(x.get('title'), 80)}{b.ref('W', x.get('title'), x.get('url'), 'トレーダーズ・ウェブ')}")
-    for x in [x for x in p.get("headlines") or [] if not any(k in (x.get("title") or "") for k in _SKIP_HEAD)][:32]:
+    heads = [x for x in p.get("headlines") or [] if not any(k in (x.get("title") or "") for k in _SKIP_HEAD)]
+    for x in rank_headlines(heads)[:32]:
         b.add(f"見出し {x.get('source')}: {cut(x.get('title'), 70)}{b.ref('P', x.get('title'), x.get('url'), x.get('source'))}")
     for x in (p.get("articles") or [])[:12]:
         b.add(f"- {x.get('provider')}: {cut(x.get('headline'), 70)}{b.ref('A', x.get('headline'), x.get('url'), x.get('provider'))}"
@@ -480,6 +549,8 @@ def articles(b: Brief, d: dict, slot: str):
         b.add(f"海外 {x.get('source')}: {cut(x.get('title'), 80)}｜{cut(x.get('summary'), 140)}{b.ref('C', x.get('title'), x.get('url'), x.get('source'))}")
     for x in p.get("macro_articles") or []:
         hl = x.get("headline") or ""
+        if has_ind and any(k in hl for k in ("イベントスケジュール", "主な経済指標")):
+            continue        # 「経済指標」の節に予定・結果として読んだ
         n = 1400 if any(k in hl for k in ("スケジュール", "織り込み")) else 500
         b.add(f"- マクロ {cut(hl, 60)}{b.ref('X', hl, x.get('url'), x.get('provider') or 'トレーダーズ・ウェブ')}\n  {cut(x.get('body'), n)}")
     ng = [s.get("source") or s.get("key") for s in p.get("status") or [] if s.get("ok") is False]
@@ -564,9 +635,13 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
     b.add(f"# {slot} {latest.get('date')} 収集 {s.get('updated_at')}（数字はここと同じものだけを書く）")
     if slot == "preopen":
         preopen_session(b, d)
+        world_preopen(b, d)
         overnight(b, d)
+        indicators(b, d)
     else:
         market_session(b, d, slot)
+        why(b, d)
+        indicators(b, d)
     phase(b, d, slot)
     macro(b, d)
     thermo(b, d, d.get("picks") or {})

@@ -40,3 +40,6 @@ jobs:
       - name: 夜間の値動き（先物・時間外・AI と半導体の報道）
         run: python tools/probe_overnight.py
         if: always()
+      - name: 値動きの分解と経済指標（日経のウエート・5分足・指標の短信・ロイター）
+        run: python tools/probe_why.py
+        if: always()

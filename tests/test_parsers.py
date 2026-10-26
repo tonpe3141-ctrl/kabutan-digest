@@ -2289,6 +2289,197 @@ def test_overnight():
     check("想定オープン: 先物があれば先物、モデルは参考に残す", (io_f["method"], round(io_f["model"]["gap_pct"], 3)), ("futures", 0.165))
 
 
+# ==================== 経済指標（indicators.py。DESIGN.md 31章） ====================
+# 2026-10-23〜26 の実物（トレーダーズ・ウェブの短信・一覧・予定と、株探の週の予定）を写したもの
+W_PMI = {"title": "【指標】10月米製造業PMI速報値 56.0、予想 55.5ほか", "kind": "result", "url": "u1",
+         "published_at": "2026-10-23T22:45",
+         "body": "10月米サービス部門PMI速報値 57.9、予想 58.0\n10月米総合PMI速報値 57.6、予想 57.4\n"
+                 "※タイトルおよび上記に表示した内容が下記の経済指標の結果です。\n"
+                 "10月米製造業購買担当者景気指数（PMI）速報値〔予想 55.5〕 （前回発表値 55.9）\n"
+                 "10月米サービス部門購買担当者景気指数（PMI）速報値〔予想 58.0〕 （前回発表値 58.8）\n"
+                 "10月米総合購買担当者景気指数（PMI）速報値〔予想 57.4〕 （前回発表値 58.4）"}
+W_CA = {"title": "【指標】8月カナダ小売売上高（前月比） +1.2％、予想 +1.3％ほか", "kind": "result", "url": "u2",
+        "published_at": "2026-10-23T21:31",
+        "body": "8月カナダ小売売上高（自動車を除く、前月比） +1.2％、予想 +1.1％\n※タイトルおよび上記に表示した内容が下記の経済指標の結果です。\n"
+                "8月カナダ小売売上高（前月比）〔予想 +1.3％〕 （前回発表値 -0.8％・改）\n"
+                "8月カナダ小売売上高（自動車を除く、前月比）〔予想 +1.1％〕 （前回発表値 -0.8％・改）"}
+W_JP = {"title": "【指標】8月景気先行指数・改定値 118.0、前回 118.0ほか", "kind": "result", "url": "u3",
+        "published_at": "2026-10-26T14:00",
+        "body": "8月景気一致指数・改定値 118.8、前回 118.7\n※タイトルおよび上記に表示した内容が下記の経済指標の結果です。\n"
+                "8月景気先行指数・改定値〔予想 -〕 （前回発表値 118.0）\n8月景気一致指数・改定値〔予想 -〕 （前回発表値 118.7）"}
+W_SCHED = {"title": "【指標発表予定】22:45　10月米製造業PMI速報値など", "kind": "schedule", "url": "u4",
+           "published_at": "2026-10-23T22:30",
+           "body": "○22:45　10月米製造業購買担当者景気指数（PMI）速報値\n前回値　55.9\n予想　　55.5\n重要度　中\n"
+                   "○22:45　10月米サービス部門購買担当者景気指数（PMI）速報値\n前回値　58.8\n予想　　58.0\n重要度　中"}
+A_EVENTS = {"headline": "26日のイベントスケジュール（時間は日本時間）", "url": "x1",
+            "body": "＜国内＞\n○14:00　◇　8月景気動向指数改定値\n＜海外＞\n○18:00　◎　10月独Ifo企業景況感指数（予想：89.9）\n"
+                    "○27日02:00　◎　米財務省、2年債入札\n○ニュージーランド（労働の日）、休場\n※重要度、高は☆、中は◎、低◇とする。"}
+A_LIST = {"headline": "欧米市場の主な経済指標・23日", "url": "x2",
+          "body": "＜発表値＞　　　＜前回発表値＞\n9月英小売売上高（自動車燃料含む）\n（前月比）　 　▲0.4％　　　　　0.7％・改\n"
+                  "10月米製造業購買担当者景気指数（PMI）速報値\n56.0　　　　　　　55.9\nロシア中銀、政策金利\n14.00％で据え置き　　　14.00％\n"
+                  "※改は改定値、▲はマイナスを表す。"}
+A_WEEK = {"headline": "今週の【重要イベント】FOMC、米個人所得、日銀金融政策決定会合 (10月26日～11月1日)", "url": "k1",
+          "body": "―――――――――――――――――――10月27日 (火) ――\n◆国内経済\n・9月企業向けサービス価格指数 (8:50)\n◆国際経済ｅｔｃ\n"
+                  "★FOMC (米連邦公開市場委員会) 1日目\n★米国10月コンファレンスボード消費者信頼感指数 (23:00)\n【海外決算】\n"
+                  "[米]ビザ、コカ・コーラ/[欧]NXPセミコンダクターズ\n"
+                  "―――――――――――――――――――10月28日 (水) ――\n◆国際経済ｅｔｃ\n★FOMC (米連邦公開市場委員会) 、終了後に政策金利を発表 (29日3:00)\n"
+                  "【海外決算】\n[米]★アルファベット、★マイクロソフト、GEベルノバ\n◆新規上場、市場変更 など\n〇ＧＡ　ｔｅｃｈｎｏｌｏｇｉｅｓ<3491>：東証Ｇ→東証Ｐ"}
+
+
+def test_indicators():
+    from datetime import datetime, timedelta, timezone
+    from dashboard import indicators as I
+    print("経済指標（結果・予想・前回・向き・予定・反応）")
+    JST = timezone(timedelta(hours=9))
+    now = datetime(2026, 10, 26, 16, 45, tzinfo=JST)
+    pmi = I.parse_result_wire(W_PMI)
+    check("短信: 表題と本文の頭の3本を読む", [(r["name"], r["actual"], r["forecast"], r["prior"]) for r in pmi],
+          [("10月米製造業PMI速報値", "56.0", "55.5", "55.9"), ("10月米サービス部門PMI速報値", "57.9", "58.0", "58.8"),
+           ("10月米総合PMI速報値", "57.6", "57.4", "58.4")])
+    check("短信: 上振れ・下振れと向き（PMI は景気）", [(r["surprise"], r["tone"], r["country"], r["at"]) for r in pmi],
+          [("up", "strong", "米", "2026-10-23T22:45"), ("down", "weak", "米", "2026-10-23T22:45"), ("up", "strong", "米", "2026-10-23T22:45")])
+    ca = I.parse_result_wire(W_CA)
+    check("短信: カナダの小売・前回は改定・発表時刻は5分に丸める", [(r["country"], r["actual"], r["prior"], r["revised"], r["at"]) for r in ca],
+          [("カナダ", "+1.2%", "-0.8%", True, "2026-10-23T21:30"), ("カナダ", "+1.2%", "-0.8%", True, "2026-10-23T21:30")])
+    jp = I.parse_result_wire(W_JP)
+    check("短信: 予想の無い国内の指標（前回と並ぶ・向きは付けない）", [(r["country"], r["forecast"], r["prior"], r["surprise"]) for r in jp],
+          [("日本", None, "118.0", None), ("日本", None, "118.7", None)])
+    pol = I.parse_result_wire({"title": "【指標】ロシア中銀、政策金利を14.00％で据え置き　予想通り", "url": "u", "published_at": "2026-10-23T19:30"})
+    fomc = I.parse_policy("FOMC、FFレート誘導目標3.75-4.00％に引き上げ、 予想通り", "2026-09-17T03:00", {})
+    check("政策金利: 中銀・据え置き・予想通り", (pol[0]["country"], pol[0]["actual"], pol[0]["decision"], pol[0]["surprise"]),
+          ("ロシア", "14.00%", "据え置き", "inline"))
+    check("政策金利: FOMC の誘導目標の幅", (fomc["country"], fomc["actual"], fomc["decision"]), ("米", "3.75-4.00%", "引き上げ"))
+    check("国・地域の判定", [I.country_of(x) for x in ("前週分の米新規失業保険申請件数", "7-9月期中国GDP（前期比）", "5－7月英失業率（ILO方式）",
+                                                    "10月ユーロ圏製造業PMI速報値", "9月全国CPI（生鮮食料品除く総合、前年比）", "日銀短観（9月調査）大企業製造業・業況判断DI",
+                                                    "4-6月期NZ・GDP（前期比）", "英中銀MPC")],
+          ["米", "中国", "英", "ユーロ圏", "日本", "日本", "NZ", "英"])
+    check("向きの表（物価・失業・政策を先に）", [I.classify(x) for x in ("9月米PCEデフレーター（前年比）", "9月米個人消費支出", "6－8月英失業率", "9月米CPI",
+                                                               "FOMC FFレート誘導目標", "7月米貿易収支", "8月米非農業部門雇用者数変化")],
+          ["inflation", "growth", "labor_inv", "inflation", "policy", "other", "growth"])
+    check("失業率の上振れは景気が弱い方向・物価の下振れは物価が低い方向", (I.tone_of("labor_inv", "up"), I.tone_of("inflation", "down")), ("weak", "cool"))
+    check("数の読み", [I.to_num(x) for x in ("+1.2％", "▲0.4％", "±0.0％", "19.4万件", "-886億ドル", "3.75-4.00％", "なし")],
+          [1.2, -0.4, 0.0, 19.4, -886.0, 4.0, None])
+    sch = I.parse_schedule_wire(W_SCHED)
+    check("予定の短信: 時刻・予想・前回値・重要度", [(s["at"], s["forecast"], s["prior"], s["imp"]) for s in sch],
+          [("2026-10-23T22:45", "55.5", "55.9", "中"), ("2026-10-23T22:45", "58.0", "58.8", "中")])
+    ev = I.parse_event_schedule(A_EVENTS, now)
+    check("イベントスケジュール: 翌日の時刻・重要度・予想・休場の行",
+          [(e.get("at"), e.get("imp"), e.get("forecast"), bool(e.get("note"))) for e in ev],
+          [("2026-10-26T14:00", "低", None, False), ("2026-10-26T18:00", "中", "89.9", False), ("2026-10-27T02:00", "中", None, False),
+           (None, None, None, True)])
+    lst = I.parse_result_list(A_LIST, now)
+    check("主な経済指標の一覧: 名前＋型・▲・改定・政策金利", [(r["name"], r["actual"], r["prior"], r["revised"], r.get("decision")) for r in lst],
+          [("9月英小売売上高(自動車燃料含む)(前月比)", "-0.4%", "0.7%", True, None),
+           ("10月米製造業購買担当者景気指数(PMI)速報値", "56.0", "55.9", False, None), ("ロシア中銀、政策金利", "14.00%", "14.00%", False, "据え置き")])
+    hist = I.update({}, {"wire_bodies": [W_PMI, W_CA, W_JP, W_SCHED], "macro_articles": [A_EVENTS, A_LIST]}, [A_WEEK], now)
+    names = sorted(r["name"] for r in hist["rows"].values())
+    check("一覧の指標は、同じ日に短信の記録があれば重ねない（英小売とロシアだけ足す）",
+          [n for n in names if "PMI" in n or "小売" in n or "ロシア" in n],
+          ["10月米サービス部門PMI速報値", "10月米総合PMI速報値", "10月米製造業PMI速報値", "8月カナダ小売売上高(前月比)",
+           "8月カナダ小売売上高(自動車を除く、前月比)", "9月英小売売上高(自動車燃料含む)(前月比)", "ロシア中銀、政策金利"])
+    man = next(r for r in hist["rows"].values() if r["name"] == "10月米製造業PMI速報値")
+    check("予定と突き合わせて重要度を付ける", man.get("imp"), "中")
+    check("読んだ短信は seen に残す（次から本文を読み直さない）", sorted(I.known_urls(hist)), ["u1", "u2", "u3", "u4"])
+    wk = hist.get("week") or {}
+    check("株探の週の予定: 日付・★・時刻・★の海外決算だけ", [(d["date"], [(i["star"], i["name"][:12], i.get("time")) for i in d["items"]]) for d in wk.get("days") or []],
+          [("2026-10-27", [(False, "9月企業向けサービス価格", "8:50"), (True, "FOMC (米連邦公開市", None), (True, "米国10月コンファレンス", "23:00")]),
+           ("2026-10-28", [(True, "FOMC (米連邦公開市", "29日3:00"), (True, "[米] アルファベット、", None)])])
+    # 反応: 22:45 にドル円が 0.3円跳ねた（ふだんの15分は 0.01円ほど）
+    T = int(datetime(2026, 10, 23, 22, 45, tzinfo=JST).timestamp())
+    bars = []
+    for day in range(12, -1, -1):
+        base = T - day * 86400
+        for k in range(-30, 30):
+            t = base + k * 300
+            px = 150.0 + (0.01 if k % 2 else 0.0) + (0.3 if day == 0 and k >= 0 else 0.0)
+            bars.append((t, px, px, px, px))
+    bars.sort()
+    rx = I.react_at("2026-10-23T22:45", {"usdjpy": bars}, now)
+    check("反応: 発表時刻の値から15分後・60分後と、ふだんの倍率", (rx["moves"]["usdjpy"]["d15"], rx["level"], rx["moves"]["usdjpy"]["ratio"] >= 3),
+          (0.29, "big", True))
+    check("反応: 15分後がまだなら測らない", I.react_at("2026-10-26T16:40", {"usdjpy": bars}, now), None)
+    hist["react"] = {"2026-10-23T22:45": rx}
+    since, until = I.windows("preopen", datetime(2026, 10, 26, 7, 10, tzinfo=JST), "2026-10-23")
+    v = I.view(hist, "preopen", datetime(2026, 10, 26, 7, 10, tzinfo=JST), since, until)
+    check("寄り前の窓: 前営業日の引けから、予定は今からの分（結果が出た 14:00 の景気動向指数は外す）",
+          (since, [s["name"] for s in v["schedule"] if not s.get("note")][:2]), ("2026-10-23T15:30", ["10月独Ifo企業景況感指数", "米財務省、2年債入札"]))
+    check("見出し: 主要国の上振れ・下振れと向き、反応が大きかった時刻",
+          v["headline"].startswith("米3本（上振れ2・下振れ1｜景気 強2・弱1）") and "22:45" in v["headline"], True)
+    st = I.stats(hist, now)
+    check("記録: 時刻ごとに向きをまとめ（強2・弱1 → 強い方向）、15分の動きを数える", [(r["tone"], r["n"]) for r in st["rows"]][:2], [("strong", 1), ("weak", 0)])
+    check("要約の行: 結果・予想・前回と向き", any("10月米製造業PMI速報値 56.0（予想 55.5） 前回55.9 重要度中［上振れ・景気が強い方向］" in x
+                                         for x in I.lines_for_brief(v)), True)
+
+
+def test_attrib():
+    from datetime import datetime, timedelta, timezone
+    from dashboard import attrib as A
+    from dashboard.sources.nikkei225 import parse_weights
+    print("値動きの分解（寄与度・時間の流れ・大きく動いた時間）")
+    JST = timezone(timedelta(hours=9))
+    body = ("26日の日経平均株価は前週末比503.51円（-0.80％）安の6万2189.65円と3日続落し取引を終了した。 "
+            "日経平均マイナス寄与度は274円の押し下げでアドテスト<6857>がトップ。以下、東エレク<8035>が175.97円、ファストリ<9983>が153.72円と並んだ。 "
+            "プラス寄与度トップは豊田通商<8015>で、日経平均を20.23円押し上げ。次いで三菱商<8058>が19.72円と続いた。 業種別では33業種中22業種が値上がり。")
+    check("株探の寄与度（下げの日）", A.parse_contrib_text(body),
+          {"6857": -274.0, "8035": -175.97, "9983": -153.72, "8015": 20.23, "8058": 19.72})
+    up = ("日経平均プラス寄与度は310円の押し上げでアドテスト<6857>がトップ。以下、東エレク<8035>が120.5円と並んだ。 "
+          "マイナス寄与度トップはファストリ<9983>で、日経平均を30.1円押し下げ。次いでＫＤＤＩ<9433>が5.2円と続いた。")
+    check("株探の寄与度（上げの日・順序が逆）", A.parse_contrib_text(up), {"6857": 310.0, "8035": 120.5, "9983": -30.1, "9433": -5.2})
+    arts = [{"headline": "15時の日経平均は271円安の6万2421円、アドテストが239.48円押し下げ", "timestamp": "15:01", "body": body},
+            {"headline": "日経平均26日大引け＝3日続落、503円安の6万2189円", "timestamp": "15:32", "body": body, "url": "k"}]
+    check("大引は大引けの記事だけ（毎時の記事は使わない）", (A.kabutan_contrib(arts, "taibike") or {}).get("at"), "15:32")
+    check("前場は前引けの記事が無ければ使わない", A.kabutan_contrib(arts, "zenba"), None)
+    csv = ("日付,コード,社名,業種,セクター,ウエート\n" + "\n".join(f'"2026/09/30","{1000 + i}","社{i}","業{i % 3}","x","{0.44:.4f}%"' for i in range(220))
+           + '\n"本資料は日経の著作物であり…"\n')
+    w = parse_weights(csv.encode("cp932"))
+    check("ウエートの CSV（Shift_JIS・注記の行は捨てる）", (w["date"], len(w["rows"]), w["rows"][0]["weight"]), ("2026-09-30", 220, 0.44))
+    # 合成の指数: 株価 = 100、係数はウエート ∝ 係数 × 株価。指数の前日比をちょうど寄与の合計にする
+    bars = {"dates": ["2026-09-30"], "stocks": {r["code"]: [100.0] for r in w["rows"]}}
+    f = A.factors(w, bars)
+    cons = [{"code": r["code"], "name": r["name"], "sector": r["sector"], "price": 101.0 if i < 10 else 100.0, "change": 1.0 if i < 10 else 0.0,
+             "change_pct": 1.0 if i < 10 else 0.0} for i, r in enumerate(w["rows"])]
+    idx = {"close": 22000.0 * (1 + 10 / 22000), "change": 22000.0 * 10 / 22000}    # 10銘柄が +1% → 指数は +10/220 %
+    c = A.contrib(cons, idx, f, None)
+    check("寄与度の合計 = 指数の前日比（係数が正しければ誤差 0）", (round(c["sum"], 1), c["residual"]), (round(idx["change"], 1), 0.0))
+    check("上位3銘柄と残り", (c["top3"]["rest_n"], round(c["top3"]["yen"] + c["top3"]["rest"], 1)), (217, round(idx["change"], 1)))
+    kab = {"rows": {"1000": round(next(r for r in c["pos"] if r["code"] == "1000")["yen"] * 1.1, 2)}}
+    c2 = A.contrib(cons, idx, f, kab)
+    r1000 = next(r for r in c2["pos"] if r["code"] == "1000")
+    check("株探の公表値がある銘柄はその値（出所の印）", (r1000["src"], r1000["yen"]), ("kabutan", kab["rows"]["1000"]))
+    cal = A.update_calib({}, [dict(r1000, est=10.0, yen=9.0)], "2026-09-30", "2026-10-26")
+    check("株探との比を記録し、係数を直す（キャップ調整のずれ）", (cal["ratio"]["1000"]["r"], round(A.calibrated(f, cal, "2026-09-30")["1000"] / f["1000"], 2),
+                                                round(A.calibrated(f, cal, "2026-10-30")["1000"] / f["1000"], 2)), (0.9, 0.9, 1.0))
+    # 時間の流れ: 前日 100 → 寄り 99 → 前引け 98.5 → 後場寄り 98.7 → 引け 99.2
+    day = "2026-10-26"
+    def t(hm):
+        return int(datetime.fromisoformat(f"{day}T{hm}").replace(tzinfo=JST).timestamp())
+    nk5 = []
+    px = 99.0
+    for m in range(0, 150, 5):
+        o = px
+        px = 99.0 - 0.5 * (m / 145) if m < 60 else 98.7 - 0.2 * ((m - 60) / 85)
+        nk5.append((t(f"{9 + (m // 60):02d}:{m % 60:02d}"), o, max(o, px), min(o, px), px))
+    nk5[-1] = (nk5[-1][0], nk5[-1][1], nk5[-1][2], min(nk5[-1][3], 98.5), 98.5)
+    px = 98.7
+    for m in range(0, 180, 5):
+        o = px
+        px = 98.7 + 0.5 * (m / 175)
+        nk5.append((t(f"{12 + (30 + m) // 60:02d}:{(30 + m) % 60:02d}"), o, max(o, px), min(o, px), px))
+    path = A.session_path(nk5, day, 100.0, 99.2, "taibike")
+    check("時間の流れ: 窓・前場・昼休み・後場", [(g["key"], g["yen"]) for g in path["legs"]], [("gap", -1.0), ("am", -0.5), ("lunch", 0.2), ("pm", 0.5)])
+    jump = [(t(f"10:{m:02d}"), 100.0, 100.0, 100.0, 100.0) for m in range(0, 30, 5)]
+    jump += [(t(f"10:{m:02d}"), 100.0 - (m - 25) * 0.12, 100.0, 99.0, 100.0 - (m - 25) * 0.12) for m in range(30, 50, 5)]
+    sw = A.swings(jump, day, "zenba")
+    check("大きく動いた時間: 0.3% 以上の区間を、重ならないように大きい順", [(s["from_t"], s["to_t"]) for s in sw][:1], [("10:20", "10:50")])
+    ev = A.events_for(day, {"headlines": [{"published": f"{day}T09:12+09:00", "title": "〔東京株式〕下落＝米国株安で", "source": "時事通信"},
+                                          {"published": f"{day}T09:14+09:00", "title": "米半導体大手、売上見通しを下方修正", "source": "ロイター"}]},
+                      {}, [{"time": "09:15", "code": "1000", "name": "社0", "category": "業績予想の修正"}], [], {"1000"})
+    s0 = {"t0": t("09:10"), "t1": t("09:25")}
+    A.attach_events([s0], ev)
+    check("同じ時間の出来事: 開示を先に、相場そのものを伝える定時の記事は後ろ", [e["kind"] for e in s0["events"]], ["開示", "報道", "報道"])
+    check("定時の記事は最後", s0["events"][-1]["text"].startswith("時事通信: 〔東京株式〕"), True)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -2321,6 +2512,8 @@ if __name__ == "__main__":
     test_supply()
     test_phase()
     test_overnight()
+    test_indicators()
+    test_attrib()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

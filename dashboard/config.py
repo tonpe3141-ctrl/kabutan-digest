@@ -63,6 +63,24 @@ JP_INDICES = [
     {"key": "jpx400", "symbol": ".JPXNK400", "label": "JPX日経400"},
 ]
 
+# ==================== 値動きの分解（dashboard/attrib.py、DESIGN.md 31章） ====================
+# 同じ時間の海外と、規模別の指数（クォート）。region が asia の指数は東京の場中に、europe は大引（16:45）と寄り前（前の夜の引け）に意味がある。
+# 実測（2026-10-26）: .TWII は気配が古いことがある（台湾の休場でなくても）。古い値は stale を付けて出す
+WORLD_INDICES = [
+    {"key": "kospi", "symbol": ".KS11",  "label": "韓国KOSPI",     "region": "asia"},
+    {"key": "twii",  "symbol": ".TWII",  "label": "台湾加権",      "region": "asia"},
+    {"key": "hsi",   "symbol": ".HSI",   "label": "香港ハンセン",  "region": "asia"},
+    {"key": "ssec",  "symbol": ".SSEC",  "label": "上海総合",      "region": "asia"},
+    {"key": "stoxx", "symbol": ".STOXX", "label": "欧州STOXX600",  "region": "europe"},
+    {"key": "dax",   "symbol": ".GDAXI", "label": "独DAX",         "region": "europe"},
+    {"key": "ftse",  "symbol": ".FTSE",  "label": "英FTSE100",     "region": "europe"},
+    {"key": "core30", "symbol": ".TOPXC", "label": "TOPIX Core30",  "region": "style"},
+    {"key": "growth", "symbol": ".MTHR",  "label": "東証グロース250", "region": "style"},
+]
+# 値動きの分解で取る5分足（cnbc.fetch_intraday）。同じ時間の動き・寄りまでの動き・指標への反応に使う
+INTRADAY_SYMBOLS = {"nikkei": ".N225", "nk": "@NK.1", "es": "@SP.1", "usdjpy": "JPY=", "us10y": "US10Y",
+                    "kospi": ".KS11", "hsi": ".HSI", "ssec": ".SSEC"}
+
 # ==================== 夜間の値動き（dashboard/overnight.py、DESIGN.md 30章） ====================
 # 米国の引け後〜東京の寄りの前に、ニュースで動いた先物と時間外の値段。クォート API（exthrs=1）の時間外の約定と、先物の期近。
 # symbols は候補を順に試す（CNBC の表記が違っても止まらない。どれが返るかは tools/probe_overnight.py で実測する）。
@@ -208,6 +226,8 @@ STOCK_BARS_CALENDAR_DAYS = 200     # 初回・取り直しのときに取る暦�
 
 # 短期の押し目買い（dashboard/swing.py、DESIGN.md 13章）。200日線と、それ以後の検証期間のために
 # 個別株の四本値と出来高を約2年ぶん持つ。アプリは読まない（thermo.json に要約だけを載せる）。
+INDICATORS_PATH = "docs/data/indicators.json"       # 経済指標の結果・予想・前回・反応（indicators.py。DESIGN.md 31章）
+NK_CALIB_PATH = "docs/data/cache/nk_calib.json"     # 日経平均の寄与度の補正（株探の公表値との比。attrib.py）
 OHLC_PATH = "docs/data/cache/ohlc.json"
 STOCK_OHLC_KEEP = 500              # 営業日
 STOCK_OHLC_CALENDAR_DAYS = 760     # 初回・取り直しのときに取る暦日数
@@ -295,10 +315,14 @@ PRESS_WIRE_KINDS = [
     ("schedule", r"^【指標発表予定】"),
     ("remarks",  r"^【要人発言】|^【日銀議事要旨】|^【日銀】|の主な要人発言"),
 ]
-PRESS_WIRE_LIMIT = 40
-PRESS_MACRO_ARTICLES = [r"イベントスケジュール", r"FF金利織り込み", r"主な経済指標", r"マーケットダイジェスト",
-                        r"の主な要人発言", r"NY為替見通し|ロンドン為替見通し"]
-PRESS_YAHOO_PAGES = {"fx": 3}    # 為替のカテゴリは短信が多いので3ページ目まで見る（既定は2ページ）
+PRESS_WIRE_LIMIT = 60
+# 主な経済指標の一覧は「欧米市場の」と「日本、オセアニア時間の」の2本が出る（型ごとに最新の1本なので分けて読む。DESIGN.md 31章）
+PRESS_MACRO_ARTICLES = [r"イベントスケジュール", r"FF金利織り込み", r"欧米市場の主な経済指標", r"日本、オセアニア時間の主な経済指標",
+                        r"マーケットダイジェスト", r"の主な要人発言", r"NY為替見通し|ロンドン為替見通し"]
+# 為替のカテゴリは短信が多い。指標の短信を前営業日の引けまで遡れるよう5ページ目まで見る（既定は2ページ。月曜の朝は金曜の夜まで）
+PRESS_YAHOO_PAGES = {"fx": 5}
+# 本文を読む短信の上限（【指標】の結果と【指標発表予定】。読んだ短信は indicators.json に残し、次からは読み直さない）
+PRESS_WIRE_BODY_MAX = {"result": 36, "schedule": 24}
 
 # 業種（日経225の業種区分）ごとのマクロ感応度。−1〜+1。
 # 「この20日のマクロの動きが、その業種に追い風か向かい風か」を出すための公開係数。
@@ -377,8 +401,11 @@ _MKT = ("(株価 OR 株式 OR 日経平均 OR 円相場 OR 円安 OR 円高 OR �
 # include / exclude: 定例の事務連絡が多い公的機関は、相場に関係する表題だけに絞る
 # tone: 温度計の「見出しの論調」に数えるか（日本語の報道だけ。公的機関と英語は数えない）
 PRESS_FEEDS = [
+    # ロイターの日本語版は jp.reuters.com から www.reuters.com（と jp.mobile.reuters.com）に移った。旧ドメインのままでは
+    # 0件が続いていた（2026-10-26 の実測。DESIGN.md 31章）。www.reuters.com は英語の記事も載るので、日本語の表題だけを採る（press の照合）
     {"key": "reuters",   "label": "ロイター",       "kind": "press", "tone": True, "max": 15,
-     "url": _GN + "site:jp.reuters.com " + _MKT + " when:2d", "hosts": ["jp.reuters.com"]},
+     "url": _GN + "site:reuters.com " + _MKT + " when:2d",
+     "hosts": ["www.reuters.com", "jp.mobile.reuters.com", "jp.reuters.com"]},
     {"key": "bloomberg", "label": "ブルームバーグ", "kind": "press", "tone": True, "max": 15,
      "url": _GN + "site:bloomberg.com/jp when:2d", "hosts": ["www.bloomberg.com", "bloomberg.com"]},
     {"key": "nikkei",    "label": "日本経済新聞",   "kind": "press", "tone": True, "max": 15,
@@ -387,11 +414,12 @@ PRESS_FEEDS = [
      "url": _GN + "site:jiji.com " + _MKT + " when:2d", "hosts": ["equity.jiji.com", "sp.m.jiji.com"]},
     # AI・半導体の報道（夜間の値動きの材料。DESIGN.md 30章）。上の3社と同じ配信元だけ。表示の媒体名は配信元ドメインから付ける
     {"key": "tech",      "label": "報道（AI・半導体）", "kind": "press", "tone": False, "max": 12,
-     "url": _GN + "(site:jp.reuters.com OR site:bloomberg.com/jp OR site:nikkei.com) "
+     "url": _GN + "(site:reuters.com OR site:bloomberg.com/jp OR site:nikkei.com) "
                   "(半導体 OR 生成AI OR エヌビディア OR ディープシーク OR DeepSeek OR OpenAI OR 輸出規制) when:1d",
-     "hosts": ["jp.reuters.com", "www.bloomberg.com", "bloomberg.com", "www.nikkei.com"],
-     "host_labels": {"jp.reuters.com": "ロイター", "www.bloomberg.com": "ブルームバーグ", "bloomberg.com": "ブルームバーグ",
-                     "www.nikkei.com": "日本経済新聞"}},
+     "hosts": ["www.reuters.com", "jp.mobile.reuters.com", "jp.reuters.com", "www.bloomberg.com", "bloomberg.com",
+               "www.nikkei.com"],
+     "host_labels": {"www.reuters.com": "ロイター", "jp.mobile.reuters.com": "ロイター", "jp.reuters.com": "ロイター",
+                     "www.bloomberg.com": "ブルームバーグ", "bloomberg.com": "ブルームバーグ", "www.nikkei.com": "日本経済新聞"}},
     {"key": "nhk",       "label": "NHK",            "kind": "press", "tone": False, "max": 12,
      "url": "https://www.nhk.or.jp/rss/news/cat5.xml",
      "include": r"株|円相場|円安|円高|日銀|金利|物価|景気|為替|決算|関税|財務|GDP|原油|賃金|輸出|輸入|貿易|"
@@ -421,7 +449,9 @@ PRESS_FEEDS = [
 PRESS_EXCLUDE = (r"^(ゴルフ|テニス|サッカー|野球|大リーグ|ＭＬＢ|MLB|ＮＢＡ|NBA|ＮＦＬ|NFL|ＮＨＬ|Ｆ１|F1|ラグビー|"
                  r"陸上|競泳|水泳|五輪|相撲|ボクシング|フィギュア|スキー|バスケット|アイスホッケー|自転車|"
                  r"格闘技|競馬|モーター|卓球|バレー|柔道|体操)[＝=]|^画像・写真[：:]|^写真特集|"
-                 r"^【コラム】|^コラム[：:]|^アクセスランキング$|^ランキング$")   # 論説と、記事ではないページ
+                 r"^【コラム】|^コラム[：:]|^COMMENTARY|^【オピニオン】|^アクセスランキング$|^ランキング$|"
+                 # 記事ではないページ（媒体の分野の一覧・記者のページ・銘柄や投信の一覧表。Google ニュースに記事として載る）
+                 r"最新情報と分析|最新ニュース一覧|ニュース・発言など最新記事|構成銘柄一覧|対象となる投資信託|[:：]日経電子版$")
 # 見出しの鮮度（時間）。月曜は週末をまたぐので +48 時間。公的機関は発表が疎なので長め
 PRESS_WINDOW_HOURS = {"press": 30, "overseas": 30, "official": 72}
 

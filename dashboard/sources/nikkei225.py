@@ -96,3 +96,53 @@ def fetch_components(min_expected: int = 200) -> list[dict]:
     if cached:
         print(f"    ↩︎ 前回の構成銘柄を使用: {len(cached)}銘柄")
     return cached
+
+
+# ==================== 構成銘柄のウエート（日経公式。月末の値。値動きの分解の寄与度に使う。DESIGN.md 31章） ====================
+# 構成銘柄のページは 2026-10 から Cloudflare の確認画面になり、取れなくなった（ボットの確認は通らない・通そうとしない）。
+# ウエートの CSV は同じ指数サイトから直接取れる（実測 2026-10-26）。CSV には日経の著作物である旨の注記があるので、
+# リポジトリ（公開）には保存しない。実行のたびに取り、計算に使うだけ（画面には寄与度の上位と業種の合計だけを出す）。
+WEIGHT_URL = "https://indexes.nikkei.co.jp/nkave/archives/file/nikkei_stock_average_weight_jp.csv"
+
+
+def parse_weights(raw: bytes | str) -> dict | None:
+    """ウエートの CSV（Shift_JIS。日付,コード,社名,業種,セクター,ウエート）→ {date, rows:[{code,name,sector,weight}]}。"""
+    import csv
+    import io
+    if isinstance(raw, bytes):
+        for enc in ("cp932", "utf-8-sig"):
+            try:
+                text = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            return None
+    else:
+        text = raw
+    rows, day = [], None
+    for r in csv.reader(io.StringIO(text)):
+        if len(r) < 6 or not r[1].strip() or not r[5].strip().endswith("%"):
+            continue
+        try:
+            w = float(r[5].strip().rstrip("%"))
+        except ValueError:
+            continue
+        day = day or r[0].strip().replace("/", "-")
+        rows.append({"code": r[1].strip(), "name": r[2].strip(), "sector": r[3].strip(), "weight": w})
+    return {"date": day, "rows": rows} if len(rows) >= 200 else None
+
+
+def fetch_weights() -> dict | None:
+    """日経公式のウエート（月末）。取れなければ None（寄与度は株探の公表値だけになる）。"""
+    from ..http import get
+    res = get(WEIGHT_URL, timeout=25)
+    if res is None:
+        print("    ⚠️  日経平均のウエート（CSV）を取得できません")
+        return None
+    out = parse_weights(res.content)
+    if out:
+        print(f"    ✅ 日経平均のウエート: {len(out['rows'])}銘柄（{out['date']} 時点）")
+    else:
+        print("    ⚠️  日経平均のウエート（CSV）を解釈できません")
+    return out
