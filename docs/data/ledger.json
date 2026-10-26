@@ -436,37 +436,34 @@
   {
    "code": "3905",
    "name": "データセクション",
-   "first_seen": "2026-09-25",
+   "first_seen": "2026-10-26",
    "signals": [
     "新規の資金流入",
     "上昇率×売買代金"
    ],
    "why": [
-    "売買代金 27位に新規ランクイン（+14.94%）",
-    "上昇率 8位、かつ売買代金上位",
     "売買代金 23位に新規ランクイン（+26.14%）",
     "上昇率 5位、かつ売買代金上位"
    ],
    "themes": [
     "AI"
    ],
-   "price_at_flag": 2077.0,
-   "nikkei_at_flag": 66364.2,
+   "price_at_flag": 1930.0,
+   "nikkei_at_flag": 62189.65,
    "track": {
-    "d1": -1.2,
-    "d5": -1.69,
-    "d20": -7.08,
-    "last": -7.08,
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
     "last_date": "2026-10-26",
-    "excess": -0.79,
-    "days": 20,
-    "x5": -4.62,
-    "x20": -0.79,
-    "worst": -40.78
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
-   "status": "closed",
-   "notes": "AIテーマの一角として株探の「話題株ピックアップ【夕刊】」にも名前が挙がり、上昇率8位・売買代金上位に新規ランクインした。",
-   "note_url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE82aWRjQ05nZERzbE9ZcG1PMlVYUThGdllFVnVIRFF5NXExUGRla0c5RHdEWmxhdnBWQi1iRUdMbDFMbGh6MkFvREFqMmVVWDIydTVMSTBMeEFXREtDekFmTA?oc=5",
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
    "tracked_by": "日足"
   },
   {
@@ -3395,26 +3392,14 @@
    },
    {
     "signal": "新規の資金流入",
-    "count": 16,
-    "d5_median": 3.14,
-    "hit_rate": 0.69,
-    "x5_median": 2.57,
-    "beat5": 0.69,
-    "n20": 4,
-    "d20_median": -10.38,
-    "x20_median": -8.53,
-    "enough": true
-   },
-   {
-    "signal": "上昇率×売買代金",
-    "count": 10,
-    "d5_median": 2.88,
-    "hit_rate": 0.6,
-    "x5_median": 1.83,
-    "beat5": 0.6,
-    "n20": 4,
-    "d20_median": -15.55,
-    "x20_median": -13.16,
+    "count": 15,
+    "d5_median": 3.61,
+    "hit_rate": 0.73,
+    "x5_median": 3.07,
+    "beat5": 0.73,
+    "n20": 3,
+    "d20_median": -13.69,
+    "x20_median": -10.44,
     "enough": true
    },
    {
@@ -3428,6 +3413,18 @@
     "d20_median": -8.82,
     "x20_median": -6.06,
     "enough": true
+   },
+   {
+    "signal": "上昇率×売買代金",
+    "count": 9,
+    "d5_median": 3.78,
+    "hit_rate": 0.67,
+    "x5_median": 1.85,
+    "beat5": 0.67,
+    "n20": 3,
+    "d20_median": -24.02,
+    "x20_median": -19.71,
+    "enough": false
    },
    {
     "signal": "テーマ初動",
@@ -3455,20 +3452,21 @@
    }
   ],
   "overall": {
-   "count": 86,
-   "d5_median": 0.64,
-   "hit_rate": 0.51,
-   "x5_median": 1.77,
-   "beat5": 0.58,
-   "n20": 19,
-   "d20_median": -10.7,
-   "x20_median": -6.61,
+   "count": 85,
+   "d5_median": 0.76,
+   "hit_rate": 0.52,
+   "x5_median": 1.78,
+   "beat5": 0.59,
+   "n20": 18,
+   "d20_median": -12.2,
+   "x20_median": -7.63,
    "enough": true
   },
   "min_count": 10
  },
  "updated_at": "2026-10-26",
  "added_today": [
+  "3905",
   "3929",
   "5250",
   "5962",
