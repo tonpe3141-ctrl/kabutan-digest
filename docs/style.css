@@ -1105,3 +1105,37 @@ table.bt tr.is-stale th, table.bt tr.is-stale td { opacity: .5; }   /* 夜間の
 .bt tr.is-now th, .bt tr.is-now td { background: var(--accent-soft); font-weight: 700; }
 .pulse__phase { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 6px 0 2px; text-align: left; }
 .pulse__phase-t { font-size: 12.5px; font-weight: 650; line-height: 1.5; }
+
+/* ==================== なぜ動いたか・経済指標（DESIGN.md 31章） ==================== */
+.whychart__wrap { margin: 4px 0 8px; }
+.whychart { width: 100%; height: auto; display: block; }
+.why__swings { display: grid; gap: 10px; }
+.why__swing { border-left: 3px solid var(--border); padding-left: 10px; }
+.why__swt { font-size: 13px; }
+.why__side, .ind__react { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.why__side .tag, .ind__react .tag { font-size: 11.5px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); }
+.why__side .tag.up, .ind__react .tag.up { color: var(--up); }
+.why__side .tag.down, .ind__react .tag.down { color: var(--down); }
+.why__ev { display: block; font-size: 12px; line-height: 1.5; color: var(--text); text-decoration: none; margin-top: 3px; }
+a.why__ev:hover { text-decoration: underline; }
+.why__evt { color: var(--text-dim); font-weight: 700; margin-right: 2px; }
+.ind { display: grid; gap: 8px; }
+.ind__g { border-top: 1px solid var(--border); padding-top: 6px; }
+.ind__g:first-child { border-top: 0; padding-top: 0; }
+.ind__gh { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 2px; }
+.ind__row { display: block; color: var(--text); text-decoration: none; padding: 3px 0; }
+a.ind__row:hover .ind__n { text-decoration: underline; }
+.ind__t { display: flex; gap: 6px; align-items: baseline; font-size: 13px; line-height: 1.45; }
+.ind__when { color: var(--text-dim); font-variant-numeric: tabular-nums; flex: none; }
+.ind__c { font-weight: 700; flex: none; }
+.ind__n { min-width: 0; }
+.ind__v { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 12.5px; margin: 2px 0 0 40px; }
+.ind__v b { font-weight: 650; }
+.ind__row--sch .ind__v { margin-left: 40px; }
+.bars--tight .bars { gap: 3px; }
+.bars--tight .bar { grid-template-columns: 40% 1fr auto; gap: 6px; }
+.bars--tight .bar__track { grid-column: auto; grid-row: 1; grid-column-start: 2; }
+.bars--tight .bar__val { grid-column-start: 3; grid-row: 1; min-width: 4.2em; text-align: right; }
+.bars--tight .bar__label { grid-row: 1; }
+.why__swing--up { border-left-color: var(--up); }
+.why__swing--down { border-left-color: var(--down); }

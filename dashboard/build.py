@@ -15,10 +15,10 @@ import traceback
 from datetime import date, datetime, timedelta
 from statistics import median
 
-from . import analyze, bars as bars_mod, commentary, earnings as earnings_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, overnight, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, attrib, bars as bars_mod, commentary, earnings as earnings_mod, indicators as ind_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, overnight, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
 from .config import (
-    JP_INDICES, MACRO_SYMBOLS, OVERNIGHT_FUTURES, OVERNIGHT_NAMES, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH, THERMO_PATH,
-    US_INDICES, US_SECTOR_ETFS,
+    INTRADAY_SYMBOLS, JP_INDICES, MACRO_SYMBOLS, OVERNIGHT_FUTURES, OVERNIGHT_NAMES, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH,
+    THERMO_PATH, US_INDICES, US_SECTOR_ETFS, WORLD_INDICES,
 )
 
 from .sources import cnbc, kabutan_news, news, nikkei225, press, tdnet, yahoojp
@@ -106,7 +106,28 @@ _PRESS_EMPTY = {"official": [], "headlines": [], "overseas": [], "articles": [],
 
 def _fetch_press() -> dict:
     print("  [報道・公的機関] ロイター／ブルームバーグ／日経／時事／NHK／日銀／財務省／JPX／FRB／CNBC を取得中...")
-    return _safe("報道・公的機関", press.fetch_all, None) or dict(_PRESS_EMPTY)
+    known = ind_mod.known_urls(ind_mod.load())       # 本文をもう読んだ指標の短信は読み直さない
+    return _safe("報道・公的機関", lambda: press.fetch_all(known_wire=known), None) or dict(_PRESS_EMPTY)
+
+
+def _fetch_world() -> dict:
+    """アジア・欧州・規模別の指数（値動きの分解の「同じ時間の海外」。DESIGN.md 31章）。{key: クォート}。"""
+    raw = _safe("海外の指数", lambda: cnbc.fetch_symbols([s["symbol"] for s in WORLD_INDICES]), {}) or {}
+    return {s["key"]: raw[s["symbol"]] for s in WORLD_INDICES if raw.get(s["symbol"])}
+
+
+_INTRADAY: dict[str, tuple] = {}
+
+
+def _intraday(symbol: str, start: date, end: date) -> list[tuple] | None:
+    """5分足（cnbc.fetch_intraday）を1回の実行の中で使い回す（指標の反応と値動きの分解で同じ値段を取るため）。"""
+    have = _INTRADAY.get(symbol)
+    if have and have[0] <= start and have[1] >= end:
+        return have[2]
+    got = cnbc.fetch_intraday(symbol, start, end)
+    if got:
+        _INTRADAY[symbol] = (start, end, got)
+    return got
 
 
 def _compact_rows(rows: list[dict], limit: int = 30) -> list[dict]:
@@ -183,8 +204,11 @@ def build_preopen(target_date: date) -> dict:
     nk = (ov or {}).get("nk")
     futures = {"last": nk["last"], "symbol": nk["symbol"], "asof": nk.get("time")} if nk else None
 
+    print("  [CNBC] 欧州・アジアの指数を取得中...")
+    world_q = _fetch_world()
     spx = us.get("spx") or {}
     payload = {
+        "world": attrib.world(world_q, [s for s in WORLD_INDICES if s["region"] == "europe"], target_date.isoformat()),
         "us": us,
         "macro": macro,
         "sectors_us": sectors_us,
@@ -235,6 +259,8 @@ def build_session(target_date: date, slot: str) -> dict:
 
     print("  [CNBC] 為替・金利・商品を取得中...")
     macro = _safe("マクロ", lambda: cnbc.fetch_spec(MACRO_SYMBOLS), {}) or {}
+    print("  [CNBC] アジア・欧州・規模別の指数を取得中...")
+    world_q = _fetch_world()
 
     print("  [Yahoo] ランキングを取得中...")
     tables = {}
@@ -395,6 +421,7 @@ def build_session(target_date: date, slot: str) -> dict:
                              + [dict(r, when="前営業日の引け後") for r in prev_after + prev_others])
     payload["_after_others"] = [{k: r.get(k) for k in ("code", "name", "title", "time")}
                                 for r in tdnet.split_by_session(disc.get("others") or [])["after"]][:80]
+    payload["_world_q"] = world_q
     return payload
 
 
@@ -600,6 +627,30 @@ def run(slot: str, target_date: date | None = None) -> dict:
         hist_patch[slot]["phase"] = {"primary": ph["primary"], "headline": ph["headline"], "asof": ph["asof"]}
         print(f"    ✅ {ph['label']}: {ph['headline']}")
 
+    # 経済指標（結果・予想・前回と、発表の前後の値動き）と、値動きの分解（寄与度・時間の流れ・同じ時間の動き）。DESIGN.md 31章
+    print("  [指標] 経済指標の結果・予定を読み、発表の前後の値動きを測っています...")
+    payload["indicators"] = _safe("経済指標", lambda: _indicators(slot, target_date, payload))
+    if payload["indicators"]:
+        hist_patch[slot]["indicators_headline"] = payload["indicators"].get("headline")
+        print(f"    ✅ 結果 {len(payload['indicators']['rows'])} 本・反応 {len(payload['indicators']['react'])} 時刻・"
+              f"予定 {len(payload['indicators']['schedule'])} 本")
+    world_q = payload.pop("_world_q", None)
+    if slot != "preopen":
+        print("  [分解] 日経平均の寄与度・時間の流れ・同じ時間の動きを数えています...")
+        payload["why"] = _safe("値動きの分解", lambda: _why(slot, target_date, payload, world_q or {}))
+        if not payload["why"]:
+            latest = store.load_latest()
+            if latest.get("date") == target_date.isoformat():
+                payload["why"] = (((latest.get("slots") or {}).get(slot) or {}).get("data") or {}).get("why")
+        w = payload["why"]
+        if w:
+            c = w.get("contrib") or {}
+            hist_patch[slot]["why"] = {"headline": w.get("headline"),
+                                       "top": [[r["code"], r["name"], r["yen"]] for r in sorted(
+                                           (c.get("neg") or []) + (c.get("pos") or []), key=lambda r: -abs(r["yen"]))[:6]]}
+            print(f"    ✅ {w.get('headline') or '寄与度は株探の公表値だけ'}")
+    (payload.get("press") or {}).pop("wire_bodies", None)
+
     # 夜間の値動き: 見出しの照合・日本株への響き（朝の窓の目安）・対処の根拠（DESIGN.md 30章）。注文・候補は変えない
     if slot == "preopen":
         payload["overnight"] = _overnight(target_date, payload)
@@ -643,6 +694,37 @@ def run(slot: str, target_date: date | None = None) -> dict:
 
     print(f"\n✅ {slot} を更新しました → {store.latest_path()}")
     return payload
+
+
+def _indicators(slot: str, target_date: date, payload: dict) -> dict | None:
+    """短信・一覧・予定を indicators.json に足し、反応を測って、この区分の窓の分を返す。"""
+    now = store.now_jst()
+    hist = ind_mod.update(ind_mod.load(), payload.get("press"), (payload.get("kabutan") or {}).get("articles"), now)
+    hist = _safe("指標への反応", lambda: ind_mod.measure(hist, _intraday, now), hist) or hist
+    ind_mod.save(hist)
+    prev_jp = (((payload.get("carryover") or {}).get("prev_session")) or {}).get("date")
+    if slot != "preopen":
+        prev = store.previous_sessions(target_date, count=1)
+        prev_jp = prev[0].get("date") if prev else None
+    since, until = ind_mod.windows(slot, now, prev_jp)
+    return ind_mod.view(hist, slot, now, since, until)
+
+
+def _why(slot: str, target_date: date, payload: dict, world_q: dict) -> dict | None:
+    """値動きの分解。ウエート（日経公式の CSV）は保存しない。株探との比（補正）は nk_calib.json に残す。"""
+    day = target_date.isoformat()
+    weights = nikkei225.fetch_weights()
+    start = target_date - timedelta(days=2)
+    series = {k: (_intraday(sym, start, target_date) or []) for k, sym in INTRADAY_SYMBOLS.items()}
+    latest = store.load_latest()
+    implied = (((((latest.get("slots") or {}).get("preopen") or {}).get("data") or {}).get("implied_open"))
+               if latest.get("date") == day else None)
+    ind_rows = (payload.get("indicators") or {}).get("rows") or []
+    out, calib = attrib.build(slot, day, payload, weights, bars_mod.load(), series, attrib.load_calib(), themes_mod.load_themes(),
+                              implied, world_q, WORLD_INDICES, ind_rows)
+    if out and weights:
+        attrib.save_calib(calib)
+    return out
 
 
 def _overnight(target_date: date, payload: dict) -> dict | None:

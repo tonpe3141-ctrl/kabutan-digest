@@ -197,6 +197,43 @@ def fetch_ohlc(symbol: str, start, end) -> list[tuple] | None:
         return None
 
 
+# ==================== 5分足（値動きの分解・指標への反応。DESIGN.md 31章） ====================
+# 実測（2026-10-26, 手元回線）: .N225・.TOPX・.TOPXC・@NK.1（CME の日経平均先物）・@SP.1・@ND.1・JPY=・US10Y・.KS11・.HSI・.SSEC が
+# 5分足を返す（.TWII・.MTHR は返さない）。少なくとも3か月前まで遡れる。tradeTime は足の始まりの時刻（米東部時間）。
+# 日付の範囲も米東部時間で読むので、東京の1日をそろえるには前の日から取る。
+INTRADAY_ENDPOINT = ("https://ts-api.cnbc.com/harmony/app/bars/{sym}/{iv}/"
+                     "{start}000000/{end}235900/adjusted/EST5EDT.json")
+
+
+def parse_intraday(data: dict) -> list[tuple]:
+    """bars API の分足を [(足の始まりの時刻 UTC の epoch 秒, 始値, 高値, 安値, 終値)] の古い順にする。終値 0 以下は捨てる。"""
+    out: dict[int, tuple] = {}
+    for b in ((data or {}).get("barData") or {}).get("priceBars") or []:
+        ms = b.get("tradeTimeinMills")
+        close = _num(b.get("close"))
+        if not isinstance(ms, (int, float)) or close is None or close <= 0:
+            continue
+        o, h, lo = (_num(b.get(k)) for k in ("open", "high", "low"))
+        o = o if o and o > 0 else close
+        h = max(x for x in (h, o, close) if x)
+        lo = min(x for x in (lo, o, close) if x and x > 0)
+        out[int(ms // 1000)] = (o, h, lo, close)
+    return [(t, *x) for t, x in sorted(out.items())]
+
+
+def fetch_intraday(symbol: str, start, end, interval: str = "5M") -> list[tuple] | None:
+    """分足（start〜end は米東部時間の日付）。取れなければ None（例外は投げない）。"""
+    url = INTRADAY_ENDPOINT.format(sym=symbol, iv=interval, start=start.strftime("%Y%m%d"),
+                                   end=end.strftime("%Y%m%d"))
+    res = get(url, timeout=30, retries=1)
+    if res is None:
+        return None
+    try:
+        return parse_intraday(res.json())
+    except ValueError:
+        return None
+
+
 def fetch_bars(symbol: str, start, end) -> list[tuple[str, float]] | None:
     """日足（分割調整済み）を取る。取れなければ None（例外は投げない）。
 
