@@ -3405,7 +3405,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "出来高急増と年初来高値が重なり、2日続けて大きく上げた。昨日までに公開買付けへの賛同・応募推奨の開示が出ている。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -3434,8 +3434,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "通期経常を282億→298億円に5.4%上方修正し、最高益予想を上乗せ。期末配当は47円→53円に増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/7de3cebd50d585fc8b5dfbbabff824e70fc26b4d",
    "tracked_by": "日足"
   },
   {
@@ -3463,7 +3463,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -3495,8 +3495,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期最終は前年同期比11.0%増の765億円。今期配当を8円増額修正した（引け後の開示）。通期の業績予想は据え置き。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/a4b46194d941331bb5ad9d0ae95d51ce2688d3c6",
    "tracked_by": "日足"
   },
   {
@@ -3524,8 +3524,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期経常を1.2億→4.2億円に3.5倍上方修正し、一転して87%増益見通し（午前の開示）。通期7億円は据え置き。年初来高値と商いに引っかかった。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/56bdcd0928ff30d5bde20a4ffd9f89ad4a1a0af0",
    "tracked_by": "日足"
   }
  ],
