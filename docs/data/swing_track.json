@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-10-26",
+"updated_at": "2026-10-29",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -673,14 +673,16 @@
 "name": "ヴィッツ",
 "limit": 2076,
 "stop": 1289.75,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-13",
 "entry": 2076.82,
-"days": 10,
-"open": true,
-"last": 1817.0
+"days": 11,
+"out": "2026-10-27",
+"exit": 1804.0,
+"why": "time",
+"ret": -13.24
 },
 {
 "asof": "2026-10-09",
@@ -905,9 +907,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 5665.0,
-"days": 6,
+"days": 8,
 "open": true,
-"last": 5334.0
+"last": 5589.0
 },
 {
 "asof": "2026-10-19",
@@ -937,9 +939,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 8394.57,
-"days": 5,
+"days": 7,
 "open": true,
-"last": 8103.0
+"last": 8255.0
 },
 {
 "asof": "2026-10-20",
@@ -997,14 +999,16 @@
 "name": "オムロン",
 "limit": 5590,
 "stop": 4973.75,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-22",
 "entry": 5590.25,
-"days": 3,
-"open": true,
-"last": 5334.0
+"days": 5,
+"out": "2026-10-28",
+"exit": 5601.43,
+"why": "sell",
+"ret": 0.1
 },
 {
 "asof": "2026-10-21",
@@ -1022,14 +1026,16 @@
 "name": "フェローテックホールディングス",
 "limit": 7580,
 "stop": 5425.0,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-23",
 "entry": 7480.0,
-"days": 2,
-"open": true,
-"last": 7550.0
+"days": 3,
+"out": "2026-10-27",
+"exit": 7980.0,
+"why": "sell",
+"ret": 6.58
 },
 {
 "asof": "2026-10-22",
@@ -1037,14 +1043,16 @@
 "name": "オムロン",
 "limit": 5390,
 "stop": 4749.25,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-23",
 "entry": 5391.89,
-"days": 2,
-"open": true,
-"last": 5334.0
+"days": 3,
+"out": "2026-10-27",
+"exit": 5464.0,
+"why": "sell",
+"ret": 1.24
 },
 {
 "asof": "2026-10-22",
@@ -1062,14 +1070,16 @@
 "name": "コマツ",
 "limit": 6650,
 "stop": 5789.36,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-23",
 "entry": 6558.0,
-"days": 2,
-"open": true,
-"last": 6733.0
+"days": 3,
+"out": "2026-10-27",
+"exit": 6806.75,
+"why": "sell",
+"ret": 3.69
 },
 {
 "asof": "2026-10-22",
@@ -1077,14 +1087,16 @@
 "name": "住友重",
 "limit": 5310,
 "stop": 4661.86,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-23",
 "entry": 5255.0,
-"days": 2,
-"open": true,
-"last": 5424.0
+"days": 3,
+"out": "2026-10-27",
+"exit": 5494.0,
+"why": "sell",
+"ret": 4.45
 },
 {
 "asof": "2026-10-23",
@@ -1142,8 +1154,9 @@
 "name": "イビデン",
 "limit": 7880,
 "stop": 5680,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-26",
@@ -1151,8 +1164,9 @@
 "name": "東海カーボン",
 "limit": 1815,
 "stop": 1555,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-26",
@@ -1160,8 +1174,9 @@
 "name": "アドテスト",
 "limit": 29940,
 "stop": 23200,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-26",
@@ -1169,34 +1184,125 @@
 "name": "古野電気",
 "limit": 7220,
 "stop": 5730,
+"done": true,
+"earn": "up",
+"filled": false
+},
+{
+"asof": "2026-10-27",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 496,
+"stop": 458,
+"done": true,
+"earn": "mixed",
+"filled": false
+},
+{
+"asof": "2026-10-27",
+"code": "8697",
+"name": "日本取引所",
+"limit": 2056,
+"stop": 1866,
+"done": true,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-27",
+"code": "9433",
+"name": "ＫＤＤＩ",
+"limit": 2826,
+"stop": 2684.62,
+"done": false,
+"earn": "none",
+"filled": true,
+"in": "2026-10-28",
+"entry": 2826.8,
+"days": 1,
+"open": true,
+"last": 2800.5
+},
+{
+"asof": "2026-10-27",
+"code": "7936",
+"name": "アシックス",
+"limit": 4455,
+"stop": 4025,
+"done": true,
+"earn": "mixed",
+"filled": false
+},
+{
+"asof": "2026-10-28",
+"code": "9697",
+"name": "カプコン",
+"limit": 3750,
+"stop": 3265,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-10-28",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 496,
+"stop": 457,
+"done": false,
+"earn": "mixed"
+},
+{
+"asof": "2026-10-28",
+"code": "8697",
+"name": "日本取引所",
+"limit": 2052,
+"stop": 1859,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-10-28",
+"code": "6988",
+"name": "日東電",
+"limit": 3340,
+"stop": 3060,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-28",
+"code": "7751",
+"name": "キヤノン",
+"limit": 4555,
+"stop": 4245,
+"done": false,
+"earn": "down"
 }
 ],
 "stats": {
-"n": 28,
+"n": 34,
 "win": 79,
-"avg": -2.11,
-"med": 0.45,
-"pf": 0.32,
-"avg_win": 1.25,
-"avg_loss": -14.45,
+"avg": -1.66,
+"med": 0.58,
+"pf": 0.44,
+"avg_win": 1.61,
+"avg_loss": -14.28,
 "worst": -25.8,
-"days": 4.1,
-"d2": 14,
-"per_day": -0.51,
-"stops": 18,
+"days": 4.2,
+"d2": 12,
+"per_day": -0.39,
+"stops": 15,
 "sells": 79,
-"times": 4,
-"small": 32,
+"times": 6,
+"small": 29,
 "big_loss": 18,
-"fill": 39,
-"open": 8,
-"issued": 97,
+"fill": 37,
+"open": 3,
+"issued": 106,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-10-26",
+"updated_at": "2026-10-29",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -1209,9 +1315,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 16,
+"days": 18,
 "open": true,
-"last": 2146.0
+"last": 2113.5
 },
 {
 "asof": "2026-10-01",
@@ -1406,9 +1512,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 10,
+"days": 12,
 "open": true,
-"last": 6201.0
+"last": 6701.0
 },
 {
 "asof": "2026-10-09",
@@ -1542,9 +1648,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 8,
+"days": 10,
 "open": true,
-"last": 1291.0
+"last": 1390.0
 },
 {
 "asof": "2026-10-14",
@@ -1576,9 +1682,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 8,
+"days": 10,
 "open": true,
-"last": 6201.0
+"last": 6701.0
 },
 {
 "asof": "2026-10-14",
@@ -1796,9 +1902,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 3515.0,
-"days": 2,
+"days": 4,
 "open": true,
-"last": 3581.0
+"last": 3787.0
 },
 {
 "asof": "2026-10-22",
@@ -1812,9 +1918,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 1753.79,
-"days": 2,
+"days": 4,
 "open": true,
-"last": 1794.0
+"last": 1740.0
 },
 {
 "asof": "2026-10-23",
@@ -1844,9 +1950,10 @@
 "name": "パナＨＤ",
 "limit": 3485,
 "stop": 3295,
-"done": false,
+"done": true,
 "low": 3581.0,
-"earn": "mixed"
+"earn": "mixed",
+"filled": false
 },
 {
 "asof": "2026-10-26",
@@ -1854,9 +1961,41 @@
 "name": "京セラ",
 "limit": 3365,
 "stop": 3255,
-"done": false,
+"done": true,
 "low": 3397.0,
+"earn": "up",
+"filled": false
+},
+{
+"asof": "2026-10-27",
+"code": "3563",
+"name": "FOOD & LIFE COMPANIES",
+"limit": 5310,
+"stop": 4540,
+"done": true,
+"low": 4766.0,
+"earn": "mixed",
+"filled": false
+},
+{
+"asof": "2026-10-28",
+"code": "2737",
+"name": "トーメンデバイス",
+"limit": 23810,
+"stop": 20540,
+"done": false,
+"low": 25450.0,
 "earn": "up"
+},
+{
+"asof": "2026-10-28",
+"code": "7747",
+"name": "朝日インテック",
+"limit": 3510,
+"stop": 3070,
+"done": false,
+"low": 3190.0,
+"earn": "down"
 }
 ],
 "stats": {
@@ -1876,9 +2015,9 @@
 "times": 0,
 "small": 0,
 "big_loss": 86,
-"fill": 43,
+"fill": 40,
 "open": 6,
-"issued": 49,
+"issued": 52,
 "since": "2026-10-01"
 }
 }
