@@ -3567,8 +3567,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "一時ストップ高まで買われ、出来高急増と年初来高値が重なった（株探）。個別の材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/1bb484cc59fac22447bb83e74488c8a58a979c93",
    "tracked_by": "日足"
   },
   {
@@ -3599,8 +3599,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "決算で商いが膨らみ、後場に急騰した。今期経常を23億→39億円に69.6%上方修正し、配当も増額（昼の開示）。GPUインフラの提供単価の改善が理由。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/7140a3f83187260838c6fa218dd9744f631bcbc4",
    "tracked_by": "日足"
   },
   {
@@ -3632,8 +3632,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上昇率と売買代金の両方に引っかかった（+13.8%、売買代金1位）。SKハイニックスの好決算が韓国株に波及した流れ（日本経済新聞、CNBC）。",
+   "note_url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5qcHlocmxENENkaG1qUlpOc3FtX2swX1NFM0ZzZDdKeVlFT3d6b1FFWnFLY0wzRkNZR296WG9mZkEyTFNYTXpySWh2dTYybm81Y2cwTmVwYjlqVHpvV3ZWX1BtVXp3U05RQWNNaA?oc=5",
    "tracked_by": "日足"
   },
   {
@@ -3661,7 +3661,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値と商いに引っかかった。個別の材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -3695,7 +3695,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "決算で商いが膨らんだが、開示の中身は要約で読めていない。記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -3724,8 +3724,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を136億→160億円に17.6%上方修正し、3期ぶりの最高益、配当も22円増額（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/45934f1b8c2d92e540ea8036c97fa010de750a8c",
    "tracked_by": "日足"
   },
   {
@@ -3753,8 +3753,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を195億→232億円に19.0%上方修正し、最高益予想を上乗せ、配当も6円増額（昼の開示）。自社株買いの枠も設定した。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/3ed31dcf194944c396b2057f932764f3a8dcb8bc",
    "tracked_by": "日足"
   },
   {
@@ -3782,8 +3782,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を444億→511億円に15.1%上方修正し、配当も4.5円増額（後場の開示）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/ae48562a91c2713fc847b93feb87fda94357b911",
    "tracked_by": "日足"
   },
   {
@@ -3811,8 +3811,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を205億→210億円に2.4%上方修正し、最高益予想を上乗せ、配当も1円増額（後場の開示）。直近3か月は減益に転じている。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/9cb20a3dfa1e108eaa26638856919e8e3504d48a",
    "tracked_by": "日足"
   },
   {
@@ -3840,8 +3840,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を655億→675億円に3.1%上方修正し、配当も6円増額（後場の開示）。通期営業益の上方修正はコンセンサスを下回ったと報じられた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/f4cbb933c0d41e8cf353f32b3ddc49aaa6d97f05",
    "tracked_by": "日足"
   },
   {
@@ -3869,8 +3869,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を119億→147億円に23.5%上方修正し、最高益予想を上乗せ（昼の開示）。上期経常は従来予想を上回って着地した。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/35ae2389db711c8b6a319cd4c46109525bb564ff",
    "tracked_by": "日足"
   },
   {
@@ -3898,7 +3898,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値と商いに引っかかった。個別の材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   }
