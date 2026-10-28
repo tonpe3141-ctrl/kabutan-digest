@@ -2052,7 +2052,8 @@ function indicatorsProofCard() {
     '向きの表と測り方は dashboard/indicators.py の定数。記録は docs/data/indicators.json。注文・買い候補には使っていません。', false, 'v-ind');
 }
 
-/* 振り返り（Routine の ai_review）: 流れ・需給・過去の同じ形・次の営業日の備えと、教訓・次に確かめること。
+/* 振り返り（Routine の ai_review）: 要は（解釈）・次の営業日の構え（もし〜なら）を先に、流れ・需給・過去の同じ形の根拠と、教訓・次に確かめることを後に。
+   gist・plan が無い前の形（4つ目のセクションが備え）もそのまま描く。
    市況タブの先頭に置く。振り返りは大引に書き、寄り前は局面が平常以外のときだけ、前場は書かない。
    その区分に無ければ、いちばん新しい分（今日の寄り前 → 前営業日の大引 = 寄り前の prev_review）を出し、いつの分かを添える */
 function latestReview(d, slot) {
@@ -2068,6 +2069,11 @@ function reviewCard(d, slot) {
   if (!lr) return null;
   const { r, when } = lr;
   const kids = [h('p', { class: 'analysis__headline', text: r.headline || '' })];
+  if (r.gist) kids.push(h('div', { class: 'analysis__gist' }, [h('div', { class: 'analysis__t', text: '要は' }), h('div', { class: 'analysis__b', text: r.gist })]));
+  if ((r.plan || []).length) {
+    kids.push(h('div', { class: 'pb__block' }, [h('div', { class: 'check__lh', text: '次の営業日の構え' }),
+      h('ul', { class: 'reasons reasons--plan' }, r.plan.map((t) => h('li', { text: t })))]));
+  }
   r.sections.forEach((s) => kids.push(h('div', { class: 'analysis__sec' }, [
     h('div', { class: 'analysis__t', text: s.title }), h('div', { class: 'analysis__b', text: s.body })])));
   if ((r.lessons || []).length) {
