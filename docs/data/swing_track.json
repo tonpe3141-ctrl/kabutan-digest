@@ -907,9 +907,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 5665.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 5589.0
+"last": 5484.0
 },
 {
 "asof": "2026-10-19",
@@ -939,9 +939,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 8394.57,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 8255.0
+"last": 8063.0
 },
 {
 "asof": "2026-10-20",
@@ -1219,9 +1219,9 @@
 "filled": true,
 "in": "2026-10-28",
 "entry": 2826.8,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2800.5
+"last": 2778.0
 },
 {
 "asof": "2026-10-27",
@@ -1238,18 +1238,30 @@
 "code": "9697",
 "name": "カプコン",
 "limit": 3750,
-"stop": 3265,
+"stop": 3269.25,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-10-29",
+"entry": 3754.18,
+"days": 1,
+"open": true,
+"last": 3745.0
 },
 {
 "asof": "2026-10-28",
 "code": "4689",
 "name": "ラインヤフー",
 "limit": 496,
-"stop": 457,
+"stop": 457.98,
 "done": false,
-"earn": "mixed"
+"earn": "mixed",
+"filled": true,
+"in": "2026-10-29",
+"entry": 496.31,
+"days": 1,
+"open": true,
+"last": 498.0
 },
 {
 "asof": "2026-10-28",
@@ -1257,8 +1269,9 @@
 "name": "日本取引所",
 "limit": 2052,
 "stop": 1859,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-10-28",
@@ -1266,8 +1279,9 @@
 "name": "日東電",
 "limit": 3340,
 "stop": 3060,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-28",
@@ -1275,8 +1289,54 @@
 "name": "キヤノン",
 "limit": 4555,
 "stop": 4245,
+"done": true,
+"earn": "down",
+"filled": false
+},
+{
+"asof": "2026-10-29",
+"code": "9697",
+"name": "カプコン",
+"limit": 3665,
+"stop": 3185,
 "done": false,
-"earn": "down"
+"earn": "up"
+},
+{
+"asof": "2026-10-29",
+"code": "6701",
+"name": "ＮＥＣ",
+"limit": 4850,
+"stop": 4250,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-29",
+"code": "6702",
+"name": "富士通",
+"limit": 4250,
+"stop": 3840,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-29",
+"code": "4689",
+"name": "ラインヤフー",
+"limit": 491,
+"stop": 453,
+"done": false,
+"earn": "mixed"
+},
+{
+"asof": "2026-10-29",
+"code": "4324",
+"name": "電通グループ",
+"limit": 3595,
+"stop": 3310,
+"done": false,
+"earn": "mixed"
 }
 ],
 "stats": {
@@ -1297,8 +1357,8 @@
 "small": 29,
 "big_loss": 18,
 "fill": 37,
-"open": 3,
-"issued": 106,
+"open": 5,
+"issued": 111,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1315,9 +1375,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 18,
+"days": 19,
 "open": true,
-"last": 2113.5
+"last": 2119.5
 },
 {
 "asof": "2026-10-01",
@@ -1512,9 +1572,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 6701.0
+"last": 6890.0
 },
 {
 "asof": "2026-10-09",
@@ -1648,9 +1708,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 1390.0
+"last": 1366.0
 },
 {
 "asof": "2026-10-14",
@@ -1682,9 +1742,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 6701.0
+"last": 6890.0
 },
 {
 "asof": "2026-10-14",
@@ -1902,9 +1962,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 3515.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 3787.0
+"last": 3683.0
 },
 {
 "asof": "2026-10-22",
@@ -1918,9 +1978,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 1753.79,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 1740.0
+"last": 1734.5
 },
 {
 "asof": "2026-10-23",
@@ -1983,19 +2043,36 @@
 "name": "トーメンデバイス",
 "limit": 23810,
 "stop": 20540,
-"done": false,
+"done": true,
 "low": 25450.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-28",
 "code": "7747",
 "name": "朝日インテック",
 "limit": 3510,
-"stop": 3070,
+"stop": 3071.86,
 "done": false,
 "low": 3190.0,
-"earn": "down"
+"earn": "down",
+"filled": true,
+"in": "2026-10-29",
+"entry": 3512.93,
+"days": 1,
+"open": true,
+"last": 3637.0
+},
+{
+"asof": "2026-10-29",
+"code": "7272",
+"name": "ヤマハ発",
+"limit": 1715,
+"stop": 1676,
+"done": false,
+"low": 1731.5,
+"earn": "none"
 }
 ],
 "stats": {
@@ -2016,8 +2093,8 @@
 "small": 0,
 "big_loss": 86,
 "fill": 40,
-"open": 6,
-"issued": 52,
+"open": 7,
+"issued": 53,
 "since": "2026-10-01"
 }
 }
