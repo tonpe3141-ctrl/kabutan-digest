@@ -907,9 +907,9 @@
 "filled": true,
 "in": "2026-10-19",
 "entry": 5665.0,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 5484.0
+"last": 5268.0
 },
 {
 "asof": "2026-10-19",
@@ -939,9 +939,9 @@
 "filled": true,
 "in": "2026-10-20",
 "entry": 8394.57,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 8063.0
+"last": 7803.0
 },
 {
 "asof": "2026-10-20",
@@ -1214,14 +1214,16 @@
 "name": "ＫＤＤＩ",
 "limit": 2826,
 "stop": 2684.62,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-10-28",
 "entry": 2826.8,
-"days": 2,
-"open": true,
-"last": 2778.0
+"days": 3,
+"out": "2026-10-30",
+"exit": 2832.46,
+"why": "sell",
+"ret": 0.1
 },
 {
 "asof": "2026-10-27",
@@ -1244,9 +1246,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3754.18,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3745.0
+"last": 3957.0
 },
 {
 "asof": "2026-10-28",
@@ -1254,14 +1256,16 @@
 "name": "ラインヤフー",
 "limit": 496,
 "stop": 457.98,
-"done": false,
+"done": true,
 "earn": "mixed",
 "filled": true,
 "in": "2026-10-29",
 "entry": 496.31,
-"days": 1,
-"open": true,
-"last": 498.0
+"days": 2,
+"out": "2026-10-30",
+"exit": 505.68,
+"why": "sell",
+"ret": 1.79
 },
 {
 "asof": "2026-10-28",
@@ -1299,26 +1303,39 @@
 "name": "カプコン",
 "limit": 3665,
 "stop": 3185,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-10-29",
 "code": "6701",
 "name": "ＮＥＣ",
 "limit": 4850,
-"stop": 4250,
+"stop": 4256.5,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-10-30",
+"entry": 4854.36,
+"days": 1,
+"open": true,
+"last": 4850.0
 },
 {
 "asof": "2026-10-29",
 "code": "6702",
 "name": "富士通",
 "limit": 4250,
-"stop": 3840,
+"stop": 3381.57,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-10-30",
+"entry": 3787.0,
+"days": 1,
+"open": true,
+"last": 3622.0
 },
 {
 "asof": "2026-10-29",
@@ -1326,8 +1343,9 @@
 "name": "ラインヤフー",
 "limit": 491,
 "stop": 453,
-"done": false,
-"earn": "mixed"
+"done": true,
+"earn": "mixed",
+"filled": false
 },
 {
 "asof": "2026-10-29",
@@ -1335,30 +1353,76 @@
 "name": "電通グループ",
 "limit": 3595,
 "stop": 3310,
+"done": true,
+"earn": "mixed",
+"filled": false
+},
+{
+"asof": "2026-10-30",
+"code": "4382",
+"name": "HEROZ",
+"limit": 833,
+"stop": 4,
 "done": false,
-"earn": "mixed"
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "3692",
+"name": "FFRIセキュリティ",
+"limit": 7270,
+"stop": 4700,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "6701",
+"name": "ＮＥＣ",
+"limit": 4745,
+"stop": 4125,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "4021",
+"name": "日産化",
+"limit": 7670,
+"stop": 6910,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "3132",
+"name": "マクニカホールディングス",
+"limit": 3710,
+"stop": 2828,
+"done": false,
+"earn": "up"
 }
 ],
 "stats": {
-"n": 34,
-"win": 79,
-"avg": -1.66,
+"n": 36,
+"win": 81,
+"avg": -1.51,
 "med": 0.58,
-"pf": 0.44,
-"avg_win": 1.61,
+"pf": 0.46,
+"avg_win": 1.57,
 "avg_loss": -14.28,
 "worst": -25.8,
-"days": 4.2,
-"d2": 12,
-"per_day": -0.39,
-"stops": 15,
-"sells": 79,
+"days": 4.1,
+"d2": 14,
+"per_day": -0.37,
+"stops": 14,
+"sells": 81,
 "times": 6,
-"small": 29,
-"big_loss": 18,
+"small": 31,
+"big_loss": 17,
 "fill": 37,
 "open": 5,
-"issued": 111,
+"issued": 116,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1375,9 +1439,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 19,
+"days": 20,
 "open": true,
-"last": 2119.5
+"last": 2157.5
 },
 {
 "asof": "2026-10-01",
@@ -1572,9 +1636,9 @@
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 6890.0
+"last": 6358.0
 },
 {
 "asof": "2026-10-09",
@@ -1708,9 +1772,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 11,
+"days": 12,
 "open": true,
-"last": 1366.0
+"last": 1313.0
 },
 {
 "asof": "2026-10-14",
@@ -1742,9 +1806,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 11,
+"days": 12,
 "open": true,
-"last": 6890.0
+"last": 6358.0
 },
 {
 "asof": "2026-10-14",
@@ -1962,9 +2026,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 3515.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 3683.0
+"last": 3548.0
 },
 {
 "asof": "2026-10-22",
@@ -1978,9 +2042,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 1753.79,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 1734.5
+"last": 1729.0
 },
 {
 "asof": "2026-10-23",
@@ -2060,9 +2124,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3637.0
+"last": 3668.0
 },
 {
 "asof": "2026-10-29",
@@ -2070,8 +2134,49 @@
 "name": "ヤマハ発",
 "limit": 1715,
 "stop": 1676,
-"done": false,
+"done": true,
 "low": 1731.5,
+"earn": "none",
+"filled": false
+},
+{
+"asof": "2026-10-30",
+"code": "2737",
+"name": "トーメンデバイス",
+"limit": 22470,
+"stop": 19320,
+"done": false,
+"low": 24050.0,
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "8015",
+"name": "豊田通商",
+"limit": 6640,
+"stop": 6390,
+"done": false,
+"low": 6772.0,
+"earn": "none"
+},
+{
+"asof": "2026-10-30",
+"code": "6473",
+"name": "ジェイテクト",
+"limit": 1944,
+"stop": 1869,
+"done": false,
+"low": 1982.0,
+"earn": "up"
+},
+{
+"asof": "2026-10-30",
+"code": "7272",
+"name": "ヤマハ発",
+"limit": 1709,
+"stop": 1670,
+"done": false,
+"low": 1729.0,
 "earn": "none"
 }
 ],
@@ -2094,7 +2199,7 @@
 "big_loss": 86,
 "fill": 40,
 "open": 7,
-"issued": 53,
+"issued": 57,
 "since": "2026-10-01"
 }
 }
