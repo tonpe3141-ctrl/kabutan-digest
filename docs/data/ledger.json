@@ -964,36 +964,33 @@
   {
    "code": "6920",
    "name": "レーザーテック",
-   "first_seen": "2026-10-01",
+   "first_seen": "2026-10-30",
    "signals": [
-    "上昇率×売買代金",
     "決算で商い"
    ],
    "why": [
-    "上昇率 16位、かつ売買代金上位",
     "決算短信の当日に売買代金／上昇率上位"
    ],
    "themes": [
     "半導体製造装置",
     "半導体"
    ],
-   "price_at_flag": 45710.0,
-   "nikkei_at_flag": 68956.72,
+   "price_at_flag": 37700.0,
+   "nikkei_at_flag": 63290.11,
    "track": {
-    "d1": 0.92,
-    "d5": 1.97,
-    "d20": -17.52,
-    "last": -17.52,
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
     "last_date": "2026-10-30",
-    "excess": -9.3,
-    "days": 20,
-    "x5": 1.85,
-    "x20": -9.3,
-    "worst": -18.51
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
-   "status": "closed",
-   "notes": "上昇率と売買代金の両方の上位に入って引っかかった(+11.14%、売買代金7位)。株探は米マイクロンの好決算を受けた半導体関連の一斉高の中で値を飛ばしたと伝え、東証プライムの値上がり率でも2位に挙げている。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/96695529597c69a2d6076cf1831ff40069ecdfc3",
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
    "tracked_by": "日足"
   },
   {
@@ -4709,26 +4706,26 @@
    },
    {
     "signal": "上昇率×売買代金",
-    "count": 9,
-    "d5_median": 3.78,
-    "hit_rate": 0.67,
-    "x5_median": 5.68,
-    "beat5": 0.67,
-    "n20": 4,
-    "d20_median": -12.41,
-    "x20_median": -7.96,
+    "count": 8,
+    "d5_median": 6.19,
+    "hit_rate": 0.62,
+    "x5_median": 6.28,
+    "beat5": 0.62,
+    "n20": 3,
+    "d20_median": -7.31,
+    "x20_median": -6.61,
     "enough": false
    },
    {
     "signal": "決算で商い",
-    "count": 8,
-    "d5_median": 1.5,
-    "hit_rate": 0.62,
-    "x5_median": 1.29,
-    "beat5": 0.62,
-    "n20": 3,
-    "d20_median": -17.52,
-    "x20_median": -9.3,
+    "count": 7,
+    "d5_median": 1.04,
+    "hit_rate": 0.57,
+    "x5_median": 0.74,
+    "beat5": 0.57,
+    "n20": 2,
+    "d20_median": -32.96,
+    "x20_median": -27.23,
     "enough": false
    },
    {
@@ -4757,14 +4754,14 @@
    }
   ],
   "overall": {
-   "count": 96,
-   "d5_median": 0.23,
-   "hit_rate": 0.5,
-   "x5_median": 1.42,
+   "count": 95,
+   "d5_median": -0.05,
+   "hit_rate": 0.49,
+   "x5_median": 1.36,
    "beat5": 0.56,
-   "n20": 30,
-   "d20_median": -6.58,
-   "x20_median": -1.79,
+   "n20": 29,
+   "d20_median": -5.85,
+   "x20_median": -1.75,
    "enough": true
   },
   "min_count": 10
@@ -4772,6 +4769,7 @@
  "updated_at": "2026-10-30",
  "added_today": [
   "6752",
+  "6920",
   "4347",
   "9766",
   "2926",
