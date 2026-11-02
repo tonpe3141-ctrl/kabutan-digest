@@ -1067,7 +1067,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "売買代金上位に新規で入った（-2.2%）。今日の値動きの材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -4695,8 +4695,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を6.6倍に上方修正し、配当も2円増額（後場の開示）。後場に一時ストップ高となり+8.4%。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/c3d5328138c49fe6ac0f41b6dabfe3db3abda119",
    "tracked_by": "日足"
   },
   {
@@ -4724,8 +4724,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を6億→8億円に33.3%上方修正し、5期ぶりの最高益更新へ（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/1588f86a59d86e42ec8f5cb503ada76190acded7",
    "tracked_by": "日足"
   },
   {
@@ -4753,8 +4753,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期最終を33億円から35億〜39億円に上方修正し、期末配当を15円→20円に増額（引け後の開示）。就労支援の稼働率向上と米国の新規施設が理由。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/632938d6d3fdb5df2e408c88d3c3f6a5df52ea18",
    "tracked_by": "日足"
   },
   {
@@ -4784,8 +4784,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期最終を6%上方修正し、最高益予想を上乗せ、配当も実質10%増額（後場の開示）。一時5%安から下げ幅を縮め、-1.2%で引けた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/996a149cee53f55a83177d1a41ff90951252a875",
    "tracked_by": "日足"
   },
   {
@@ -4816,8 +4816,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "今期経常を470億→660億円に40.4%上方修正し、3期ぶりの最高益、配当も10円増額。自社株買い50億円も発表（後場の開示）。-3.9%で引けた。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/dfc937b87f03b3094bf4c230256913dca2cbbe18",
    "tracked_by": "日足"
   },
   {
@@ -4845,8 +4845,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "後場に通期営業益の上方修正と増配を発表し、+1.6%。上期の純利益は6.5倍。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/ee149410d22a15c58707ec46c26e222968358f5c",
    "tracked_by": "日足"
   },
   {
@@ -4874,7 +4874,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値と商いの増加が重なった。材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   }
