@@ -1142,3 +1142,70 @@ a.ind__row:hover .ind__n { text-decoration: underline; }
 .bars--tight .bar__label { grid-row: 1; }
 .why__swing--up { border-left-color: var(--up); }
 .why__swing--down { border-left-color: var(--down); }
+
+/* ==================== 今日（開いたときの画面。DESIGN.md 33章） ====================
+   結論 → やること → 持ち株 → 構え → 分析の目次。要約と跳ぶボタンだけを置き、中身は分析と銘柄シートに */
+.bottomnav__btn { min-width: 84px; }
+.backbtn {
+  appearance: none; border: 0; background: var(--accent-soft); color: var(--accent); font: inherit;
+  font-size: 13px; font-weight: 750; padding: 6px 10px; border-radius: 999px; cursor: pointer; min-height: 32px; flex: none;
+}
+.backbtn[hidden] { display: none; }
+.linkbtn {
+  appearance: none; border: 0; background: transparent; color: var(--accent); font: inherit;
+  font-size: 12.5px; font-weight: 700; padding: 6px 0 6px 8px; cursor: pointer; min-height: 32px;
+}
+.today__hero { padding: 16px; }
+.today__todo { font-size: 12px; font-weight: 700; color: var(--accent); line-height: 1.5; }
+.today__head { font-size: 19px; font-weight: 800; line-height: 1.4; margin: 6px 0 6px; letter-spacing: -.015em; }
+.today__gist { font-size: 14px; line-height: 1.75; margin: 0 0 12px; color: var(--text); }
+.today__flags { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.today__flag {
+  appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit;
+  display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; text-align: left;
+  font-size: 12.5px; font-weight: 650; line-height: 1.5; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+}
+.today__stats { margin-bottom: 4px; }
+.today__by { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px;
+  font-size: 11px; color: var(--text-faint); }
+.today__empty {
+  appearance: none; width: 100%; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.6;
+}
+.today__empty span { color: var(--text-dim); }
+.today__list { display: flex; flex-direction: column; }
+.today__row {
+  appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); font: inherit;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; text-align: left;
+  padding: 10px 14px; min-height: 52px; cursor: pointer;
+}
+.today__row:first-child { border-top: 0; }
+.today__row.is-act { background: var(--warn-bg); }
+.today__badge { justify-self: start; }
+.today__name { font-size: 14px; font-weight: 750; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.today__name small { font-size: 11.5px; font-weight: 550; color: var(--text-dim); line-height: 1.45; }
+.today__pl { font-size: 15px; }
+.today__plan { margin-bottom: 4px; }
+.today__lh { font-size: 11.5px; font-weight: 700; color: var(--text-dim); margin: 10px 0 4px; }
+.today__sched { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 1.6; }
+.today__sched li { display: flex; gap: 10px; padding: 3px 0; }
+.today__at { color: var(--text-dim); flex: none; min-width: 84px; font-size: 12px; }
+.ticket__extra { margin: 6px 14px 0; }
+.ticket__extra > summary { font-size: 12.5px; }
+.ticket__extra > div { margin: 0 -14px; }
+
+/* 分析の目次: 結論の一行を並べ、押すとその分析が開く */
+.topics { display: flex; flex-direction: column; }
+.topic {
+  appearance: none; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); font: inherit;
+  display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: center; text-align: left;
+  padding: 11px 14px; min-height: 52px; cursor: pointer;
+}
+.topic:first-child { border-top: 0; }
+.topic:active { background: var(--surface-2); }
+.topic__k { font-size: 12px; font-weight: 750; color: var(--text-dim); display: flex; flex-direction: column; gap: 1px; }
+.topic__k small { font-size: 10.5px; font-weight: 550; color: var(--text-faint); }
+.topic__t { font-size: 13.5px; font-weight: 650; line-height: 1.5; min-width: 0; }
+.topic__go { color: var(--text-faint); font-size: 18px; }
+@media (max-width: 360px) { .topic { grid-template-columns: 1fr auto; } .topic__k { grid-column: 1 / -1; flex-direction: row; gap: 6px; } }
+.topic__t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
