@@ -6,7 +6,7 @@ Routine は中身だけを1つの JSON に書く。決まった形（method・ge
   python tools/ai_write.py taibike /tmp/ai_out.json
 
 入力（あるキーだけ書く）:
-  {"ai_commentary": {"headline": "...", "sections": [{"title": "...", "body": "..."}], "sources": ["K1", "P3"]},
+  {"ai_commentary": {"headline": "...", "gist": "要は…", "sections": [{"title": "...", "body": "..."}], "sources": ["K1", "P3"]},
    "ai_macro":      {同じ形},
    "ai_earnings":   {"headline", "winds": [...], "items": [...], "sources": [...]},
    "ai_picks":      {"items": [{"code": "4478", "why": "..."}]},
@@ -59,6 +59,8 @@ def check(key: str, v: dict) -> list[str]:
                 errs.append(f"ai_review: {f} は文字列の配列")
         if not isinstance(v.get("gist") or "", str):
             errs.append("ai_review: gist は文字列")
+    if key == "ai_commentary" and not isinstance(v.get("gist") or "", str):
+        errs.append("ai_commentary: gist は文字列")
     if key in ("ai_commentary", "ai_macro", "ai_review"):
         if not v.get("headline") or not v.get("sections"):
             errs.append(f"{key}: headline と sections が要る")

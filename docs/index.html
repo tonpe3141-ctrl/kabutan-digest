@@ -14,14 +14,15 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=bc43996f">
+<link rel="stylesheet" href="style.css?v=925e6ba0">
 </head>
 <body>
 
 <header class="appbar">
   <div class="appbar__row">
     <div class="appbar__lead">
-      <h1 class="appbar__title" id="viewTitle">市況</h1>
+      <button class="backbtn" id="backBtn" type="button" hidden aria-label="分析の目次に戻る">‹ 分析</button>
+      <h1 class="appbar__title" id="viewTitle">今日</h1>
       <div class="appbar__date" id="headDate">読み込み中…</div>
     </div>
     <div class="appbar__meta">
@@ -40,8 +41,10 @@
 </header>
 
 <main id="main">
-  <section class="view" id="view-market" data-view="market"></section>
+  <section class="view" id="view-today" data-view="today"></section>
   <section class="view" id="view-trade" data-view="trade" hidden></section>
+  <section class="view" id="view-analysis" data-view="analysis" hidden></section>
+  <section class="view" id="view-market" data-view="market" hidden></section>
   <section class="view" id="view-sectors" data-view="sectors" hidden></section>
   <section class="view" id="view-news" data-view="news" hidden></section>
   <section class="view" id="view-verify" data-view="verify" hidden></section>
@@ -58,25 +61,17 @@
 </footer>
 
 <nav class="bottomnav" aria-label="メイン">
-  <button class="bottomnav__btn" data-view="market" aria-current="page">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3.5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>市況</span>
+  <button class="bottomnav__btn" data-view="today" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 14.5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>今日</span>
   </button>
   <button class="bottomnav__btn" data-view="trade">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <span>売買</span>
   </button>
-  <button class="bottomnav__btn" data-view="sectors">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16v-4M10 16V8M14 16v-6M18 16V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>業種</span>
-  </button>
-  <button class="bottomnav__btn" data-view="news">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11v16H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M16 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2h-2M8 8h5M8 12h5M8 16h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>ニュース</span>
-  </button>
-  <button class="bottomnav__btn" data-view="verify">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6v3H9zM7 5.5H5.5V20h13V5.5H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <span>検証</span>
+  <button class="bottomnav__btn" data-view="analysis">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3.5L20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 6h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>分析</span>
   </button>
 </nav>
 
@@ -130,6 +125,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=5b2e316d"></script>
+<script src="app.js?v=17d1167e"></script>
 </body>
 </html>

@@ -837,6 +837,8 @@ def order_of(ind: dict) -> dict | None:
     c, atr = ind["c"][i], ind["atr"][i]
     limit = tick_down(c - ENTRY_ATR * atr)
     stop = tick_down(limit - STOP_ATR * atr)
+    if limit <= 0 or stop <= 0:                # 値幅（ATR）が値段に比べて大きすぎ、損切りの逆指値を置けない（例: 906円で ATR 260円 → 損切り −7円）
+        return None
     # 約定した日の翌日に置く売り指値の目安（約定した日の終値を指値と同じと仮定。下限は指値 +FLOOR%）
     floor = tick_up(limit * (1 + FLOOR / 100))
     sell = max(tick_up((sum(ind["c"][i - EXIT_N + 2:i + 1]) + limit) / EXIT_N), floor)
