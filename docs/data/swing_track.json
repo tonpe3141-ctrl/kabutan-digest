@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-11-03",
+"updated_at": "2026-11-04",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -1324,9 +1324,9 @@
 "filled": true,
 "in": "2026-10-30",
 "entry": 4854.36,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 4852.0
+"last": 4616.0
 },
 {
 "asof": "2026-10-29",
@@ -1334,14 +1334,16 @@
 "name": "富士通",
 "limit": 4250,
 "stop": 3381.57,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-30",
 "entry": 3787.0,
-"days": 2,
-"open": true,
-"last": 3514.0
+"days": 3,
+"out": "2026-11-04",
+"exit": 3381.57,
+"why": "stop",
+"ret": -10.81
 },
 {
 "asof": "2026-10-29",
@@ -1404,9 +1406,9 @@
 "filled": true,
 "in": "2026-11-02",
 "entry": 7677.79,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 7672.0
+"last": 7399.0
 },
 {
 "asof": "2026-10-30",
@@ -1419,9 +1421,9 @@
 "filled": true,
 "in": "2026-11-02",
 "entry": 3710.04,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3705.0
+"last": 3423.0
 },
 {
 "asof": "2026-11-02",
@@ -1429,17 +1431,24 @@
 "name": "HEROZ",
 "limit": 775,
 "stop": -7,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-02",
 "code": "4021",
 "name": "日産化",
 "limit": 7540,
-"stop": 6770,
+"stop": 6781.0,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 7544.71,
+"days": 1,
+"open": true,
+"last": 7399.0
 },
 {
 "asof": "2026-11-02",
@@ -1455,44 +1464,101 @@
 "code": "3132",
 "name": "マクニカホールディングス",
 "limit": 3555,
-"stop": 2663,
+"stop": 2664.75,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 3556.39,
+"days": 1,
+"open": true,
+"last": 3423.0
 },
 {
 "asof": "2026-11-02",
 "code": "6701",
 "name": "ＮＥＣ",
 "limit": 4750,
-"stop": 4140,
+"stop": 4141.75,
+"done": false,
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 4750.54,
+"days": 1,
+"open": true,
+"last": 4616.0
+},
+{
+"asof": "2026-11-04",
+"code": "4382",
+"name": "HEROZ",
+"limit": 734,
+"stop": 5,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "6701",
+"name": "ＮＥＣ",
+"limit": 4505,
+"stop": 3860,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "4021",
+"name": "日産化",
+"limit": 7250,
+"stop": 6410,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "3132",
+"name": "マクニカホールディングス",
+"limit": 3265,
+"stop": 2335,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "2802",
+"name": "味の素",
+"limit": 4855,
+"stop": 4340,
 "done": false,
 "earn": "up"
 }
 ],
 "stats": {
-"n": 39,
-"win": 77,
-"avg": -1.64,
-"med": 0.46,
-"pf": 0.45,
+"n": 40,
+"win": 75,
+"avg": -1.87,
+"med": 0.45,
+"pf": 0.41,
 "avg_win": 1.73,
-"avg_loss": -12.88,
+"avg_loss": -12.67,
 "worst": -25.8,
 "days": 4.4,
-"d2": 13,
-"per_day": -0.37,
-"stops": 15,
-"sells": 77,
+"d2": 12,
+"per_day": -0.43,
+"stops": 18,
+"sells": 75,
 "times": 8,
 "small": 28,
-"big_loss": 21,
-"fill": 37,
-"open": 4,
-"issued": 121,
+"big_loss": 22,
+"fill": 38,
+"open": 6,
+"issued": 126,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-11-03",
+"updated_at": "2026-11-04",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -1505,9 +1571,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 21,
+"days": 22,
 "open": true,
-"last": 2230.5
+"last": 2137.5
 },
 {
 "asof": "2026-10-01",
@@ -1696,15 +1762,17 @@
 "name": "村田製",
 "limit": 7770,
 "stop": 5842.07,
-"done": false,
+"done": true,
 "low": 6231.0,
 "earn": "none",
 "filled": true,
 "in": "2026-10-13",
 "entry": 7615.0,
-"days": 15,
-"open": true,
-"last": 6340.0
+"days": 16,
+"out": "2026-11-04",
+"exit": 5842.07,
+"why": "stop",
+"ret": -23.38
 },
 {
 "asof": "2026-10-09",
@@ -1866,15 +1934,17 @@
 "name": "村田製",
 "limit": 7300,
 "stop": 5837.29,
-"done": false,
+"done": true,
 "low": 6231.0,
 "earn": "none",
 "filled": true,
 "in": "2026-10-15",
 "entry": 7102.0,
-"days": 13,
-"open": true,
-"last": 6340.0
+"days": 14,
+"out": "2026-11-04",
+"exit": 5837.29,
+"why": "stop",
+"ret": -17.91
 },
 {
 "asof": "2026-10-14",
@@ -2086,15 +2156,17 @@
 "name": "パナＨＤ",
 "limit": 3605,
 "stop": 3328.57,
-"done": false,
+"done": true,
 "low": 3700.0,
 "earn": "up",
 "filled": true,
 "in": "2026-10-23",
 "entry": 3515.0,
-"days": 7,
-"open": true,
-"last": 3740.0
+"days": 8,
+"out": "2026-11-04",
+"exit": 3328.57,
+"why": "stop",
+"ret": -5.4
 },
 {
 "asof": "2026-10-22",
@@ -2108,9 +2180,9 @@
 "filled": true,
 "in": "2026-10-23",
 "entry": 1753.79,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 1723.0
+"last": 1732.0
 },
 {
 "asof": "2026-10-23",
@@ -2190,9 +2262,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 3528.0
+"last": 3603.0
 },
 {
 "asof": "2026-10-29",
@@ -2222,15 +2294,17 @@
 "name": "豊田通商",
 "limit": 6640,
 "stop": 6403.86,
-"done": false,
+"done": true,
 "low": 6772.0,
 "earn": "none",
 "filled": true,
 "in": "2026-11-02",
 "entry": 6649.29,
-"days": 1,
-"open": true,
-"last": 6618.0
+"days": 2,
+"out": "2026-11-04",
+"exit": 6403.86,
+"why": "stop",
+"ret": -3.79
 },
 {
 "asof": "2026-10-30",
@@ -2244,9 +2318,9 @@
 "filled": true,
 "in": "2026-11-02",
 "entry": 1944.59,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1965.5
+"last": 1956.0
 },
 {
 "asof": "2026-10-30",
@@ -2260,9 +2334,9 @@
 "filled": true,
 "in": "2026-11-02",
 "entry": 1709.7,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1723.0
+"last": 1732.0
 },
 {
 "asof": "2026-11-02",
@@ -2270,81 +2344,158 @@
 "name": "トーメンデバイス",
 "limit": 22550,
 "stop": 19450,
-"done": false,
+"done": true,
 "low": 24050.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-02",
 "code": "6971",
 "name": "京セラ",
 "limit": 3195,
-"stop": 3045,
-"done": false,
+"stop": 3051.34,
+"done": true,
 "low": 3269.0,
-"earn": "mixed"
+"earn": "mixed",
+"filled": true,
+"in": "2026-11-04",
+"entry": 3196.45,
+"out": "2026-11-04",
+"exit": 3051.34,
+"why": "stop",
+"ret": -4.64,
+"days": 1
 },
 {
 "asof": "2026-11-02",
 "code": "7272",
 "name": "ヤマハ発",
 "limit": 1704,
-"stop": 1667,
+"stop": 1668.57,
 "done": false,
 "low": 1723.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-11-04",
+"entry": 1704.86,
+"days": 1,
+"open": true,
+"last": 1732.0
 },
 {
 "asof": "2026-11-02",
 "code": "6448",
 "name": "ブラザー工業",
 "limit": 4460,
-"stop": 4250,
+"stop": 4251.14,
 "done": false,
 "low": 4363.0,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 4462.07,
+"days": 1,
+"open": true,
+"last": 4359.0
 },
 {
 "asof": "2026-11-02",
 "code": "5019",
 "name": "出光興産",
 "limit": 1468,
-"stop": 1428,
-"done": false,
+"stop": 1413.96,
+"done": true,
 "low": 1488.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-11-04",
+"entry": 1453.5,
+"out": "2026-11-04",
+"exit": 1413.96,
+"why": "stop",
+"ret": -2.82,
+"days": 1
 },
 {
 "asof": "2026-11-02",
 "code": "8053",
 "name": "住友商",
 "limit": 1639,
-"stop": 1589,
-"done": false,
+"stop": 1589.82,
+"done": true,
 "low": 1664.5,
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 1639.61,
+"out": "2026-11-04",
+"exit": 1589.82,
+"why": "stop",
+"ret": -3.14,
+"days": 1
+},
+{
+"asof": "2026-11-04",
+"code": "278A",
+"name": "Terra Drone",
+"limit": 5350,
+"stop": 4730,
+"done": false,
+"low": 5580.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "6448",
+"name": "ブラザー工業",
+"limit": 4290,
+"stop": 4150,
+"done": false,
+"low": 4359.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "5019",
+"name": "出光興産",
+"limit": 1408,
+"stop": 1364,
+"done": false,
+"low": 1430.0,
+"earn": "none"
+},
+{
+"asof": "2026-11-04",
+"code": "8053",
+"name": "住友商",
+"limit": 1625,
+"stop": 1568,
+"done": false,
+"low": 1654.0,
 "earn": "up"
 }
 ],
 "stats": {
-"n": 14,
+"n": 21,
 "win": 0,
-"avg": -12.29,
-"med": -9.12,
+"avg": -11.1,
+"med": -8.8,
 "pf": 0.0,
 "avg_win": null,
-"avg_loss": -12.29,
+"avg_loss": -11.1,
 "worst": -30.39,
-"days": 5,
-"d2": 14,
-"per_day": -2.46,
+"days": 5.4,
+"d2": 29,
+"per_day": -2.06,
 "stops": 100,
 "sells": 0,
 "times": 0,
 "small": 0,
-"big_loss": 86,
-"fill": 42,
-"open": 10,
-"issued": 63,
+"big_loss": 71,
+"fill": 46,
+"open": 8,
+"issued": 67,
 "since": "2026-10-01"
 }
 }
