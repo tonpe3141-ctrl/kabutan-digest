@@ -1455,9 +1455,15 @@
 "code": "3692",
 "name": "FFRIセキュリティ",
 "limit": 7200,
-"stop": 4805,
+"stop": 4810.0,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-04",
+"entry": 7201.43,
+"days": 1,
+"open": true,
+"last": 7250.0
 },
 {
 "asof": "2026-11-02",
@@ -1533,6 +1539,24 @@
 "stop": 4340,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "3692",
+"name": "FFRIセキュリティ",
+"limit": 6870,
+"stop": 4620,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-04",
+"code": "338A",
+"name": "ZenmuTech",
+"limit": 3570,
+"stop": 1796,
+"done": false,
+"earn": "up"
 }
 ],
 "stats": {
@@ -1552,9 +1576,9 @@
 "times": 8,
 "small": 28,
 "big_loss": 22,
-"fill": 38,
-"open": 6,
-"issued": 126,
+"fill": 39,
+"open": 7,
+"issued": 128,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1906,9 +1930,9 @@
 "filled": true,
 "in": "2026-10-15",
 "entry": 1227.61,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 1288.0
+"last": 1350.0
 },
 {
 "asof": "2026-10-14",
