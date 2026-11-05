@@ -1565,13 +1565,13 @@
     "d1": 17.56,
     "d5": 10.04,
     "d20": null,
-    "last": -8.68,
-    "last_date": "2026-11-05",
-    "excess": 4.11,
+    "last": -4.55,
+    "last_date": "2026-11-04",
+    "excess": 6.65,
     "days": 19,
     "x5": 18.05,
     "x20": null,
-    "worst": -8.68
+    "worst": -4.55
    },
    "status": "watching",
    "notes": "+9.2%で売買代金12位に新顔入り。緊急セキュリティ相談窓口の開設を発表しており、サイバーセキュリティ関連株の連日の急伸に連れた動き。株価との因果は記事では確認できない。",
@@ -5648,6 +5648,67 @@
    "notes": "上期の純利益は3.5%増で、業績予想を修正（後場の開示）。直近3か月は-6%。+3.6%で引けた。",
    "note_url": "https://finance.yahoo.co.jp/news/detail/d92745b0a8422ac733e3919294e66324384a5df8",
    "tracked_by": "日足"
+  },
+  {
+   "code": "8020",
+   "name": "兼松",
+   "first_seen": "2026-11-05",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "14:00 剰余金の配当(中間配当)および期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 2280.0,
+   "nikkei_at_flag": 61077.9,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-05",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6976",
+   "name": "太陽誘電",
+   "first_seen": "2026-11-05",
+   "signals": [
+    "決算で商い"
+   ],
+   "why": [
+    "決算短信の当日に売買代金／上昇率上位"
+   ],
+   "themes": [
+    "電子部品",
+    "AI"
+   ],
+   "price_at_flag": 6580.0,
+   "nikkei_at_flag": 61077.9,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-05",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
@@ -5776,6 +5837,8 @@
   "3034",
   "6367",
   "9324",
-  "9991"
+  "9991",
+  "8020",
+  "6976"
  ]
 }

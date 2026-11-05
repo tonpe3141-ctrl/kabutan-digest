@@ -1636,6 +1636,15 @@
 "stop": 2485,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-11-05",
+"code": "436A",
+"name": "サイバーソリューションズ",
+"limit": 1497,
+"stop": 927,
+"done": false,
+"earn": "up"
 }
 ],
 "stats": {
@@ -1657,7 +1666,7 @@
 "big_loss": 22,
 "fill": 41,
 "open": 11,
-"issued": 133,
+"issued": 134,
 "since": "2026-09-25"
 },
 "mid": {
