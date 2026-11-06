@@ -5760,7 +5760,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "決算で商いが膨らんだ。決算の中身は要約に無く、記事での裏付けなし。",
    "note_url": null
   },
   {
@@ -5788,8 +5788,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期（4-9月）の純利益は4.4倍の大幅増益で、最高益（引け後の開示）。利益率は5.3%→15.1%に改善。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/b72e1e498ec4b0dac0afc369246f42e3d2181eb2",
    "tracked_by": "日足"
   },
   {
@@ -5817,8 +5817,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は34.6%増の大幅増益で、最高益（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/3980a556d2ef82efeeef473103a2c1f1a0982b62",
    "tracked_by": "日足"
   },
   {
@@ -5846,8 +5846,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は30.7%増の大幅増益で、一転して増益（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/f648e572d450469da278c4a570228a217c79f7f7",
    "tracked_by": "日足"
   },
   {
@@ -5875,8 +5875,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は6.3倍で、最高益（引け後の開示）。直近3か月は+460%と伸びが鈍化。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0dcfcf54e28ffeba2b570d276f2a1798b0f51c63",
    "tracked_by": "日足"
   },
   {
@@ -5904,8 +5904,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は58.4%増の大幅増益。年間配当予想を38円に修正し、通期の純利益予想は17.8億円に下方修正と報じられた（引け後）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/f2d1b5cbdb098b37799c72c08ad56a4c5690a3b9",
    "tracked_by": "日足"
   },
   {
@@ -5933,8 +5933,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純損益は6.8億円の黒字（引け後の開示）。利益率は1.6%→0%に悪化。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/074a771f3f585caac67635f056b3ebda3ca671ab",
    "tracked_by": "日足"
   },
   {
@@ -5962,7 +5962,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -5989,7 +5989,7 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null
   },
   {
@@ -6017,8 +6017,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は2.2倍の大幅増益で、最高益（引け後の開示）。利益率は4.5%→6.6%に改善。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/ce8664c85db0f025f6158098971f898d85aaf187",
    "tracked_by": "日足"
   }
  ],
