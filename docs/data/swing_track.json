@@ -1728,6 +1728,15 @@
 "stop": 1141,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-11-06",
+"code": "9104",
+"name": "商船三井",
+"limit": 6380,
+"stop": 5610,
+"done": false,
+"earn": "up"
 }
 ],
 "stats": {
@@ -1749,7 +1758,7 @@
 "big_loss": 29,
 "fill": 43,
 "open": 12,
-"issued": 139,
+"issued": 140,
 "since": "2026-09-25"
 },
 "mid": {
