@@ -1465,10 +1465,10 @@
     "d1": -8.89,
     "d5": -11.11,
     "d20": -12.34,
-    "last": -15.17,
-    "last_date": "2026-11-06",
-    "excess": 2.72,
-    "days": 22,
+    "last": -13.1,
+    "last_date": "2026-11-09",
+    "excess": 2.87,
+    "days": 23,
     "x5": -8.01,
     "x20": -1.25,
     "worst": -15.17
@@ -6384,6 +6384,35 @@
    "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
+  },
+  {
+   "code": "7073",
+   "name": "ジェイック",
+   "first_seen": "2026-11-09",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 2150.0,
+   "nikkei_at_flag": 58775.5,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-09",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
@@ -6512,6 +6541,7 @@
   "7634",
   "9083",
   "1938",
-  "9045"
+  "9045",
+  "7073"
  ]
 }
