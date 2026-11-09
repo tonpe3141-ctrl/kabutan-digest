@@ -1324,9 +1324,9 @@
 "filled": true,
 "in": "2026-10-30",
 "entry": 4854.36,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 4317.0
+"last": 4479.0
 },
 {
 "asof": "2026-10-29",
@@ -1467,9 +1467,9 @@
 "filled": true,
 "in": "2026-11-04",
 "entry": 7201.43,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 6770.0
+"last": 7030.0
 },
 {
 "asof": "2026-11-02",
@@ -1482,9 +1482,9 @@
 "filled": true,
 "in": "2026-11-04",
 "entry": 3556.39,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 2859.5
+"last": 2921.5
 },
 {
 "asof": "2026-11-02",
@@ -1534,9 +1534,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 7259.71,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 6763.0
+"last": 6948.0
 },
 {
 "asof": "2026-11-04",
@@ -1549,9 +1549,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 3268.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2859.5
+"last": 2921.5
 },
 {
 "asof": "2026-11-04",
@@ -1576,14 +1576,16 @@
 "name": "FFRIセキュリティ",
 "limit": 6870,
 "stop": 4627.5,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-11-05",
 "entry": 6875.36,
-"days": 2,
-"open": true,
-"last": 6770.0
+"days": 3,
+"out": "2026-11-09",
+"exit": 7137.5,
+"why": "sell",
+"ret": 3.71
 },
 {
 "asof": "2026-11-04",
@@ -1596,9 +1598,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 3574.46,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3215.0
+"last": 3180.0
 },
 {
 "asof": "2026-11-05",
@@ -1611,9 +1613,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 3175.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3215.0
+"last": 3180.0
 },
 {
 "asof": "2026-11-05",
@@ -1621,14 +1623,16 @@
 "name": "FFRIセキュリティ",
 "limit": 6550,
 "stop": 4097.14,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-11-06",
 "entry": 6330.0,
-"days": 1,
-"open": true,
-"last": 6770.0
+"days": 2,
+"out": "2026-11-09",
+"exit": 7137.5,
+"why": "sell",
+"ret": 12.66
 },
 {
 "asof": "2026-11-05",
@@ -1641,9 +1645,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6789.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 6763.0
+"last": 6948.0
 },
 {
 "asof": "2026-11-05",
@@ -1671,9 +1675,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 2704.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 2657.0
+"last": 2660.5
 },
 {
 "asof": "2026-11-05",
@@ -1690,8 +1694,9 @@
 "name": "ZenmuTech",
 "limit": 2916,
 "stop": 1123,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
@@ -1699,8 +1704,9 @@
 "name": "FFRIセキュリティ",
 "limit": 6410,
 "stop": 4280,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
@@ -1708,8 +1714,9 @@
 "name": "エプソン",
 "limit": 2590,
 "stop": 2189,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
@@ -1726,39 +1733,73 @@
 "name": "カウリス",
 "limit": 1956,
 "stop": 1141,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
 "code": "9104",
 "name": "商船三井",
 "limit": 6380,
-"stop": 5610,
+"stop": 5619.0,
+"done": false,
+"earn": "up",
+"filled": true,
+"in": "2026-11-09",
+"entry": 6387.86,
+"days": 1,
+"open": true,
+"last": 6440.0
+},
+{
+"asof": "2026-11-09",
+"code": "6724",
+"name": "エプソン",
+"limit": 2592,
+"stop": 2185,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-09",
+"code": "9104",
+"name": "商船三井",
+"limit": 6300,
+"stop": 5470,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-09",
+"code": "9101",
+"name": "郵船",
+"limit": 6420,
+"stop": 5700,
 "done": false,
 "earn": "up"
 }
 ],
 "stats": {
-"n": 45,
-"win": 69,
-"avg": -2.95,
-"med": 0.4,
-"pf": 0.29,
-"avg_win": 1.71,
+"n": 47,
+"win": 70,
+"avg": -2.48,
+"med": 0.43,
+"pf": 0.37,
+"avg_win": 2.11,
 "avg_loss": -13.28,
 "worst": -25.95,
 "days": 4.2,
-"d2": 16,
-"per_day": -0.7,
-"stops": 24,
-"sells": 69,
-"times": 7,
-"small": 24,
-"big_loss": 29,
-"fill": 43,
-"open": 12,
-"issued": 140,
+"d2": 17,
+"per_day": -0.59,
+"stops": 23,
+"sells": 70,
+"times": 6,
+"small": 23,
+"big_loss": 28,
+"fill": 42,
+"open": 11,
+"issued": 143,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1775,9 +1816,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 24,
+"days": 25,
 "open": true,
-"last": 2133.0
+"last": 2199.0
 },
 {
 "asof": "2026-10-01",
@@ -2470,9 +2511,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 3734.0
+"last": 3809.0
 },
 {
 "asof": "2026-10-29",
@@ -2728,9 +2769,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 21470.0
+"last": 22390.0
 },
 {
 "asof": "2026-11-05",
@@ -2744,9 +2785,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4535.0
+"last": 4825.0
 },
 {
 "asof": "2026-11-05",
@@ -2760,9 +2801,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 7890.0
+"last": 8210.0
 },
 {
 "asof": "2026-11-05",
@@ -2776,9 +2817,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 28015.0
+"last": 28375.0
 },
 {
 "asof": "2026-11-05",
@@ -2792,9 +2833,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 4154.0
+"last": 4193.0
 },
 {
 "asof": "2026-11-05",
@@ -2820,19 +2861,26 @@
 "name": "トーメンデバイス",
 "limit": 20070,
 "stop": 17270,
-"done": false,
+"done": true,
 "low": 21470.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
 "code": "5301",
 "name": "東海カーボン",
 "limit": 1510,
-"stop": 1409,
+"stop": 1410.04,
 "done": false,
 "low": 1561.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-11-09",
+"entry": 1510.68,
+"days": 1,
+"open": true,
+"last": 1570.0
 },
 {
 "asof": "2026-11-06",
@@ -2840,9 +2888,10 @@
 "name": "豊和工業",
 "limit": 1622,
 "stop": 1428,
-"done": false,
+"done": true,
 "low": 1719.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
@@ -2850,9 +2899,10 @@
 "name": "ブラザー工業",
 "limit": 4075,
 "stop": 3925,
-"done": false,
+"done": true,
 "low": 4154.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
@@ -2860,18 +2910,65 @@
 "name": "川崎汽",
 "limit": 2939,
 "stop": 2820,
-"done": false,
+"done": true,
 "low": 2998.5,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-06",
 "code": "6613",
 "name": "QDレーザ",
 "limit": 1929,
+"stop": 1571.29,
+"done": false,
+"low": 1780.0,
+"earn": "up",
+"filled": true,
+"in": "2026-11-09",
+"entry": 1929.64,
+"days": 1,
+"open": true,
+"last": 1912.0
+},
+{
+"asof": "2026-11-09",
+"code": "338A",
+"name": "ZenmuTech",
+"limit": 2891,
+"stop": 2313,
+"done": false,
+"low": 3180.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-09",
+"code": "5301",
+"name": "東海カーボン",
+"limit": 1518,
+"stop": 1415,
+"done": false,
+"low": 1561.0,
+"earn": "none"
+},
+{
+"asof": "2026-11-09",
+"code": "6613",
+"name": "QDレーザ",
+"limit": 1807,
 "stop": 1571,
 "done": false,
 "low": 1780.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-09",
+"code": "9107",
+"name": "川崎汽",
+"limit": 2944,
+"stop": 2823,
+"done": false,
+"low": 2998.5,
 "earn": "up"
 }
 ],
@@ -2892,9 +2989,9 @@
 "times": 0,
 "small": 0,
 "big_loss": 61,
-"fill": 52,
-"open": 7,
-"issued": 79,
+"fill": 51,
+"open": 9,
+"issued": 83,
 "since": "2026-10-01"
 }
 }
