@@ -14,14 +14,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%233d4ba8'/%3E%3Cpath d='M20 68 L40 44 L56 58 L80 28' stroke='white' stroke-width='9' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=925e6ba0">
+<link rel="stylesheet" href="style.css?v=fe955c95">
 </head>
 <body>
 
 <header class="appbar">
   <div class="appbar__row">
     <div class="appbar__lead">
-      <button class="backbtn" id="backBtn" type="button" hidden aria-label="分析の目次に戻る">‹ 分析</button>
+      <button class="backbtn" id="backBtn" type="button" hidden aria-label="章を閉じて戻る">‹ 分析</button>
       <h1 class="appbar__title" id="viewTitle">今日</h1>
       <div class="appbar__date" id="headDate">読み込み中…</div>
     </div>
@@ -36,18 +36,14 @@
       </button>
     </div>
   </div>
-  <div class="slots" id="slotBar" role="tablist" aria-label="時間帯"></div>
-  <nav class="jump" id="jumpBar" aria-label="セクションへ移動"></nav>
+  <nav class="jump" id="jumpBar" aria-label="章・節へ移動"></nav>
 </header>
 
 <main id="main">
   <section class="view" id="view-today" data-view="today"></section>
   <section class="view" id="view-trade" data-view="trade" hidden></section>
   <section class="view" id="view-analysis" data-view="analysis" hidden></section>
-  <section class="view" id="view-market" data-view="market" hidden></section>
-  <section class="view" id="view-sectors" data-view="sectors" hidden></section>
-  <section class="view" id="view-news" data-view="news" hidden></section>
-  <section class="view" id="view-verify" data-view="verify" hidden></section>
+  <section class="view" id="view-chapter" data-view="chapter" hidden></section>
 </main>
 
 <footer class="foot">
@@ -125,6 +121,6 @@
   </form>
 </dialog>
 
-<script src="app.js?v=17d1167e"></script>
+<script src="app.js?v=ad2765e5"></script>
 </body>
 </html>
