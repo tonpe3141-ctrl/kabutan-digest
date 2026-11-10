@@ -1372,10 +1372,10 @@
     "d1": -1.62,
     "d5": -8.75,
     "d20": -21.0,
-    "last": -21.25,
-    "last_date": "2026-11-09",
-    "excess": -5.28,
-    "days": 23,
+    "last": -18.37,
+    "last_date": "2026-11-10",
+    "excess": -4.81,
+    "days": 24,
     "x5": -5.65,
     "x20": -9.91,
     "worst": -25.62
@@ -6763,6 +6763,35 @@
    "notes": "上方修正・増配の数字に引っかかった。日本経済新聞は自己株式の消却を報じたが、業績の中身は要約に無い。",
    "note_url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9xYThkS0FnbGtXMGEtZnJpWFpNMExHNkhkMVNNaEtFcThoZUhUbXpLc2hOeXVUSkg5bE5Ub1ZuSlBRQVUyUDZQODhWMDhVR2ZjOHhtNEdOSHVLd24xbkNveHRXWjkxNlhaNy1ORg?oc=5",
    "tracked_by": "日足"
+  },
+  {
+   "code": "3443",
+   "name": "川田ＴＥＣＨ",
+   "first_seen": "2026-11-10",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:00 剰余金の配当（中間配当の実施）及び期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1325.0,
+   "nikkei_at_flag": 60459.58,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-10",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
@@ -6891,6 +6920,7 @@
   "7389",
   "7189",
   "5121",
-  "7867"
+  "7867",
+  "3443"
  ]
 }
