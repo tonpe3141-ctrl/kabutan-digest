@@ -748,7 +748,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -1138,8 +1138,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "26年12月期の1-9月の純利益は946億円。通期予想を修正し、電炉向け黒鉛電極事業を27年中に売却すると報じられた（日本経済新聞）。+4.8%で売買代金21位に新規で入った。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d8711c25b430e071a3b2b287ab97ca2987c6459c"
   },
   {
    "code": "5706",
@@ -6832,7 +6832,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "決算で商いが膨らみ、出来高急増を伴って上昇した（一時ストップ高）。決算の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -6861,8 +6861,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は46.6%増の大幅増益で、最高益（引け後の開示）。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/4d651eaef432ba49ac12221ad5243969ac2d531d",
    "tracked_by": "日足"
   },
   {
@@ -6890,8 +6890,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は25.2%増の大幅増益（引け後の開示）。直近3か月は+8.1%と伸びが鈍化。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/86b7bf07ba556064874ac99bdd8b67287c61a0f0",
    "tracked_by": "日足"
   },
   {
@@ -6919,8 +6919,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "通期の連結純利益予想を16億9000万円に上方修正し、年間配当予想を140円に修正（引け後の開示）。上期の純利益は4.2倍。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/98e6b7d4891282d3ff7d7b936a09d7df25a10aba",
    "tracked_by": "日足"
   },
   {
@@ -6950,7 +6950,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -6979,8 +6979,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "通期の連結純利益予想を125億円に上方修正し、期末配当予想を28円に修正（引け後の開示）。上期の純利益は31.1%増。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/691cecc75b94d201cf3656935c0e2e3f7437fb9f",
    "tracked_by": "日足"
   },
   {
@@ -7008,8 +7008,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は45.0%増の大幅増益（引け後の開示）。利益率は5.8%→6.8%に改善。反応は翌営業日。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/bb7801cafe9e3d4d4fe14e07c4b73de6f9ef4bc3",
    "tracked_by": "日足"
   },
   {
@@ -7035,8 +7035,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "通期の連結純利益予想を64億3700万円に上方修正し、年間配当予想を112円に修正（引け後の開示）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0a400d41abcd8a96232cf30e9a380a6d49ee7362"
   },
   {
    "code": "7359",
@@ -7061,8 +7061,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "1-9月の純利益は28.3%減の大幅減益だが、通期の連結売上高予想を75億円に上方修正した（引け後の開示）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0c809e11185ce85364b1720827ed3c6faf29736b"
   },
   {
    "code": "4027",
@@ -7089,8 +7089,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "上期の純利益は2.4倍の大幅増益（引け後の開示）。直近3か月は+290%、利益率は3.4%→10.7%に改善。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/b40f2369e35b5893ae88c2588941e2ee0e0b8d85",
    "tracked_by": "日足"
   }
  ],
