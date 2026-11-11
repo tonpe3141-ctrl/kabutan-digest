@@ -551,7 +551,7 @@
    "price_at_flag": 4725.0,
    "nikkei_at_flag": 60459.58,
    "track": {
-    "d1": null,
+    "d1": 8.99,
     "d5": null,
     "d20": null,
     "last": 8.99,
@@ -1135,11 +1135,14 @@
     "last": null,
     "last_date": "2026-11-11",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "26年12月期の1-9月の純利益は946億円。通期予想を修正し、電炉向け黒鉛電極事業を27年中に売却すると報じられた（日本経済新聞）。+4.8%で売買代金21位に新規で入った。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/d8711c25b430e071a3b2b287ab97ca2987c6459c"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d8711c25b430e071a3b2b287ab97ca2987c6459c",
+   "tracked_by": "日足"
   },
   {
    "code": "5706",
@@ -1778,9 +1781,9 @@
     "d1": 5.42,
     "d5": 10.92,
     "d20": 25.01,
-    "last": 25.7,
-    "last_date": "2026-11-10",
-    "excess": 38.13,
+    "last": 25.19,
+    "last_date": "2026-11-11",
+    "excess": 36.48,
     "days": 22,
     "x5": 16.3,
     "x20": 39.88,
@@ -2436,9 +2439,9 @@
     "d1": 19.18,
     "d5": -1.51,
     "d20": null,
-    "last": -14.38,
-    "last_date": "2026-11-10",
-    "excess": -8.22,
+    "last": -17.26,
+    "last_date": "2026-11-11",
+    "excess": -12.33,
     "days": 18,
     "x5": 0.85,
     "x20": null,
@@ -2531,9 +2534,9 @@
     "d1": 0.8,
     "d5": -4.52,
     "d20": null,
-    "last": -4.98,
-    "last_date": "2026-11-10",
-    "excess": 1.18,
+    "last": -6.48,
+    "last_date": "2026-11-11",
+    "excess": -1.55,
     "days": 18,
     "x5": -2.16,
     "x20": null,
@@ -2623,9 +2626,9 @@
     "d1": 0.0,
     "d5": -0.89,
     "d20": null,
-    "last": -1.14,
-    "last_date": "2026-11-10",
-    "excess": 5.02,
+    "last": -1.39,
+    "last_date": "2026-11-11",
+    "excess": 3.54,
     "days": 18,
     "x5": 1.47,
     "x20": null,
@@ -2685,9 +2688,9 @@
     "d1": -0.05,
     "d5": -0.05,
     "d20": null,
-    "last": 0.1,
-    "last_date": "2026-11-10",
-    "excess": 7.55,
+    "last": 0.15,
+    "last_date": "2026-11-11",
+    "excess": 6.39,
     "days": 17,
     "x5": 3.98,
     "x20": null,
@@ -5341,13 +5344,13 @@
     "d1": -9.88,
     "d5": null,
     "d20": null,
-    "last": -9.52,
-    "last_date": "2026-11-10",
-    "excess": -8.51,
+    "last": -10.24,
+    "last_date": "2026-11-11",
+    "excess": -10.52,
     "days": 4,
     "x5": null,
     "x20": null,
-    "worst": -9.88
+    "worst": -10.24
    },
    "status": "watching",
    "notes": "決算で商いが膨らみ、出来高急増を伴って上昇した。決算の中身は要約に無く、記事での裏付けなし。",
@@ -5444,9 +5447,9 @@
     "d1": -5.19,
     "d5": null,
     "d20": null,
-    "last": 3.37,
-    "last_date": "2026-11-10",
-    "excess": 4.38,
+    "last": 3.11,
+    "last_date": "2026-11-11",
+    "excess": 2.83,
     "days": 4,
     "x5": null,
     "x20": null,
@@ -6876,7 +6879,7 @@
     "15:30 業績予想の修正及び期末配当予想の修正（増配）に関するお知らせ"
    ],
    "themes": [],
-   "price_at_flag": null,
+   "price_at_flag": 2132.0,
    "nikkei_at_flag": 61248.59,
    "track": {
     "d1": null,
@@ -7032,11 +7035,14 @@
     "last": null,
     "last_date": "2026-11-11",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "通期の連結純利益予想を64億3700万円に上方修正し、年間配当予想を112円に修正（引け後の開示）。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/0a400d41abcd8a96232cf30e9a380a6d49ee7362"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0a400d41abcd8a96232cf30e9a380a6d49ee7362",
+   "tracked_by": "日足"
   },
   {
    "code": "7359",
@@ -7058,11 +7064,14 @@
     "last": null,
     "last_date": "2026-11-11",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "1-9月の純利益は28.3%減の大幅減益だが、通期の連結売上高予想を75億円に上方修正した（引け後の開示）。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/0c809e11185ce85364b1720827ed3c6faf29736b"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/0c809e11185ce85364b1720827ed3c6faf29736b",
+   "tracked_by": "日足"
   },
   {
    "code": "4027",
@@ -7091,6 +7100,93 @@
    "status": "watching",
    "notes": "上期の純利益は2.4倍の大幅増益（引け後の開示）。直近3か月は+290%、利益率は3.4%→10.7%に改善。",
    "note_url": "https://finance.yahoo.co.jp/news/detail/b40f2369e35b5893ae88c2588941e2ee0e0b8d85",
+   "tracked_by": "日足"
+  },
+  {
+   "code": "4931",
+   "name": "新日本製薬",
+   "first_seen": "2026-11-11",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:30 個別業績の前期実績値との差異及び配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1991.0,
+   "nikkei_at_flag": 61248.59,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-11",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "8920",
+   "name": "東祥",
+   "first_seen": "2026-11-11",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "15:40 剰余金の配当（中間配当）及び期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 687.0,
+   "nikkei_at_flag": 61248.59,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-11",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "5199",
+   "name": "不二ラテックス",
+   "first_seen": "2026-11-11",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 1938.0,
+   "nikkei_at_flag": 61248.59,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-11",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
    "tracked_by": "日足"
   }
  ],
@@ -7220,6 +7316,9 @@
   "6165",
   "6237",
   "7359",
-  "4027"
+  "4027",
+  "4931",
+  "8920",
+  "5199"
  ]
 }
