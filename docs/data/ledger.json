@@ -7561,6 +7561,32 @@
    "notes": null,
    "note_url": null,
    "tracked_by": "日足"
+  },
+  {
+   "code": "9791",
+   "name": "ビケンテクノ",
+   "first_seen": "2026-11-12",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "16:00 剰余金の配当（中間配当）および期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 1113.0,
+   "nikkei_at_flag": 60819.36,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-12",
+    "excess": null,
+    "days": 0
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null
   }
  ],
  "stats": {
@@ -7689,6 +7715,7 @@
   "150A",
   "3465",
   "4051",
-  "8511"
+  "8511",
+  "9791"
  ]
 }

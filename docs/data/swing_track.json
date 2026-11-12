@@ -1800,6 +1800,15 @@
 "stop": 563,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-11-12",
+"code": "4478",
+"name": "フリー",
+"limit": 3975,
+"stop": 3125,
+"done": false,
+"earn": "mixed"
 }
 ],
 "stats": {
@@ -1821,7 +1830,7 @@
 "big_loss": 25,
 "fill": 41,
 "open": 6,
-"issued": 144,
+"issued": 145,
 "since": "2026-09-25"
 },
 "mid": {
