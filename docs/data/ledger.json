@@ -8126,6 +8126,35 @@
    "notes": null,
    "note_url": null,
    "tracked_by": "日足"
+  },
+  {
+   "code": "9823",
+   "name": "マミーマートＨＤ",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "上方修正・増配"
+   ],
+   "why": [
+    "17:00 期末配当予想の修正（増配）に関するお知らせ"
+   ],
+   "themes": [],
+   "price_at_flag": 946.0,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
@@ -8260,6 +8289,7 @@
   "6503",
   "7011",
   "7012",
-  "2722"
+  "2722",
+  "9823"
  ]
 }
