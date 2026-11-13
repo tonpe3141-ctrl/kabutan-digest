@@ -1324,9 +1324,9 @@
 "filled": true,
 "in": "2026-10-30",
 "entry": 4854.36,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 4489.0
+"last": 4315.0
 },
 {
 "asof": "2026-10-29",
@@ -1484,9 +1484,9 @@
 "filled": true,
 "in": "2026-11-04",
 "entry": 3556.39,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 3209.0
+"last": 3133.0
 },
 {
 "asof": "2026-11-02",
@@ -1536,9 +1536,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 7259.71,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 7053.0
+"last": 6955.0
 },
 {
 "asof": "2026-11-04",
@@ -1806,9 +1806,15 @@
 "code": "4478",
 "name": "フリー",
 "limit": 3975,
-"stop": 3125,
+"stop": 3130.0,
 "done": false,
-"earn": "mixed"
+"earn": "mixed",
+"filled": true,
+"in": "2026-11-13",
+"entry": 3978.57,
+"days": 1,
+"open": true,
+"last": 3880.0
 }
 ],
 "stats": {
@@ -1828,8 +1834,8 @@
 "times": 6,
 "small": 25,
 "big_loss": 25,
-"fill": 41,
-"open": 6,
+"fill": 42,
+"open": 7,
 "issued": 145,
 "since": "2026-09-25"
 },
@@ -1847,9 +1853,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 28,
+"days": 29,
 "open": true,
-"last": 2288.5
+"last": 2316.5
 },
 {
 "asof": "2026-10-01",
@@ -2542,9 +2548,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 3862.0
+"last": 3811.0
 },
 {
 "asof": "2026-10-29",
@@ -2800,9 +2806,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 25330.0
+"last": 25420.0
 },
 {
 "asof": "2026-11-05",
@@ -2816,9 +2822,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 5370.0
+"last": 5440.0
 },
 {
 "asof": "2026-11-05",
@@ -2832,9 +2838,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 8770.0
+"last": 8870.0
 },
 {
 "asof": "2026-11-05",
@@ -2848,9 +2854,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 29985.0
+"last": 30610.0
 },
 {
 "asof": "2026-11-05",
@@ -2864,9 +2870,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 4545.0
+"last": 4560.0
 },
 {
 "asof": "2026-11-05",
@@ -2909,7 +2915,7 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1510.68,
-"days": 4,
+"days": 5,
 "open": true,
 "last": 1629.5
 },
@@ -2958,9 +2964,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1929.64,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 2079.0
+"last": 1980.0
 },
 {
 "asof": "2026-11-09",
