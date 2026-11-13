@@ -2618,7 +2618,7 @@
   {
    "code": "2813",
    "name": "和弘食品",
-   "first_seen": "2026-10-15",
+   "first_seen": "2026-11-13",
    "signals": [
     "年初来高値×商い"
    ],
@@ -2626,22 +2626,21 @@
     "年初来高値を更新し、売買代金上位または出来高急増"
    ],
    "themes": [],
-   "price_at_flag": 3950.0,
-   "nikkei_at_flag": 64425.95,
+   "price_at_flag": 4300.0,
+   "nikkei_at_flag": 61142.35,
    "track": {
-    "d1": 0.0,
-    "d5": -0.89,
-    "d20": 8.86,
-    "last": 8.86,
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
     "last_date": "2026-11-13",
-    "excess": 13.96,
-    "days": 20,
-    "x5": 1.47,
-    "x20": 13.96,
-    "worst": -2.03
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
-   "status": "closed",
-   "notes": "年初来高値×商いで入った。記事での裏付けなし。",
+   "status": "watching",
+   "notes": null,
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -7957,6 +7956,176 @@
    "notes": "決算で商いが膨らんだ。決算の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
+  },
+  {
+   "code": "6701",
+   "name": "ＮＥＣ",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "新規の資金流入",
+    "テーマ初動"
+   ],
+   "why": [
+    "売買代金 28位に新規ランクイン（-3.88%）",
+    "テーマ初動: 防衛"
+   ],
+   "themes": [
+    "ITサービス",
+    "AI",
+    "防衛"
+   ],
+   "price_at_flag": 4315.0,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "6503",
+   "name": "三菱電機",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "新規の資金流入",
+    "テーマ初動"
+   ],
+   "why": [
+    "売買代金 29位に新規ランクイン（-4.29%）",
+    "テーマ初動: 防衛"
+   ],
+   "themes": [
+    "電力",
+    "防衛",
+    "機械"
+   ],
+   "price_at_flag": 4755.0,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "7011",
+   "name": "三菱重工業",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "順位の急上昇",
+    "テーマ初動"
+   ],
+   "why": [
+    "売買代金 20位 → 5位",
+    "テーマ初動: 防衛"
+   ],
+   "themes": [
+    "防衛",
+    "原子力",
+    "造船",
+    "電力"
+   ],
+   "price_at_flag": 2920.5,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "7012",
+   "name": "川崎重工業",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "新規の資金流入",
+    "テーマ初動"
+   ],
+   "why": [
+    "売買代金 23位に新規ランクイン（-8.29%）",
+    "テーマ初動: 防衛"
+   ],
+   "themes": [
+    "防衛",
+    "造船",
+    "水素"
+   ],
+   "price_at_flag": 1814.0,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
+  },
+  {
+   "code": "2722",
+   "name": "ＩＫホールディングス",
+   "first_seen": "2026-11-13",
+   "signals": [
+    "年初来高値×商い"
+   ],
+   "why": [
+    "年初来高値を更新し、売買代金上位または出来高急増"
+   ],
+   "themes": [],
+   "price_at_flag": 371.0,
+   "nikkei_at_flag": 61142.35,
+   "track": {
+    "d1": null,
+    "d5": null,
+    "d20": null,
+    "last": null,
+    "last_date": "2026-11-13",
+    "excess": null,
+    "days": 0,
+    "x5": null,
+    "x20": null
+   },
+   "status": "watching",
+   "notes": null,
+   "note_url": null,
+   "tracked_by": "日足"
   }
  ],
  "stats": {
@@ -7976,14 +8145,14 @@
    },
    {
     "signal": "年初来高値×商い",
-    "count": 55,
-    "d5_median": -1.51,
-    "hit_rate": 0.27,
-    "x5_median": 0.85,
-    "beat5": 0.55,
-    "n20": 27,
-    "d20_median": -7.78,
-    "x20_median": 1.17,
+    "count": 54,
+    "d5_median": -1.62,
+    "hit_rate": 0.28,
+    "x5_median": 0.82,
+    "beat5": 0.54,
+    "n20": 26,
+    "d20_median": -8.35,
+    "x20_median": -0.04,
     "enough": true
    },
    {
@@ -8060,20 +8229,21 @@
    }
   ],
   "overall": {
-   "count": 182,
-   "d5_median": -0.35,
+   "count": 181,
+   "d5_median": -0.27,
    "hit_rate": 0.46,
    "x5_median": 1.78,
    "beat5": 0.58,
-   "n20": 69,
-   "d20_median": -5.85,
-   "x20_median": 1.97,
+   "n20": 68,
+   "d20_median": -6.03,
+   "x20_median": 1.83,
    "enough": true
   },
   "min_count": 10
  },
  "updated_at": "2026-11-13",
  "added_today": [
+  "2813",
   "3474",
   "3156",
   "3933",
@@ -8085,6 +8255,11 @@
   "5975",
   "6776",
   "5161",
-  "8306"
+  "8306",
+  "6701",
+  "6503",
+  "7011",
+  "7012",
+  "2722"
  ]
 }
