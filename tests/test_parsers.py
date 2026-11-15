@@ -770,6 +770,12 @@ def test_swing():
     tr2 = W.paper_update(tr, nd[2], orders, lambda code: None)
     check("注文の実績: 同じ注文は二重に記録せず、結果は凍結", (len(tr2["orders"]), tr2["orders"][0]["ret"]),
           (1, tr["orders"][0]["ret"]))
+    held = W.paper_update({"orders": [
+        {"asof": "2026-01-05", "code": "9001", "filled": True, "entry": 100.0, "last": 110.0, "open": True, "done": False},
+        {"asof": "2026-01-05", "code": "9002", "filled": True, "entry": 200.0, "last": 190.0, "open": True, "done": False}]},
+        "2026-01-06", [], lambda code: None)
+    check("注文の実績: 保有中の含み（結果が出た回だけでは見えない分）を並べる",
+          (held["stats"]["open"], held["stats"]["open_avg"], held["stats"]["open_up"]), (2, 2.5, 1))
     pend = W.paper_update({}, up[i][0], orders, lambda code: ind)
     check("注文の実績: 翌日の日足がまだ無ければ未確定", (pend["orders"][0]["done"], pend["stats"]["n"]), (False, 0))
 

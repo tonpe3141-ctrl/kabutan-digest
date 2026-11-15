@@ -916,7 +916,13 @@ def paper_update(track: dict, today: str, orders: list[dict], ind_of, mid: bool 
     issued = [e for e in entries if e.get("done") or e.get("filled")]
     st = summarize(done)
     st["fill"] = round(sum(1 for e in issued if e.get("filled")) / len(issued) * 100) if issued else None
-    st["open"] = sum(1 for e in entries if e.get("filled") and not e.get("done"))
+    held = [e for e in entries if e.get("filled") and not e.get("done")]
+    st["open"] = len(held)
+    # 保有中の含み（約定値から最後の引けまで）。中期は売りの指値を置かず60営業日持つので、始めて3か月は「結果が出た回」が損切りだけになる。
+    # 結果が出た回の勝率だけを出すと実態より悪く見えるので、保有中の含みを並べる（DESIGN.md 36章）
+    marks = [(e["last"] / e["entry"] - 1) * 100 for e in held if e.get("last") and e.get("entry")]
+    st["open_avg"] = r2(mean(marks)) if marks else None
+    st["open_up"] = sum(1 for x in marks if x > 0) if marks else None
     st["issued"] = len(entries)
     st["since"] = entries[0]["asof"] if entries else None
     return {"updated_at": today, "orders": entries, "stats": st}
