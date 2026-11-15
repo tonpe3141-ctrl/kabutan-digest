@@ -81,6 +81,7 @@ tools/ai_brief.py         Routine が読む材料の要約（latest.json の1区
 tools/ai_write.py         Routine が書いた分析（中身だけの JSON）を latest.json・ledger.json・themes.json に差し込む
 tools/verify_ai_merge.py  Routine の push を main に自動マージしてよいかの検査
 tests/test_parsers.py     パーサ・台帳・テーマ・時間軸の回帰テスト（更新の前に必ず走る）
+docs/?check               アプリの自己点検（全画面・全章・銘柄シートを描き、描けなかったカードを一覧に。画面を直したら必ず開く）
 ```
 
 ### データ源についての重要な前提
@@ -112,6 +113,11 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
   銘柄はどの画面でも押すと銘柄シート（`openStock`）が開き、注文・保有の行は売買タブと同じ部品（`pickCard`・`positionRow`・`holdRow`）で描く。
   検証の表は検証の章に集め、各画面には結論の一行（比べる相手・偏りつき。`evidenceLine` など）を置いて検証の章へ跳ばせる。
   章の頭（見出し・要は・数字）に出したものは、章の中のカードからは外す（同じものを2度出さない）。
+- **1枚の失敗で画面を消さない。画面を直したら `?check` を開く。** 今日・売買・章のカードは `safe()`／`safeAll()`（[名前, 関数] の並び）で1枚ずつ守る。
+  新しいカードを足すときも関数のまま渡す（その場で呼ばない）。`http://localhost:8000/?check` は全画面・全章×全区分・銘柄シートを描いて、
+  描けなかったカードを一覧にする（11/2〜11/13 は「今日」が真っ白のまま気づけなかった。DESIGN.md 35章）。データの形を変えたときも開く。
+- **取得は `fetchJson`（no-cache）で、URL に時刻を付けない。** サービスワーカーの控えは「? より前」が鍵で、アプリは開いた瞬間に控えで描いてから差し替える
+  （`prime`）。控えの名前（`market-v2`）は sw.js と app.js で同じにする。
 - **DOM 生成は `textContent` 経由。** 記事本文はスクレイピング由来なので `innerHTML` は使わない
   （`h()` の `html:` は自前で組み立てた SVG 専用）。
 - **配色は日本市場の慣習に従う。** 上昇=赤（`--up`）、下落=青（`--down`）。
@@ -211,5 +217,5 @@ Google ニュース経由なら `hosts`（配信元ドメイン）で必ず照�
 python tests/test_parsers.py                             # 回帰テスト（ネット不要）
 python -m dashboard.build --slot zenba --date 20260904   # 実データで単発実行（自宅回線から）
 python tools/probe.py                                    # データ源の疎通診断
-python -m http.server 8000 --directory docs
+python -m http.server 8000 --directory docs                # http://localhost:8000/?check で全画面の自己点検
 ```

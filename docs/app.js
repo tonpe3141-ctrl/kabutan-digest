@@ -105,6 +105,25 @@ function sparkline(series, height = 20) {
 }
 
 /* ==================== 部品 ==================== */
+/* 1枚のカードの失敗で画面ぜんぶを消さない（DESIGN.md 35章）。データの形が想定と違って描けなかったカードは、
+   その場所に短い断り書きを出し、ほかのカードはそのまま描く。失敗は ERRS に残し、自己点検（?check）で一覧にする */
+const ERRS = [];
+function safe(name, fn) {
+  try { return fn(); } catch (e) {
+    const msg = String((e && e.message) || e);
+    ERRS.push({ name, msg });
+    try { console.error('[描画できなかったカード] ' + name, e); } catch (_) { /* 無視 */ }
+    return h('section', { class: 'card card--err' }, [
+      h('b', { text: `「${name}」を表示できませんでした` }),
+      h('p', { class: 'hint', text: `ほかのカードはそのまま読めます。次の更新でも出なければ、データの形が変わっています（${msg.slice(0, 90)}）` })]);
+  }
+}
+/* カードの並び（要素・null・要素を返す関数 [名前, 関数]）を、1枚ずつ守って要素の並びにする */
+function safeAll(name, items) {
+  const xs = safe(name, () => (typeof items === 'function' ? items() : items));
+  return (Array.isArray(xs) ? xs : [xs]).map((x, i) => (Array.isArray(x) ? safe(x[0], x[1]) : typeof x === 'function' ? safe(`${name}（${i + 1}枚目）`, x) : x));
+}
+
 function card(title, sub, body, note, flush, id) {
   const kids = [];
   if (title) {
@@ -1086,7 +1105,8 @@ function newsFeedCard(feed) {
 function renderNews() {
   if (!DATA || !Object.keys(DATA.slots || {}).length) return [card('ニュース', null, h('div', { class: 'empty', text: '今日のデータはまだありません' }))];
   const feed = gatherNews();
-  return [myNewsCard(feed, myStocks()), newsReadCard(), moversCard(), earnCard(), disclosureCard(feed), newsFeedCard(feed)];
+  return [['保有・監視の銘柄の材料', () => myNewsCard(feed, myStocks())], ['ニュースから読む', newsReadCard], ['動いた銘柄の材料', moversCard],
+    ['決算から読む', earnCard], ['開示', () => disclosureCard(feed)], ['ニュース', () => newsFeedCard(feed)]];
 }
 
 /* 米国からの連想（日本の業種）と米国セクターを1枚で切り替える */
@@ -4505,10 +4525,7 @@ function renderTrade() {
     out.push(portfolioCard());
     return out;
   }
-  out.push(portfolioCard());
-  out.push(picksCard());
-  out.push(watchCard());
-  return out;
+  return safeAll('売買', [['保有と売り時', portfolioCard], ['買い候補', picksCard], ['監視', watchCard]]);
 }
 
 /* ==================== 業種 ====================
@@ -6430,7 +6447,7 @@ const CH_INFO = {
     const ind = d.indicators || {};
     return {
       title: (ai && ai.headline) || (mv.commentary || {}).headline || mv.headline || null,
-      dek: ind.headline || null,
+      dek: (ai && ai.gist) || (ai && mv.headline && mv.headline !== ai.headline ? `機械の読み: ${mv.headline}` : null) || ind.headline || null,
       when: slot ? `${SLOT_LABEL[slot]} ${slotTime(slot)}` : null,
       stamp: slot ? `${slot}:${(ai && ai.generated_at) || slotTime(slot)}` : null, stats,
       mini: big ? h('div', { class: 'thumb__cap' }, [miniLine(big.spark, { tone: big.d20 >= 0 ? 'up' : 'down' }), h('small', { text: big.label })]) : null,
@@ -6505,9 +6522,9 @@ const CH_INFO = {
 const CH_CARDS = {
   review(ls) {
     const d = (ls && slotData(ls)) || {};
-    return [card('日経平均の位置', '終値・25日線・75日線', coverChart({ range: '6m' }),
-      '日足は CNBC の確定した終値（大引の更新で今日の引けを足す）。下の印は1日で ±3%以上動いた日（急落の線は局面と同じ −3%）。指でなぞるとその日の値。', false, 'sec-chart'),
-    reviewCard(d, ls) || card('振り返り', null, h('div', { class: 'empty', text: '振り返りは大引（16:45ごろ）に Routine が書きます。いまは値動きの章で見立てを読めます。' }), null, false, 'sec-review')];
+    return [['日経平均の位置', () => card('日経平均の位置', '終値・25日線・75日線', coverChart({ range: '6m' }),
+      '日足は CNBC の確定した終値（大引の更新で今日の引けを足す）。下の印は1日で ±3%以上動いた日（急落の線は局面と同じ −3%）。指でなぞるとその日の値。', false, 'sec-chart')],
+    ['振り返り', () => reviewCard(d, ls) || card('振り返り', null, h('div', { class: 'empty', text: '振り返りは大引（16:45ごろ）に Routine が書きます。いまは値動きの章で見立てを読めます。' }), null, false, 'sec-review')]];
   },
   move(slot) {
     const d = (slot && slotData(slot)) || {};
@@ -6517,15 +6534,16 @@ const CH_CARDS = {
   sector(slot) {
     const d = (slot && slotData(slot)) || {};
     if (!slot) return [card('業種と銘柄', null, h('div', { class: 'empty', text: '前場（11:40ごろ）の更新から出ます。寄り前は米国からの連想を値動きの章で。' }))];
-    return [sectorsTodayCard(d), themeCard(d.theme_flow), rotationCard(), heatmapCard(d.constituents, d.breadth), rankingCard(d)];
+    return [['業種の騰落', () => sectorsTodayCard(d)], ['テーマ', () => themeCard(d.theme_flow)], ['資金の移り先', rotationCard],
+      ['日経225ヒートマップ', () => heatmapCard(d.constituents, d.breadth)], ['ランキング', () => rankingCard(d)]];
   },
   news() { return renderNews(); },
   macro(slot) {
     const d = (slot && slotData(slot)) || {};
     if (!slot) return [card('マクロと指標', null, h('div', { class: 'empty', text: 'まだデータがありません。' }))];
-    return [macroCard(d, (DATA.slots[slot] || {}).updated_at), indicatorsCard(d)];
+    return [['マクロ環境', () => macroCard(d, (DATA.slots[slot] || {}).updated_at)], ['経済指標', () => indicatorsCard(d)]];
   },
-  phase(ls) { return [phaseCard(latestPhaseData(ls)), thermoCard()]; },
+  phase(ls) { return [['局面と対処', () => phaseCard(latestPhaseData(ls))], ['相場温度', thermoCard]]; },
   strength() { return renderSectors(); },
   trend() { return renderTrend(); },
   verify() { return renderVerify(); },
@@ -6791,14 +6809,14 @@ function todayHold() {
   const rows = [];
   pos.forEach((p) => {
     const x = posPlan(p);
-    rows.push({ code: p.code, name: p.name, pl: x.pl, act: x.hit || x.due,
+    rows.push({ code: p.code, name: p.name, pl: x.pl, yen: isNum(x.now) && isNum(p.entry) && p.shares ? (x.now - p.entry) * p.shares : null, act: x.hit || x.due,
       badge: [x.hit ? '損切り' : x.due ? '期限' : '計画どおり', x.hit ? 'down' : x.due ? 'warn' : 'accent'],
       todo: x.hit ? '損切りの価格を割った。計画どおりに手仕舞う' : x.due ? '期限。次の営業日に手仕舞う' : (x.mid ? '中期の押し目。損切りの逆指値だけ' : '毎朝の売り指値と損切り（OCO）') });
   });
   readHold().filter((p) => !posCodes.has(p.code)).forEach((p) => {
     const x = holdPlan(p);
     const vd = x.vd;
-    rows.push({ code: p.code, name: p.name || x.st.n, pl: x.pl, act: x.stopHit || (vd && holdAct(x.hd, vd) === 'sell'),
+    rows.push({ code: p.code, name: p.name || x.st.n, pl: x.pl, yen: x.plYen, act: x.stopHit || (vd && holdAct(x.hd, vd) === 'sell'),
       badge: x.stopHit ? ['撤退', 'down'] : vd ? [vd.short || vd.label, HOLD_TONE[vd.tone] || ''] : ['判定なし', ''], todo: x.todo || '' });
   });
   if (!rows.length) {
@@ -6806,7 +6824,12 @@ function todayHold() {
       h('b', { text: '持ち株' }), h('span', { text: '入れると、毎日の引けで売り時（持つ・売り時・減らす）と撤退ラインが出ます ›' })]);
   }
   rows.sort((a, b) => (b.act ? 1 : 0) - (a.act ? 1 : 0));
-  return card('持ち株', `${rows.length}銘柄${rows.some((r) => r.act) ? '・やることあり' : ''}`, h('div', { class: 'today__list' }, rows.map((r) =>
+  // 合計の損益（買値と株数を入れた銘柄だけ。この端末の中だけで計算する）
+  const yens = rows.filter((r) => isNum(r.yen));
+  const total = yens.reduce((a, r) => a + r.yen, 0);
+  const sub = h('span', {}, [document.createTextNode(`${rows.length}銘柄${rows.some((r) => r.act) ? '・やることあり' : ''}`),
+    yens.length ? h('b', { class: 'num today__total ' + cls(total), text: ` 合計 ${total >= 0 ? '+' : '−'}${fmtYen(Math.abs(total))}` }) : null]);
+  return card('持ち株', sub, h('div', { class: 'today__list' }, rows.map((r) =>
     h('button', { class: 'today__row' + (r.act ? ' is-act' : ''), type: 'button', onclick: () => openStock(r.code, 'sell') }, [
       h('span', { class: 'badge today__badge' + (r.badge[1] ? ' badge--' + r.badge[1] : ''), text: r.badge[0] }),
       h('span', { class: 'today__name' }, [document.createTextNode(cleanName(r.name) || r.code), h('small', { text: r.todo })]),
@@ -6828,14 +6851,12 @@ function todayPlan() {
   const seen = new Set();
   [ls, 'taibike', 'zenba', 'preopen'].forEach((s) => {
     const v = (slotData(s) || {}).indicators;
-    Object.entries((v && v.schedule) || {}).forEach(([day, xs]) => {
-      if (day < today) return;
-      (xs || []).forEach((x) => {
-        const key = x.at + x.name;
-        if (x.done || seen.has(key) || !['高', '中'].includes(x.imp)) return;
-        seen.add(key);
-        sch.push(x);
-      });
+    ((v && v.schedule) || []).forEach((x) => {
+      if (!x || x.note || String(x.date || x.at || '').slice(0, 10) < today) return;
+      const key = x.at + x.name;
+      if (x.done || seen.has(key) || !['高', '中'].includes(x.imp)) return;
+      seen.add(key);
+      sch.push(x);
     });
   });
   sch.sort((a, b) => String(a.at).localeCompare(String(b.at)));
@@ -6853,7 +6874,7 @@ function todayPlan() {
 function todayReads() {
   const { pts } = todayStory();
   const ids = ['move', 'sector', 'news', 'macro', 'phase'];
-  const rows = ids.map((id) => chapterRow(id, { skipEmpty: true })).filter(Boolean);
+  const rows = ids.map((id) => safe(CH_NAME[id], () => chapterRow(id, { skipEmpty: true }))).filter(Boolean);
   if (!rows.length && !pts.length) return null;
   return card('今日の分析', h('button', { class: 'linkbtn', type: 'button', text: 'すべての章 ›', onclick: () => selectView('analysis') }), [
     pts.length ? h('div', { class: 'today__pts' }, [h('div', { class: 'today__lh', text: '読みどころ（振り返りの節）' }),
@@ -6862,15 +6883,30 @@ function todayReads() {
     rows.length ? h('div', { class: 'chrows' }, rows) : null], null, true, 'td-topics');
 }
 
+/* 次の注文。置く注文が無い日も「無い」と1行で出す（カードごと消えると、読み込みの失敗と区別がつかない） */
+function todayTicket() {
+  if (!THERMO) return null;
+  const t = ticketCard(true);
+  if (t) return t;
+  const sw = SW();
+  const near = sw ? (sw.near || []).length : 0;
+  const day = sw ? orderDay(sw.asof) : null;
+  const when = day && day.state !== 'expired' ? day.label : `${md(nextWeekday(isoToday()))}（${wd(nextWeekday(isoToday()))}）`;
+  return h('button', { class: 'card today__empty', id: 'sw-ticket', type: 'button', onclick: () => selectView('trade', near ? 'sw-watch' : 'sw-picks') }, [
+    h('b', { text: `次の注文（${when}）: 置く注文なし` }),
+    h('span', { text: (day && day.state === 'expired' ? '次の候補は大引の更新（夕方〜夜）か翌朝7時台に出ます。' : '買い候補も、保有の売り・撤退の注文もありません。待つのも作戦です。') +
+      (near ? `もうすぐ注文対象の銘柄が ${near}つ ›` : '売買を見る ›') })]);
+}
+
 function renderToday() {
   if (!DATA || !Object.keys(DATA.slots || {}).length) return [card('今日', null, h('div', { class: 'empty', text: '今日のデータはまだありません。次の自動更新（寄り前 7時台）で作られます。' }))];
-  return [todayHero(), THERMO ? ticketCard(true) : null, todayHold(), todayPlan(), todayReads()];
+  return safeAll('今日', [['結論', todayHero], ['次の注文', todayTicket], ['持ち株', todayHold], ['構え', todayPlan], ['今日の分析', todayReads]]);
 }
 
 /* 分析: 章の一覧。振り返りは大きく、ほかは見出し・要は・小さな図。押すとその章が開く */
 function renderAnalysis() {
   if (!DATA) return [];
-  const rows = CHAPTERS.map((id, i) => chapterRow(id, { big: i === 0, dek: true }));
+  const rows = CHAPTERS.map((id, i) => safe(CH_NAME[id], () => chapterRow(id, { big: i === 0, dek: true })));
   const fresh = CHAPTERS.filter((id) => isNew(id, chInfo(id, chapterSlot(id)).stamp)).length;
   return [
     h('div', { class: 'an__lead' }, [
@@ -6887,7 +6923,7 @@ function openChapter(id, opts = {}) {
   if (!CHAPTERS.includes(id)) id = 'review';
   if (opts.slot && slotData(opts.slot) && opts.slot !== activeSlot) {
     activeSlot = opts.slot;
-    try { sessionStorage.setItem(LS.tab, opts.slot); } catch (e) { /* 無視 */ }
+    saveSlot(opts.slot);
   }
   const fromTop = activeView !== 'chapter';
   if (fromTop) chapterFrom = activeView;
@@ -6922,9 +6958,9 @@ function renderChapter() {
   const id = activeChapter;
   const slot = chapterSlot(id);
   const info = chInfo(id, slot);
-  const out = [chapterHead(id, slot, info)];
-  (CH_CARDS[id](slot) || []).forEach((c) => out.push(c));
-  out.push(chapterNext(id));
+  const out = [safe(CH_NAME[id] + 'の頭', () => chapterHead(id, slot, info))];
+  safeAll(CH_NAME[id], () => CH_CARDS[id](slot) || []).forEach((c) => out.push(c));
+  out.push(safe('次の章', () => chapterNext(id)));
   markSeen(id, info.stamp);
   return out;
 }
@@ -6966,7 +7002,7 @@ function render() {
   if (dirty.has(activeView)) {
     const el = $('view-' + activeView);
     el.textContent = '';
-    RENDER[activeView]().forEach((n) => n && el.appendChild(n));
+    safeAll(VIEW_TITLE[activeView] || '章', RENDER[activeView]).forEach((n) => n && el.appendChild(n));
     dirty.delete(activeView);
     if (activeView === 'chapter') clampLong(el);
   }
@@ -6994,14 +7030,15 @@ function updateFreshness() {
     upd = ls ? DATA.slots[ls].updated_at : DATA.generated_at || '';
     label = upd ? `${ls ? SLOT_LABEL[ls] + ' ' : ''}${String(upd).slice(11, 16)} 更新` : '—';
   }
-  $('headUpdated').textContent = label;
+  // 章は頭に区分と時刻を出すので、上端では繰り返さない（章の名前と重なって読めなかった）
+  $('headUpdated').textContent = (activeView === 'chapter' ? '' : label) + (OFFLINE ? (activeView === 'chapter' ? '圏外' : '・圏外') : '');
   const age = upd ? (Date.now() - new Date(upd).getTime()) / 3600000 : null;
   dot.className = 'dot' + (isNum(age) ? (age < 12 ? ' dot--fresh' : ' dot--stale') : '');
 }
 
 function selectSlot(slot) {
   activeSlot = slot;
-  try { sessionStorage.setItem(LS.tab, slot); } catch (e) { /* 非対応環境は無視 */ }
+  saveSlot(slot);
   dirty.add('chapter');
   const y = window.scrollY;
   render();
@@ -7044,25 +7081,61 @@ function showView(view, anchor) {
   } else window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+/* 章の区分の初期値は、いちばん新しい区分。自分で切り替えた区分は、次の更新が来るまでだけ覚える
+   （以前は時刻で決め、切り替えた区分をずっと覚えていたので、夕方に開いても朝の寄り前が出ることがあった） */
+function slotStamp() { const ls = latestSlot(); return ls ? `${ls}@${DATA.slots[ls].updated_at || ''}` : ''; }
+function saveSlot(slot) { try { sessionStorage.setItem(LS.tab, `${slot}|${slotStamp()}`); } catch (e) { /* 非対応環境は無視 */ } }
 function defaultSlot() {
   const slots = DATA.slots || {};
-  const saved = (() => { try { return sessionStorage.getItem(LS.tab); } catch (e) { return null; } })();
-  if (saved && SLOTS.includes(saved) && slots[saved]) return saved;
-  const n = jstNow();
-  const mins = n.getHours() * 60 + n.getMinutes();
-  const wanted = mins < 10 * 60 ? 'preopen' : mins < 15 * 60 + 30 ? 'zenba' : 'taibike';
-  if (slots[wanted]) return wanted;
-  const available = SLOTS.filter((s) => slots[s]);
-  return available.length ? available[available.length - 1] : wanted;
+  const saved = (() => { try { return sessionStorage.getItem(LS.tab) || ''; } catch (e) { return ''; } })().split('|');
+  if (saved[0] && SLOTS.includes(saved[0]) && slots[saved[0]] && saved[1] === slotStamp()) return saved[0];
+  return latestSlot() || 'taibike';
 }
 
+/* 取得は「変わっていれば取り直す」（no-cache = 毎回サーバに確かめ、同じなら本体を送らせない）。以前は毎回 t=時刻 を付けて
+   数MB を取り直していた。サービスワーカー（sw.js）が成功した応答を控えるので、圏外でも前回の表示が出る（DESIGN.md 35章） */
 async function fetchJson(path) {
   try {
-    const res = await fetch(path + (path.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+    const res = await fetch(path, { cache: 'no-cache' });
     if (!res.ok) return null;
+    if (path === CORE[0]) fromCache = res.headers.get('X-Md-Offline') === '1';      // 圏外でサービスワーカーが控えを返した
     return await res.json();
   } catch (e) { return null; }
 }
+/* 前回の表示（サービスワーカーの控え）。開いた瞬間にこれで描き、通信が終わったら新しいほうに差し替える */
+const SW_CACHE = 'market-v2';     // sw.js の CACHE と同じ名前
+async function cachedJson(path) {
+  try {
+    if (!('caches' in window)) return null;
+    const c = await caches.open(SW_CACHE);
+    const res = await c.match(new URL(path, location.href).href.split('?')[0]);
+    return res ? await res.json() : null;
+  } catch (e) { return null; }
+}
+const CORE = ['data/latest.json', 'data/ledger.json', 'data/weekly.json', 'data/thermo.json'];
+const coreKey = (latest, ledger, weekly, thermo) => [latest && latest.generated_at, thermo && thermo.generated_at, ledger && ledger.updated_at,
+  weekly && weekly.generated_at].join('|');
+let fromCache = false;
+let OFFLINE = false;              // 最新を取れず、前回の表示を出している
+async function prime() {
+  const got = await Promise.all(CORE.map(cachedJson));
+  if (loadedKey || !got[0]) return;          // 通信のほうが先に終わった・控えが無い
+  applyCore(got);
+  render();
+}
+function applyCore([latest, ledger, weekly, thermo]) {
+  loadedKey = coreKey(latest, ledger, weekly, thermo);
+  if (latest) DATA = latest;
+  else if (!DATA) { DATA = { slots: {} }; $('headDate').textContent = 'データを読み込めませんでした'; }
+  LEDGER = ledger;
+  WEEKLY = weekly;
+  THERMO = thermo;
+  const st = slotStamp();
+  if (!activeSlot || st !== lastStamp) activeSlot = defaultSlot();
+  lastStamp = st;
+  VIEWS.forEach((v) => dirty.add(v));
+}
+let lastStamp = null;
 
 async function loadHistory() {
   const idx = await fetchJson('data/history/index.json');
@@ -7075,28 +7148,69 @@ async function loadHistory() {
 
 let loadedKey = null;
 async function load() {
-  const [latest, ledger, weekly, thermo] = await Promise.all([
-    fetchJson('data/latest.json'), fetchJson('data/ledger.json'), fetchJson('data/weekly.json'),
-    fetchJson('data/thermo.json')]);
+  const btn = $('reloadBtn');
+  btn.classList.add('is-busy');
+  const got = await Promise.all(CORE.map(fetchJson));
+  btn.classList.remove('is-busy');
+  const wasOffline = OFFLINE;
+  OFFLINE = !got[0] || fromCache;
+  if (!got[0] && DATA && Object.keys(DATA.slots || {}).length) {       // 取れなかった: 前回の表示のまま、そう書く
+    if (!wasOffline) updateFreshness();
+    if (!HIST.loaded) { await loadHistory(); ['chapter', 'analysis'].forEach((v) => dirty.add(v)); }
+    return;
+  }
   // 中身が変わっていなければ描き直さない（アプリを行き来しても、入力中の「買えた」やチェックが消えないように）
-  const key = [latest && latest.generated_at, thermo && thermo.generated_at, ledger && ledger.updated_at,
-    weekly && weekly.generated_at].join('|');
-  if (key === loadedKey && HIST.loaded) return;
-  if (loadedKey && BARS) { BARS = null; barsLoading = null; }      // データが更新されたら日足も読み直す
-  loadedKey = key;
-  if (latest) DATA = latest;
-  else if (!DATA) { DATA = { slots: {} }; $('headDate').textContent = 'データを読み込めませんでした'; }
-  LEDGER = ledger;
-  WEEKLY = weekly;
-  THERMO = thermo;
-  if (!activeSlot) activeSlot = defaultSlot();
-  VIEWS.forEach((v) => dirty.add(v));
-  render();
-  if ($('stockSheet').open) drawSheetBody(false);
+  const key = coreKey(...got);
+  if (key === loadedKey) {
+    if (wasOffline !== OFFLINE) updateFreshness();
+    if (HIST.loaded) return;
+  } else {
+    if (loadedKey && BARS) { BARS = null; barsLoading = null; }      // データが更新されたら日足も読み直す
+    applyCore(got);
+    render();
+    if ($('stockSheet').open) drawSheetBody(false);
+  }
   await loadHistory();
   // 履歴を使う画面（推移・業種の8日・検索・目次の推移）だけ描き直し印を付ける
   ['chapter', 'analysis'].forEach((v) => dirty.add(v));
   if (activeView === 'analysis' || (activeView === 'chapter' && ['trend', 'strength'].includes(activeChapter))) render();
+}
+
+/* 自己点検（URL の末尾に ?check）。すべての画面・章・区分と銘柄シートを実際に描き、描けなかったカード・高さ・字数を一覧にする。
+   画面を直したら必ず開く（DESIGN.md 35章。11/2〜11/13 は「今日」が真っ白のまま気づけなかった） */
+async function selfCheck() {
+  const rows = [];
+  const run = (label, fn) => {
+    ERRS.length = 0;
+    let fatal = null, el = null;
+    try { el = fn(); } catch (e) { fatal = String((e && e.message) || e); }
+    rows.push({ label, h: el ? el.scrollHeight : 0, chars: el ? el.textContent.length : 0,
+      errs: ERRS.map((x) => `${x.name}: ${x.msg}`).concat(fatal ? ['画面ごと: ' + fatal] : []) });
+  };
+  try { await loadBars(); } catch (e) { /* 図は日足なしでも描ける */ }
+  const keep = activeSlot;
+  ['today', 'trade', 'analysis'].forEach((v) => run(VIEW_TITLE[v], () => { dirty.add(v); showView(v); return $('view-' + v); }));
+  CHAPTERS.forEach((id) => (CH_SLOTS[id] || [null]).forEach((s) => {
+    if (s && !slotData(s)) return;
+    run(`章: ${CH_NAME[id]}${s ? '（' + SLOT_LABEL[s] + '）' : ''}`, () => { if (s) activeSlot = s; activeChapter = id; dirty.add('chapter'); showView('chapter'); return $('view-chapter'); });
+  }));
+  activeSlot = keep;
+  const sw = SW() || {};
+  const codes = [...new Set([...picksItems().map(([o]) => o.code), ...(sw.near || []).map((n) => n.code), ...readPos().map((p) => p.code), ...readHold().map((p) => p.code),
+    ...Object.keys((THERMO || {}).stocks || {}).slice(0, 12)])].slice(0, 20);
+  codes.forEach((c) => ['buy', 'sell'].forEach((intent) => run(`銘柄シート: ${c}（${intent === 'sell' ? '売る前' : '買う前'}）`, () => safe('銘柄シート ' + c, () => { sheetState = { mode: 'stock', code: c, intent }; return stockView(c); }))));
+  sheetState = null;
+  showView('today');
+  const bad = rows.filter((r) => r.errs.length);
+  window.__check = { ok: !bad.length, bad, rows };
+  const el = $('view-today');
+  el.textContent = '';
+  el.appendChild(card('自己点検', `${rows.length}面`, [
+    h('p', { class: 'check__sum ' + (bad.length ? 'down' : 'up'), text: bad.length ? `描けなかったカードが ${bad.length}面にあります` : 'すべての画面・章・銘柄シートを描けました' }),
+    h('table', { class: 'table' }, [h('tbody', {}, rows.map((r) => h('tr', {}, [
+      h('td', {}, [document.createTextNode(r.label), ...r.errs.map((e) => h('div', { class: 'down', style: 'font-size:11px', text: e }))]),
+      h('td', { class: 'num', text: `${r.h.toLocaleString('ja-JP')}px` }), h('td', { class: 'num', text: `${r.chars.toLocaleString('ja-JP')}字` })])))]),
+  ], '高さはこの画面の幅での縦の長さ。この端末に入れた持ち株・注文の状態で描いています。'));
 }
 
 /* 以前の画面の名前（sessionStorage に残っていることがある）を新しい画面に読み替える */
@@ -7133,7 +7247,10 @@ function boot() {
   const saved = (() => { try { return sessionStorage.getItem(LS.view); } catch (e) { return null; } })();
   const view = OLD_VIEW[saved] || saved;
   showView(view && ['today', 'trade', 'analysis'].includes(view) ? view : 'today');
-  load();
+  const checking = /[?&]check\b/.test(location.search);
+  if (!checking) prime();                    // 前回の表示を先に出す（通信が終わったら差し替える）
+  const first = load();
+  if (checking) { first.then(selfCheck); return; }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
   setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
   if ('serviceWorker' in navigator) {

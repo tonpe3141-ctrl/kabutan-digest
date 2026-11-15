@@ -59,8 +59,8 @@ def check(key: str, v: dict) -> list[str]:
                 errs.append(f"ai_review: {f} は文字列の配列")
         if not isinstance(v.get("gist") or "", str):
             errs.append("ai_review: gist は文字列")
-    if key == "ai_commentary" and not isinstance(v.get("gist") or "", str):
-        errs.append("ai_commentary: gist は文字列")
+    if key in ("ai_commentary", "ai_macro") and not isinstance(v.get("gist") or "", str):
+        errs.append(f"{key}: gist は文字列")
     if key in ("ai_commentary", "ai_macro", "ai_review"):
         if not v.get("headline") or not v.get("sections"):
             errs.append(f"{key}: headline と sections が要る")
