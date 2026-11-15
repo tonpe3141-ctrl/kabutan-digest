@@ -2491,6 +2491,10 @@ function pickCard(o, kind, rank, day, inSheet) {
   return foldRow('pickrow', summary, body, false);
 }
 
+// 落ち込みは過去の範囲か（4年の四本値・510銘柄・本番どおりの口座の研究。DESIGN.md 36章）。相場の急落で注文を止める案は入れていない
+const DRAWDOWN_NOTE = '4年の再現でも、約40営業日で −14%前後の落ち込みが2回あり（2024年8月・2026年7月）、高値の回復まで4か月と3週間でした。' +
+  '急落の日とその後5営業日は注文を置かない・日経が200日線の下では置かない案は、後半で年率を半分近くに下げたので入れていません（急落の日の注文は前半も後半もこのルールでいちばん成績が良い）。';
+
 /* 候補が信頼できるかを1行で（アプリが実際に出した注文の結果・過去4年の再現の口座・比べる相手つきの勝率）。押すと検証 */
 function trustLine() {
   const sw = SW() || {};
@@ -3556,7 +3560,8 @@ function statsCard() {
       h('div', { class: 'decision__bh', text: `このアプリが出した注文の実績（${md(p.since)}〜・${p.issued}件）` }),
       h('p', { class: 'stats__line', text: p.n
         ? `結果が出た ${p.n}回: 勝率 ${p.win}%・平均 ${fmtPct(p.avg, 2)}` + (isNum(p.pf) ? `・PF ${p.pf.toFixed(2)}` : '') +
-          `。約定率 ${isNum(p.fill) ? p.fill + '%' : '—'}、保有中 ${p.open || 0}件。`
+          `。約定率 ${isNum(p.fill) ? p.fill + '%' : '—'}、保有中 ${p.open || 0}件` + (isNum(p.open_avg) ? `（含み 平均 ${fmtPct(p.open_avg, 1)}）` : '') + '。' +
+          ((p.account || {}).final < 1 ? DRAWDOWN_NOTE : '')
         : `まだ結果が出た注文はありません（${isNum(p.fill) ? `約定率 ${p.fill}%、` : ''}保有中 ${p.open || 0}件）。検証と同じ規則で、四本値から約定・手仕舞いを測ります。` }),
       h('div', {}, recent.map((e) => h('div', { class: 'paper__row' }, [
         h('span', { class: 'paper__d num', text: md(e.asof) }),
@@ -3613,7 +3618,9 @@ function midStatsCard() {
     body.push(h('div', { class: 'decision__block' }, [
       h('div', { class: 'decision__bh', text: `このアプリが出した中期の注文の実績（${md(p.since)}〜・${p.issued}件）` }),
       h('p', { class: 'stats__line', text: p.n
-        ? `結果が出た ${p.n}回: 勝率 ${p.win}%・平均 ${fmtPct(p.avg, 2)}。約定率 ${isNum(p.fill) ? p.fill + '%' : '—'}、保有中 ${p.open || 0}件。`
+        ? `結果が出た ${p.n}回: 勝率 ${p.win}%・平均 ${fmtPct(p.avg, 2)}。約定率 ${isNum(p.fill) ? p.fill + '%' : '—'}、保有中 ${p.open || 0}件` +
+          (isNum(p.open_avg) ? `（含み 平均 ${fmtPct(p.open_avg, 1)}・プラス ${p.open_up}件）` : '') + '。' +
+          (p.win === 0 || !isNum(p.avg_win) ? `売りの指値を置かず${r.mid_hold}営業日持つので、始めて3か月は結果が出た回が損切りだけになります。伸びている分は保有中の含みで見てください。` : '')
         : `まだ結果が出た注文はありません（${isNum(p.fill) ? `約定率 ${p.fill}%、` : ''}保有中 ${p.open || 0}件）。${r.mid_hold}営業日持つので、結果が出るまで3か月ほどかかります。` }),
       h('div', {}, recent.map((e) => h('div', { class: 'paper__row' }, [
         h('span', { class: 'paper__d num', text: md(e.asof) }),
@@ -6511,7 +6518,8 @@ const CH_INFO = {
     const curve = (pa.curve || acc.curve || []).map((x) => x[1]);
     return {
       title: p.n && isNum(pa.final) ? `アプリの注文は${p.n}回で勝ち${p.win}%、口座は${fmtPct((pa.final - 1) * 100, 1)}` : 'ルールと判定は効いているか',
-      dek: '4年の再現（今の採用銘柄だけで測った生存者の偏りあり・急落に弱い）と、アプリが実際に出した注文の結果を並べています。勝率は高いが、負けは1回が大きい。',
+      dek: '4年の再現（今の採用銘柄だけで測った生存者の偏りあり・急落に弱い）と、アプリが実際に出した注文の結果を並べています。勝率は高いが、負けは1回が大きい。' +
+        (isNum(pa.final) && pa.final < 1 ? 'いまの落ち込みは4年の再現の最大（約40営業日で −14%前後）と同じくらいで、急落で注文を止める案は検証で入れませんでした（短期の押し目買いの節）。' : ''),
       when: THERMO ? `${String(THERMO.generated_at || '').slice(5, 16).replace('T', ' ')} 生成` : null,
       stamp: sw.asof || null, stats: stats.slice(0, 4), cols: 2, mini: curve.length > 3 ? miniLine(curve, { zero: 1, extra: [1], tone: curve[curve.length - 1] >= 1 ? 'up' : 'down' }) : null,
     };
