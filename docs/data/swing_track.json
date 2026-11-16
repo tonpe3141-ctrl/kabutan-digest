@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-11-13",
+"updated_at": "2026-11-16",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -1319,14 +1319,16 @@
 "name": "ＮＥＣ",
 "limit": 4850,
 "stop": 4256.5,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-10-30",
 "entry": 4854.36,
-"days": 10,
-"open": true,
-"last": 4315.0
+"days": 11,
+"out": "2026-11-16",
+"exit": 4256.5,
+"why": "stop",
+"ret": -12.42
 },
 {
 "asof": "2026-10-29",
@@ -1484,9 +1486,9 @@
 "filled": true,
 "in": "2026-11-04",
 "entry": 3556.39,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 3133.0
+"last": 2852.5
 },
 {
 "asof": "2026-11-02",
@@ -1536,9 +1538,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 7259.71,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 6955.0
+"last": 6700.0
 },
 {
 "asof": "2026-11-04",
@@ -1812,35 +1814,46 @@
 "filled": true,
 "in": "2026-11-13",
 "entry": 3978.57,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3880.0
+"last": 3625.0
+},
+{
+"asof": "2026-11-16",
+"code": "4478",
+"name": "フリー",
+"limit": 3480,
+"stop": 2625,
+"done": false,
+"earn": "none"
 }
 ],
 "stats": {
-"n": 52,
-"win": 73,
-"avg": -2.04,
-"med": 0.45,
-"pf": 0.43,
+"n": 53,
+"win": 72,
+"avg": -2.23,
+"med": 0.43,
+"pf": 0.4,
 "avg_win": 2.1,
-"avg_loss": -13.28,
+"avg_loss": -13.23,
 "worst": -25.95,
-"days": 4.2,
+"days": 4.3,
 "d2": 15,
-"per_day": -0.49,
-"stops": 21,
-"sells": 73,
+"per_day": -0.52,
+"stops": 23,
+"sells": 72,
 "times": 6,
 "small": 25,
-"big_loss": 25,
+"big_loss": 26,
 "fill": 42,
-"open": 7,
-"issued": 145,
+"open": 6,
+"open_avg": -6.7,
+"open_up": 2,
+"issued": 146,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-11-13",
+"updated_at": "2026-11-16",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -1853,9 +1866,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 29,
+"days": 30,
 "open": true,
-"last": 2316.5
+"last": 2318.5
 },
 {
 "asof": "2026-10-01",
@@ -2548,9 +2561,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 11,
+"days": 12,
 "open": true,
-"last": 3811.0
+"last": 4179.0
 },
 {
 "asof": "2026-10-29",
@@ -2806,9 +2819,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 25420.0
+"last": 22940.0
 },
 {
 "asof": "2026-11-05",
@@ -2822,9 +2835,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 5440.0
+"last": 5100.0
 },
 {
 "asof": "2026-11-05",
@@ -2838,9 +2851,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 8870.0
+"last": 8260.0
 },
 {
 "asof": "2026-11-05",
@@ -2854,9 +2867,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 30610.0
+"last": 27205.0
 },
 {
 "asof": "2026-11-05",
@@ -2870,9 +2883,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 4560.0
+"last": 4494.0
 },
 {
 "asof": "2026-11-05",
@@ -2915,9 +2928,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1510.68,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 1629.5
+"last": 1564.0
 },
 {
 "asof": "2026-11-06",
@@ -2964,9 +2977,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1929.64,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 1980.0
+"last": 1701.0
 },
 {
 "asof": "2026-11-09",
@@ -3043,6 +3056,8 @@
 "big_loss": 61,
 "fill": 48,
 "open": 9,
+"open_avg": 9.8,
+"open_up": 8,
 "issued": 84,
 "since": "2026-10-01"
 }
