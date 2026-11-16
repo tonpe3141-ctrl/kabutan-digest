@@ -8208,7 +8208,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "出来高急増と年初来高値が重なった。材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8237,7 +8237,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "決算で商いが膨らんだ。決算の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8269,8 +8269,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "26年12月期の上期の純利益は377億円（決算速報）。直近3か月は+350%、利益率は10.6%→19.6%に改善（引け後の開示）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d219bd3fe8afeff446559bbfa90f2302498f1f7f",
    "tracked_by": "日足"
   },
   {
@@ -8298,7 +8298,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "上方修正・増配の数字に引っかかったが、開示の中身は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8327,7 +8327,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "場中に決算短信を開示した。上方修正・増配の数字に引っかかったが、内容は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   }
