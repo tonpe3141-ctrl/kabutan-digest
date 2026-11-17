@@ -1486,9 +1486,9 @@
 "filled": true,
 "in": "2026-11-04",
 "entry": 3556.39,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 2852.5
+"last": 2835.0
 },
 {
 "asof": "2026-11-02",
@@ -1538,9 +1538,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 7259.71,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 6700.0
+"last": 6669.0
 },
 {
 "asof": "2026-11-04",
@@ -1814,16 +1814,49 @@
 "filled": true,
 "in": "2026-11-13",
 "entry": 3978.57,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3625.0
+"last": 3535.0
 },
 {
 "asof": "2026-11-16",
 "code": "4478",
 "name": "フリー",
 "limit": 3480,
-"stop": 2625,
+"stop": 2627.5,
+"done": false,
+"earn": "none",
+"filled": true,
+"in": "2026-11-17",
+"entry": 3482.5,
+"days": 1,
+"open": true,
+"last": 3535.0
+},
+{
+"asof": "2026-11-17",
+"code": "3042",
+"name": "セキュアヴェイル",
+"limit": 589,
+"stop": 29,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "2413",
+"name": "エムスリー",
+"limit": 1777,
+"stop": 1586,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "4478",
+"name": "フリー",
+"limit": 3390,
+"stop": 2529,
 "done": false,
 "earn": "none"
 }
@@ -1846,10 +1879,10 @@
 "small": 25,
 "big_loss": 26,
 "fill": 42,
-"open": 6,
-"open_avg": -6.7,
-"open_up": 2,
-"issued": 146,
+"open": 7,
+"open_avg": -5.98,
+"open_up": 3,
+"issued": 149,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1866,9 +1899,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 30,
+"days": 31,
 "open": true,
-"last": 2318.5
+"last": 2284.5
 },
 {
 "asof": "2026-10-01",
@@ -2561,9 +2594,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 4179.0
+"last": 4259.0
 },
 {
 "asof": "2026-10-29",
@@ -2819,9 +2852,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 22940.0
+"last": 22930.0
 },
 {
 "asof": "2026-11-05",
@@ -2835,9 +2868,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 5100.0
+"last": 4990.0
 },
 {
 "asof": "2026-11-05",
@@ -2851,9 +2884,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 8260.0
+"last": 7800.0
 },
 {
 "asof": "2026-11-05",
@@ -2867,9 +2900,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 27205.0
+"last": 26010.0
 },
 {
 "asof": "2026-11-05",
@@ -2883,9 +2916,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 4494.0
+"last": 4404.0
 },
 {
 "asof": "2026-11-05",
@@ -2928,9 +2961,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1510.68,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 1564.0
+"last": 1547.0
 },
 {
 "asof": "2026-11-06",
@@ -2977,9 +3010,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1929.64,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 1701.0
+"last": 1613.0
 },
 {
 "asof": "2026-11-09",
@@ -3035,6 +3068,66 @@
 "low": 2994.0,
 "earn": "up",
 "filled": false
+},
+{
+"asof": "2026-11-17",
+"code": "6203",
+"name": "豊和工業",
+"limit": 1617,
+"stop": 1438,
+"done": false,
+"low": 1707.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "6861",
+"name": "キーエンス",
+"limit": 70900,
+"stop": 66600,
+"done": false,
+"low": 69750.0,
+"earn": "none"
+},
+{
+"asof": "2026-11-17",
+"code": "8306",
+"name": "三菱ＵＦＪ",
+"limit": 3225,
+"stop": 3100,
+"done": false,
+"low": 3224.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "8308",
+"name": "りそなＨＤ",
+"limit": 2125,
+"stop": 2015,
+"done": false,
+"low": 2108.5,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "8331",
+"name": "千葉銀",
+"limit": 2415,
+"stop": 2262,
+"done": false,
+"low": 2371.5,
+"earn": "up"
+},
+{
+"asof": "2026-11-17",
+"code": "8316",
+"name": "三井住友ＦＧ",
+"limit": 3075,
+"stop": 2889,
+"done": false,
+"low": 3008.0,
+"earn": "up"
 }
 ],
 "stats": {
@@ -3056,9 +3149,9 @@
 "big_loss": 61,
 "fill": 48,
 "open": 9,
-"open_avg": 9.8,
+"open_avg": 7.46,
 "open_up": 8,
-"issued": 84,
+"issued": 90,
 "since": "2026-10-01"
 }
 }
