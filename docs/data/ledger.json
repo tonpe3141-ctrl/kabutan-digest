@@ -8368,8 +8368,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "グロースで年初来高値を更新した（株探）。出来高急増と重なったが、材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/e76e5a0fe4f7cf2601682db55112bbfd35896ec6",
    "tracked_by": "日足"
   },
   {
@@ -8397,8 +8397,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "スタンダードで年初来高値を更新した（株探）。商いも膨らんだが、材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/c84971d6ed812828fbce2fd2acd1690877f06e8c",
    "tracked_by": "日足"
   }
  ],
