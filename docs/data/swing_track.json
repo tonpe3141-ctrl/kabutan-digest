@@ -1481,14 +1481,16 @@
 "name": "マクニカホールディングス",
 "limit": 3555,
 "stop": 2664.75,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-11-04",
 "entry": 3556.39,
-"days": 10,
-"open": true,
-"last": 2835.0
+"days": 11,
+"out": "2026-11-18",
+"exit": 2967.0,
+"why": "time",
+"ret": -16.67
 },
 {
 "asof": "2026-11-02",
@@ -1538,9 +1540,9 @@
 "filled": true,
 "in": "2026-11-05",
 "entry": 7259.71,
-"days": 9,
+"days": 10,
 "open": true,
-"last": 6669.0
+"last": 6757.0
 },
 {
 "asof": "2026-11-04",
@@ -1814,9 +1816,9 @@
 "filled": true,
 "in": "2026-11-13",
 "entry": 3978.57,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 3535.0
+"last": 3270.0
 },
 {
 "asof": "2026-11-16",
@@ -1829,9 +1831,9 @@
 "filled": true,
 "in": "2026-11-17",
 "entry": 3482.5,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3535.0
+"last": 3270.0
 },
 {
 "asof": "2026-11-17",
@@ -1847,42 +1849,99 @@
 "code": "2413",
 "name": "エムスリー",
 "limit": 1777,
-"stop": 1586,
+"stop": 1580.39,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-18",
+"entry": 1771.0,
+"days": 1,
+"open": true,
+"last": 1732.5
 },
 {
 "asof": "2026-11-17",
 "code": "4478",
 "name": "フリー",
 "limit": 3390,
-"stop": 2529,
+"stop": 2531.25,
+"done": false,
+"earn": "none",
+"filled": true,
+"in": "2026-11-18",
+"entry": 3391.61,
+"days": 1,
+"open": true,
+"last": 3270.0
+},
+{
+"asof": "2026-11-18",
+"code": "4478",
+"name": "フリー",
+"limit": 3120,
+"stop": 2240,
 "done": false,
 "earn": "none"
+},
+{
+"asof": "2026-11-18",
+"code": "2413",
+"name": "エムスリー",
+"limit": 1699,
+"stop": 1498,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-18",
+"code": "7752",
+"name": "リコー",
+"limit": 1589,
+"stop": 1418,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-18",
+"code": "3697",
+"name": "ＳＨＩＦＴ",
+"limit": 1000,
+"stop": 835,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-18",
+"code": "3994",
+"name": "マネーフォワード",
+"limit": 6620,
+"stop": 5510,
+"done": false,
+"earn": "up"
 }
 ],
 "stats": {
-"n": 53,
-"win": 72,
-"avg": -2.23,
-"med": 0.43,
-"pf": 0.4,
+"n": 54,
+"win": 70,
+"avg": -2.5,
+"med": 0.42,
+"pf": 0.37,
 "avg_win": 2.1,
-"avg_loss": -13.23,
+"avg_loss": -13.44,
 "worst": -25.95,
-"days": 4.3,
+"days": 4.4,
 "d2": 15,
-"per_day": -0.52,
-"stops": 23,
-"sells": 72,
-"times": 6,
-"small": 25,
-"big_loss": 26,
-"fill": 42,
-"open": 7,
-"open_avg": -5.98,
-"open_up": 3,
-"issued": 149,
+"per_day": -0.57,
+"stops": 22,
+"sells": 70,
+"times": 7,
+"small": 24,
+"big_loss": 28,
+"fill": 43,
+"open": 8,
+"open_avg": -5.05,
+"open_up": 2,
+"issued": 154,
 "since": "2026-09-25"
 },
 "mid": {
@@ -1899,9 +1958,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 31,
+"days": 32,
 "open": true,
-"last": 2284.5
+"last": 2208.5
 },
 {
 "asof": "2026-10-01",
@@ -2594,9 +2653,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 4259.0
+"last": 4225.0
 },
 {
 "asof": "2026-10-29",
@@ -2852,9 +2911,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 22930.0
+"last": 23100.0
 },
 {
 "asof": "2026-11-05",
@@ -2868,9 +2927,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 4990.0
+"last": 5220.0
 },
 {
 "asof": "2026-11-05",
@@ -2884,9 +2943,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 7800.0
+"last": 8050.0
 },
 {
 "asof": "2026-11-05",
@@ -2900,9 +2959,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 26010.0
+"last": 27195.0
 },
 {
 "asof": "2026-11-05",
@@ -2961,9 +3020,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1510.68,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 1547.0
+"last": 1565.5
 },
 {
 "asof": "2026-11-06",
@@ -3075,9 +3134,10 @@
 "name": "豊和工業",
 "limit": 1617,
 "stop": 1438,
-"done": false,
+"done": true,
 "low": 1707.0,
-"earn": "up"
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-17",
@@ -3085,46 +3145,91 @@
 "name": "キーエンス",
 "limit": 70900,
 "stop": 66600,
-"done": false,
+"done": true,
 "low": 69750.0,
-"earn": "none"
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-11-17",
 "code": "8306",
 "name": "三菱ＵＦＪ",
 "limit": 3225,
-"stop": 3100,
+"stop": 3101.86,
 "done": false,
 "low": 3224.0,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-18",
+"entry": 3225.93,
+"days": 1,
+"open": true,
+"last": 3251.0
 },
 {
 "asof": "2026-11-17",
 "code": "8308",
 "name": "りそなＨＤ",
 "limit": 2125,
-"stop": 2015,
+"stop": 2015.61,
 "done": false,
 "low": 2108.5,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-18",
+"entry": 2125.05,
+"days": 1,
+"open": true,
+"last": 2127.0
 },
 {
 "asof": "2026-11-17",
 "code": "8331",
 "name": "千葉銀",
 "limit": 2415,
-"stop": 2262,
+"stop": 2262.79,
 "done": false,
 "low": 2371.5,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-18",
+"entry": 2415.64,
+"days": 1,
+"open": true,
+"last": 2445.0
 },
 {
 "asof": "2026-11-17",
 "code": "8316",
 "name": "三井住友ＦＧ",
 "limit": 3075,
-"stop": 2889,
+"stop": 2889.57,
+"done": false,
+"low": 3008.0,
+"earn": "up",
+"filled": true,
+"in": "2026-11-18",
+"entry": 3078.79,
+"days": 1,
+"open": true,
+"last": 3101.0
+},
+{
+"asof": "2026-11-18",
+"code": "8306",
+"name": "三菱ＵＦＪ",
+"limit": 3185,
+"stop": 3060,
+"done": false,
+"low": 3224.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-18",
+"code": "8316",
+"name": "三井住友ＦＧ",
+"limit": 3040,
+"stop": 2888,
 "done": false,
 "low": 3008.0,
 "earn": "up"
@@ -3147,11 +3252,11 @@
 "times": 0,
 "small": 0,
 "big_loss": 61,
-"fill": 48,
-"open": 9,
-"open_avg": 7.46,
-"open_up": 8,
-"issued": 90,
+"fill": 49,
+"open": 13,
+"open_avg": 6.22,
+"open_up": 12,
+"issued": 92,
 "since": "2026-10-01"
 }
 }
