@@ -2975,9 +2975,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 8,
+"days": 9,
 "open": true,
-"last": 4404.0
+"last": 4376.0
 },
 {
 "asof": "2026-11-05",
@@ -3069,9 +3069,9 @@
 "filled": true,
 "in": "2026-11-09",
 "entry": 1929.64,
-"days": 7,
+"days": 8,
 "open": true,
-"last": 1613.0
+"last": 1651.0
 },
 {
 "asof": "2026-11-09",
@@ -3254,7 +3254,7 @@
 "big_loss": 61,
 "fill": 49,
 "open": 13,
-"open_avg": 6.22,
+"open_avg": 6.32,
 "open_up": 12,
 "issued": 92,
 "since": "2026-10-01"
