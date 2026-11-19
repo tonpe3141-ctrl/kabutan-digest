@@ -2230,8 +2230,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値と商いで台帳に入ったが、今日は値下がり率上位に売られた。材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/8ce36000d3b316929b6bee3b7a053f93c0682b5c",
    "tracked_by": "日足"
   },
   {
@@ -8468,7 +8468,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "出来高急増と上昇、テーマ初動で台帳入り。創薬ベンチャーのテーマ全体が大幅高で、業種ぐるみの動き。個別の材料は要約に無く、裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8495,8 +8495,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "スタンダードの値上がり率上位に買われ、年初来高値と商いで台帳入り。材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/8ce36000d3b316929b6bee3b7a053f93c0682b5c"
   },
   {
    "code": "9837",
@@ -8523,8 +8523,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "場中に今期の年間配当を72円から75円へ3円増額した。後場にプラス転換した（開示・報道）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/695df91631b0a3e07206f4a13630104d9975d2b5",
    "tracked_by": "日足"
   }
  ],
