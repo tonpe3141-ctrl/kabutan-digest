@@ -69353,9 +69353,17 @@
 "buy_chg": -32700,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 169000,
+"sell": 0,
+"buy_chg": -4100,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4894": {
 "hist": [
@@ -73458,9 +73466,17 @@
 "buy_chg": -24300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 501100,
+"sell": 0,
+"buy_chg": 14400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "476A": {
 "hist": [
@@ -74568,9 +74584,17 @@
 "buy_chg": -14700,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 71800,
+"sell": 0,
+"buy_chg": -6800,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4073": {
 "hist": [
@@ -76703,9 +76727,17 @@
 "buy_chg": -34300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 136200,
+"sell": 0,
+"buy_chg": 3200,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "7713": {
 "hist": [
@@ -79538,9 +79570,17 @@
 "buy_chg": -114500,
 "sell_chg": -56800,
 "ratio": 3.02
+},
+{
+"date": "2026-11-13",
+"buy": 813700,
+"sell": 223500,
+"buy_chg": -25100,
+"sell_chg": -54000,
+"ratio": 3.64
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6505": {
 "hist": [
@@ -81082,9 +81122,17 @@
 "buy_chg": -14500,
 "sell_chg": -17300,
 "ratio": 3.23
+},
+{
+"date": "2026-11-13",
+"buy": 817000,
+"sell": 209900,
+"buy_chg": -5200,
+"sell_chg": -44300,
+"ratio": 3.89
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6255": {
 "hist": [
@@ -81689,9 +81737,17 @@
 "buy_chg": -16500,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 199100,
+"sell": 0,
+"buy_chg": -1700,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5572": {
 "hist": [
@@ -84468,9 +84524,17 @@
 "buy_chg": -56300,
 "sell_chg": -57800,
 "ratio": 2.14
+},
+{
+"date": "2026-11-13",
+"buy": 1040000,
+"sell": 463800,
+"buy_chg": -25900,
+"sell_chg": -33600,
+"ratio": 2.24
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4875": {
 "hist": [
@@ -85059,9 +85123,17 @@
 "buy_chg": -1300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 7400,
+"sell": 0,
+"buy_chg": 3200,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9556": {
 "hist": [
@@ -85956,9 +86028,17 @@
 "buy_chg": -5600,
 "sell_chg": -8900,
 "ratio": 67.26
+},
+{
+"date": "2026-11-13",
+"buy": 179600,
+"sell": 2200,
+"buy_chg": -28900,
+"sell_chg": -900,
+"ratio": 81.64
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4011": {
 "hist": [
@@ -86153,9 +86233,17 @@
 "buy_chg": -5400,
 "sell_chg": 0,
 "ratio": 2104.0
+},
+{
+"date": "2026-11-13",
+"buy": 225400,
+"sell": 0,
+"buy_chg": 15000,
+"sell_chg": -100,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4583": {
 "hist": [
@@ -86350,9 +86438,17 @@
 "buy_chg": -809000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 5735000,
+"sell": 0,
+"buy_chg": -118400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4575": {
 "hist": [
@@ -87271,9 +87367,17 @@
 "buy_chg": -600,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 2000,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4960": {
 "hist": [
@@ -87665,9 +87769,17 @@
 "buy_chg": -9400,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 1793700,
+"sell": 0,
+"buy_chg": -176400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4438": {
 "hist": [
@@ -88775,9 +88887,33 @@
 "buy_chg": -19800,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-10-30",
+"buy": 158000,
+"sell": 11000,
+"buy_chg": 3600,
+"sell_chg": 11000,
+"ratio": 14.36
+},
+{
+"date": "2026-11-06",
+"buy": 96000,
+"sell": 0,
+"buy_chg": -62000,
+"sell_chg": -11000,
+"ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 129900,
+"sell": 0,
+"buy_chg": 33900,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-10-30"
+"fetched": "2026-11-20"
 },
 "3678": {
 "hist": [
@@ -89350,9 +89486,17 @@
 "buy_chg": -23400,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 154800,
+"sell": 0,
+"buy_chg": -6500,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4442": {
 "hist": [
@@ -90098,9 +90242,17 @@
 "buy_chg": -77200,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 16971100,
+"sell": 0,
+"buy_chg": -317000,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2134": {
 "hist": [
@@ -90295,9 +90447,17 @@
 "buy_chg": -463700,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 8312700,
+"sell": 0,
+"buy_chg": 320400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5256": {
 "hist": [
@@ -90492,9 +90652,17 @@
 "buy_chg": 1000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 57700,
+"sell": 0,
+"buy_chg": -18400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6228": {
 "hist": [
@@ -91232,9 +91400,17 @@
 "buy_chg": -84100,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 631900,
+"sell": 0,
+"buy_chg": -34500,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "8798": {
 "hist": [
@@ -92688,9 +92864,17 @@
 "buy_chg": 25700,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 251800,
+"sell": 0,
+"buy_chg": -19100,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4178": {
 "hist": [
@@ -93058,9 +93242,17 @@
 "buy_chg": -29300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 3516900,
+"sell": 0,
+"buy_chg": -345500,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6294": {
 "hist": [
@@ -93255,9 +93447,17 @@
 "buy_chg": 3600,
 "sell_chg": 100,
 "ratio": 79.58
+},
+{
+"date": "2026-11-13",
+"buy": 140200,
+"sell": 500,
+"buy_chg": -11000,
+"sell_chg": -1400,
+"ratio": 280.4
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "7363": {
 "hist": [
@@ -99694,9 +99894,17 @@
 "buy_chg": 4000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 315000,
+"sell": 0,
+"buy_chg": -3000,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4880": {
 "hist": [
@@ -107219,9 +107427,17 @@
 "buy_chg": 6000,
 "sell_chg": -7800,
 "ratio": 1.25
+},
+{
+"date": "2026-11-13",
+"buy": 13900,
+"sell": 18100,
+"buy_chg": -5000,
+"sell_chg": 3000,
+"ratio": 0.77
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "3920": {
 "hist": [
@@ -107589,9 +107805,17 @@
 "buy_chg": -150400,
 "sell_chg": -5300,
 "ratio": 17.16
+},
+{
+"date": "2026-11-13",
+"buy": 340300,
+"sell": 19800,
+"buy_chg": -27000,
+"sell_chg": -1600,
+"ratio": 17.19
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9081": {
 "hist": [
@@ -107770,9 +107994,17 @@
 "buy_chg": -1700,
 "sell_chg": -5300,
 "ratio": 0.53
+},
+{
+"date": "2026-11-13",
+"buy": 3600,
+"sell": 6100,
+"buy_chg": 300,
+"sell_chg": -100,
+"ratio": 0.59
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "1960": {
 "hist": [
@@ -108140,9 +108372,17 @@
 "buy_chg": -17200,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 113000,
+"sell": 0,
+"buy_chg": 2300,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2926": {
 "hist": [
@@ -108321,9 +108561,17 @@
 "buy_chg": -25200,
 "sell_chg": -78000,
 "ratio": 16.14
+},
+{
+"date": "2026-11-13",
+"buy": 422200,
+"sell": 29700,
+"buy_chg": 2500,
+"sell_chg": 3700,
+"ratio": 14.22
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "3542": {
 "hist": [
@@ -108502,9 +108750,17 @@
 "buy_chg": -21500,
 "sell_chg": 2800,
 "ratio": 3.17
+},
+{
+"date": "2026-11-13",
+"buy": 92200,
+"sell": 27500,
+"buy_chg": 700,
+"sell_chg": -1400,
+"ratio": 3.35
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6400": {
 "hist": [
@@ -108683,9 +108939,17 @@
 "buy_chg": -32500,
 "sell_chg": -1900,
 "ratio": 114.72
+},
+{
+"date": "2026-11-13",
+"buy": 386400,
+"sell": 3700,
+"buy_chg": 19300,
+"sell_chg": 500,
+"ratio": 104.43
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2816": {
 "hist": [
@@ -117804,9 +118068,17 @@
 "buy_chg": -2400,
 "sell_chg": 400,
 "ratio": 13.83
+},
+{
+"date": "2026-11-13",
+"buy": 48600,
+"sell": 16200,
+"buy_chg": 32000,
+"sell_chg": 15000,
+"ratio": 3.0
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4931": {
 "hist": [
@@ -117969,9 +118241,17 @@
 "buy_chg": -700,
 "sell_chg": -2000,
 "ratio": 3.45
+},
+{
+"date": "2026-11-13",
+"buy": 17100,
+"sell": 7300,
+"buy_chg": -500,
+"sell_chg": 2200,
+"ratio": 2.34
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "3580": {
 "hist": [
@@ -118134,9 +118414,17 @@
 "buy_chg": 13900,
 "sell_chg": 1100,
 "ratio": 40.49
+},
+{
+"date": "2026-11-13",
+"buy": 227800,
+"sell": 5200,
+"buy_chg": 5100,
+"sell_chg": -300,
+"ratio": 43.81
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9991": {
 "hist": [
@@ -118299,9 +118587,17 @@
 "buy_chg": -13700,
 "sell_chg": -100,
 "ratio": 99.29
+},
+{
+"date": "2026-11-13",
+"buy": 65400,
+"sell": 800,
+"buy_chg": -4100,
+"sell_chg": 100,
+"ratio": 81.75
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "8920": {
 "hist": [
@@ -118464,9 +118760,17 @@
 "buy_chg": -8100,
 "sell_chg": -4900,
 "ratio": 80.19
+},
+{
+"date": "2026-11-13",
+"buy": 379700,
+"sell": 6300,
+"buy_chg": -5200,
+"sell_chg": 1500,
+"ratio": 60.27
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "150A": {
 "hist": [
@@ -118629,9 +118933,17 @@
 "buy_chg": 15600,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 422200,
+"sell": 1000,
+"buy_chg": -35900,
+"sell_chg": 1000,
+"ratio": 422.2
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6863": {
 "hist": [
@@ -118794,9 +119106,17 @@
 "buy_chg": -25900,
 "sell_chg": 200,
 "ratio": 2066.0
+},
+{
+"date": "2026-11-13",
+"buy": 381400,
+"sell": 0,
+"buy_chg": -31800,
+"sell_chg": -200,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5261": {
 "hist": [
@@ -118959,9 +119279,17 @@
 "buy_chg": -300,
 "sell_chg": 1200,
 "ratio": 4.1
+},
+{
+"date": "2026-11-13",
+"buy": 16400,
+"sell": 2700,
+"buy_chg": 400,
+"sell_chg": -1200,
+"ratio": 6.07
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5535": {
 "hist": [
@@ -119124,9 +119452,17 @@
 "buy_chg": 143500,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 3082300,
+"sell": 0,
+"buy_chg": 59800,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4538": {
 "hist": [
@@ -119289,9 +119625,17 @@
 "buy_chg": -6400,
 "sell_chg": -1500,
 "ratio": 13.58
+},
+{
+"date": "2026-11-13",
+"buy": 39400,
+"sell": 1300,
+"buy_chg": -2700,
+"sell_chg": -1800,
+"ratio": 30.31
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6165": {
 "hist": [
@@ -119454,9 +119798,17 @@
 "buy_chg": -31300,
 "sell_chg": -200,
 "ratio": 625.43
+},
+{
+"date": "2026-11-13",
+"buy": 862500,
+"sell": 900,
+"buy_chg": -13100,
+"sell_chg": -500,
+"ratio": 958.33
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "3695": {
 "hist": [
@@ -119619,9 +119971,17 @@
 "buy_chg": 6000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 153400,
+"sell": 100,
+"buy_chg": 12700,
+"sell_chg": 100,
+"ratio": 1534.0
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "4125": {
 "hist": [
@@ -119784,9 +120144,17 @@
 "buy_chg": -5400,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 94000,
+"sell": 0,
+"buy_chg": 20400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "7235": {
 "hist": [
@@ -119949,9 +120317,17 @@
 "buy_chg": -9300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 212800,
+"sell": 800,
+"buy_chg": 6800,
+"sell_chg": 800,
+"ratio": 266.0
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "1967": {
 "hist": [
@@ -120114,9 +120490,17 @@
 "buy_chg": -24500,
 "sell_chg": -4100,
 "ratio": 1.66
+},
+{
+"date": "2026-11-13",
+"buy": 40300,
+"sell": 22700,
+"buy_chg": -1300,
+"sell_chg": -2300,
+"ratio": 1.78
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6743": {
 "hist": [
@@ -120279,9 +120663,17 @@
 "buy_chg": 32800,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 108500,
+"sell": 0,
+"buy_chg": -81400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "416A": {
 "hist": [
@@ -120444,9 +120836,17 @@
 "buy_chg": 4800,
 "sell_chg": -3600,
 "ratio": 152.23
+},
+{
+"date": "2026-11-13",
+"buy": 165700,
+"sell": 900,
+"buy_chg": -32200,
+"sell_chg": -400,
+"ratio": 184.11
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2693": {
 "hist": [
@@ -120609,9 +121009,17 @@
 "buy_chg": -40000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 367500,
+"sell": 500,
+"buy_chg": -8000,
+"sell_chg": 500,
+"ratio": 735.0
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5820": {
 "hist": [
@@ -120774,9 +121182,17 @@
 "buy_chg": 5600,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 368200,
+"sell": 0,
+"buy_chg": -38400,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6678": {
 "hist": [
@@ -120939,9 +121355,17 @@
 "buy_chg": -14800,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 104000,
+"sell": 0,
+"buy_chg": -4100,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9475": {
 "hist": [
@@ -121104,9 +121528,17 @@
 "buy_chg": 4600,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 40000,
+"sell": 0,
+"buy_chg": 27900,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9823": {
 "hist": [
@@ -121442,9 +121874,17 @@
 "buy_chg": 61300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 336700,
+"sell": 0,
+"buy_chg": -4300,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2138": {
 "hist": [
@@ -121772,9 +122212,17 @@
 "buy_chg": 13100,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 652300,
+"sell": 4400,
+"buy_chg": 4100,
+"sell_chg": 4400,
+"ratio": 148.25
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "6837": {
 "hist": [
@@ -121937,9 +122385,17 @@
 "buy_chg": -27000,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 313600,
+"sell": 700,
+"buy_chg": 38200,
+"sell_chg": 700,
+"ratio": 448.0
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "5884": {
 "hist": [
@@ -122102,9 +122558,17 @@
 "buy_chg": 2300,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 400200,
+"sell": 0,
+"buy_chg": 1300,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "9083": {
 "hist": [
@@ -123257,9 +123721,17 @@
 "buy_chg": -21900,
 "sell_chg": 0,
 "ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 439800,
+"sell": 0,
+"buy_chg": -8000,
+"sell_chg": 0,
+"ratio": null
 }
 ],
-"fetched": "2026-11-13"
+"fetched": "2026-11-20"
 },
 "2722": {
 "hist": [
@@ -125240,7 +125712,502 @@
 }
 ],
 "fetched": "2026-11-20"
+},
+"3416": {
+"hist": [
+{
+"date": "2026-07-03",
+"buy": 69400,
+"sell": 0,
+"buy_chg": -1600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-10",
+"buy": 69400,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-17",
+"buy": 70000,
+"sell": 0,
+"buy_chg": 600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-24",
+"buy": 69600,
+"sell": 0,
+"buy_chg": -400,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-31",
+"buy": 69300,
+"sell": 0,
+"buy_chg": -300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-07",
+"buy": 68500,
+"sell": 0,
+"buy_chg": -800,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-14",
+"buy": 69400,
+"sell": 0,
+"buy_chg": 900,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-21",
+"buy": 69300,
+"sell": 0,
+"buy_chg": -100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-28",
+"buy": 70600,
+"sell": 0,
+"buy_chg": 1300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-04",
+"buy": 69400,
+"sell": 0,
+"buy_chg": -1200,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-11",
+"buy": 71400,
+"sell": 0,
+"buy_chg": 2000,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-18",
+"buy": 70800,
+"sell": 0,
+"buy_chg": -600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-25",
+"buy": 79200,
+"sell": 0,
+"buy_chg": 8400,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-02",
+"buy": 79300,
+"sell": 0,
+"buy_chg": 100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-09",
+"buy": 71400,
+"sell": 0,
+"buy_chg": -7900,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-16",
+"buy": 71100,
+"sell": 0,
+"buy_chg": -300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-23",
+"buy": 71000,
+"sell": 0,
+"buy_chg": -100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-30",
+"buy": 71000,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-06",
+"buy": 71300,
+"sell": 0,
+"buy_chg": 300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 71500,
+"sell": 0,
+"buy_chg": 200,
+"sell_chg": 0,
+"ratio": null
+}
+],
+"fetched": "2026-11-20"
+},
+"1438": {
+"hist": [
+{
+"date": "2026-07-03",
+"buy": 41600,
+"sell": 0,
+"buy_chg": 9400,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-10",
+"buy": 41900,
+"sell": 0,
+"buy_chg": 300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-17",
+"buy": 42200,
+"sell": 0,
+"buy_chg": 300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-24",
+"buy": 42300,
+"sell": 0,
+"buy_chg": 100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-31",
+"buy": 42900,
+"sell": 0,
+"buy_chg": 600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-07",
+"buy": 45900,
+"sell": 0,
+"buy_chg": 3000,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-14",
+"buy": 47500,
+"sell": 0,
+"buy_chg": 1600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-21",
+"buy": 47200,
+"sell": 0,
+"buy_chg": -300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-28",
+"buy": 46500,
+"sell": 0,
+"buy_chg": -700,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-04",
+"buy": 46600,
+"sell": 0,
+"buy_chg": 100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-11",
+"buy": 46600,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-18",
+"buy": 47300,
+"sell": 0,
+"buy_chg": 700,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-25",
+"buy": 47000,
+"sell": 0,
+"buy_chg": -300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-02",
+"buy": 46900,
+"sell": 0,
+"buy_chg": -100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-09",
+"buy": 46900,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-16",
+"buy": 47000,
+"sell": 0,
+"buy_chg": 100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-23",
+"buy": 47100,
+"sell": 0,
+"buy_chg": 100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-30",
+"buy": 54200,
+"sell": 0,
+"buy_chg": 7100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-06",
+"buy": 64400,
+"sell": 0,
+"buy_chg": 10200,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 65500,
+"sell": 100,
+"buy_chg": 1100,
+"sell_chg": 100,
+"ratio": 655.0
+}
+],
+"fetched": "2026-11-20"
+},
+"3625": {
+"hist": [
+{
+"date": "2026-07-03",
+"buy": 394400,
+"sell": 0,
+"buy_chg": 4200,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-10",
+"buy": 431800,
+"sell": 400,
+"buy_chg": 37400,
+"sell_chg": 400,
+"ratio": 1079.5
+},
+{
+"date": "2026-07-17",
+"buy": 412000,
+"sell": 0,
+"buy_chg": -19800,
+"sell_chg": -400,
+"ratio": null
+},
+{
+"date": "2026-07-24",
+"buy": 412500,
+"sell": 0,
+"buy_chg": 500,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-07-31",
+"buy": 376900,
+"sell": 0,
+"buy_chg": -35600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-07",
+"buy": 376900,
+"sell": 0,
+"buy_chg": 0,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-14",
+"buy": 372600,
+"sell": 0,
+"buy_chg": -4300,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-21",
+"buy": 368700,
+"sell": 0,
+"buy_chg": -3900,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-08-28",
+"buy": 360700,
+"sell": 0,
+"buy_chg": -8000,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-04",
+"buy": 361700,
+"sell": 0,
+"buy_chg": 1000,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-11",
+"buy": 363800,
+"sell": 0,
+"buy_chg": 2100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-18",
+"buy": 366400,
+"sell": 0,
+"buy_chg": 2600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-09-25",
+"buy": 365700,
+"sell": 0,
+"buy_chg": -700,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-02",
+"buy": 362600,
+"sell": 0,
+"buy_chg": -3100,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-09",
+"buy": 364400,
+"sell": 0,
+"buy_chg": 1800,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-16",
+"buy": 352400,
+"sell": 0,
+"buy_chg": -12000,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-23",
+"buy": 353900,
+"sell": 0,
+"buy_chg": 1500,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-10-30",
+"buy": 349300,
+"sell": 0,
+"buy_chg": -4600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-06",
+"buy": 355900,
+"sell": 0,
+"buy_chg": 6600,
+"sell_chg": 0,
+"ratio": null
+},
+{
+"date": "2026-11-13",
+"buy": 355200,
+"sell": 0,
+"buy_chg": -700,
+"sell_chg": 0,
+"ratio": null
+}
+],
+"fetched": "2026-11-20"
 }
 },
-"updated_at": "2026-11-20T16:50:16+09:00"
+"updated_at": "2026-11-20T16:58:54+09:00"
 }
