@@ -1835,9 +1835,9 @@
 "filled": true,
 "in": "2026-11-17",
 "entry": 3482.5,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 3235.0
+"last": 3020.0
 },
 {
 "asof": "2026-11-17",
@@ -1859,9 +1859,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 1771.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 1740.5
+"last": 1681.0
 },
 {
 "asof": "2026-11-17",
@@ -1874,9 +1874,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 3391.61,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3235.0
+"last": 3020.0
 },
 {
 "asof": "2026-11-18",
@@ -1909,9 +1909,9 @@
 "filled": true,
 "in": "2026-11-19",
 "entry": 1589.52,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 1602.5
+"last": 1582.0
 },
 {
 "asof": "2026-11-18",
@@ -1938,9 +1938,15 @@
 "code": "4478",
 "name": "フリー",
 "limit": 3090,
-"stop": 2246,
+"stop": 2251.25,
 "done": false,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-11-20",
+"entry": 3094.46,
+"days": 1,
+"open": true,
+"last": 3020.0
 },
 {
 "asof": "2026-11-19",
@@ -1948,35 +1954,99 @@
 "name": "リコー",
 "limit": 1574,
 "stop": 1403,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-19",
 "code": "3405",
 "name": "クラレ",
 "limit": 1776,
-"stop": 1573,
+"stop": 1568.82,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 1771.0,
+"days": 1,
+"open": true,
+"last": 1748.5
 },
 {
 "asof": "2026-11-19",
 "code": "8630",
 "name": "ＳＯＭＰＯ",
 "limit": 6750,
-"stop": 6160,
+"stop": 6173.5,
 "done": false,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 6758.5,
+"days": 1,
+"open": true,
+"last": 6994.0
 },
 {
 "asof": "2026-11-19",
 "code": "8697",
 "name": "日本取引所",
 "limit": 2100,
-"stop": 1922,
+"stop": 1902.04,
+"done": false,
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 2080.0,
+"days": 1,
+"open": true,
+"last": 2048.5
+},
+{
+"asof": "2026-11-20",
+"code": "4478",
+"name": "フリー",
+"limit": 2879,
+"stop": 2035,
+"done": false,
+"earn": "none"
+},
+{
+"asof": "2026-11-20",
+"code": "4506",
+"name": "住友ファーマ",
+"limit": 1766,
+"stop": 1446,
 "done": false,
 "earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "7752",
+"name": "リコー",
+"limit": 1554,
+"stop": 1389,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "3994",
+"name": "マネーフォワード",
+"limit": 6120,
+"stop": 4970,
+"done": false,
+"earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "7267",
+"name": "ホンダ",
+"limit": 1705,
+"stop": 1517,
+"done": false,
+"earn": "none"
 }
 ],
 "stats": {
@@ -1996,11 +2066,11 @@
 "times": 9,
 "small": 23,
 "big_loss": 30,
-"fill": 42,
-"open": 7,
-"open_avg": -2.35,
+"fill": 43,
+"open": 11,
+"open_avg": -3.21,
 "open_up": 3,
-"issued": 159,
+"issued": 164,
 "since": "2026-09-25"
 },
 "mid": {
@@ -2017,9 +2087,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 33,
+"days": 34,
 "open": true,
-"last": 2207.5
+"last": 2079.5
 },
 {
 "asof": "2026-10-01",
@@ -2712,9 +2782,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 15,
+"days": 16,
 "open": true,
-"last": 4325.0
+"last": 4348.0
 },
 {
 "asof": "2026-10-29",
@@ -2970,9 +3040,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 22960.0
+"last": 21370.0
 },
 {
 "asof": "2026-11-05",
@@ -2986,9 +3056,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 5080.0
+"last": 4590.0
 },
 {
 "asof": "2026-11-05",
@@ -3002,9 +3072,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 7900.0
+"last": 7180.0
 },
 {
 "asof": "2026-11-05",
@@ -3018,9 +3088,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 27045.0
+"last": 24255.0
 },
 {
 "asof": "2026-11-05",
@@ -3034,9 +3104,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 10,
+"days": 11,
 "open": true,
-"last": 4242.0
+"last": 4129.0
 },
 {
 "asof": "2026-11-05",
@@ -3073,15 +3143,17 @@
 "name": "東海カーボン",
 "limit": 1510,
 "stop": 1410.04,
-"done": false,
+"done": true,
 "low": 1561.0,
 "earn": "none",
 "filled": true,
 "in": "2026-11-09",
 "entry": 1510.68,
-"days": 9,
-"open": true,
-"last": 1510.5
+"days": 10,
+"out": "2026-11-20",
+"exit": 1410.04,
+"why": "stop",
+"ret": -6.76
 },
 {
 "asof": "2026-11-06",
@@ -3217,15 +3289,17 @@
 "name": "三菱ＵＦＪ",
 "limit": 3225,
 "stop": 3101.86,
-"done": false,
+"done": true,
 "low": 3224.0,
 "earn": "up",
 "filled": true,
 "in": "2026-11-18",
 "entry": 3225.93,
-"days": 2,
-"open": true,
-"last": 3197.0
+"days": 3,
+"out": "2026-11-20",
+"exit": 3082.0,
+"why": "stop",
+"ret": -4.56
 },
 {
 "asof": "2026-11-17",
@@ -3233,15 +3307,17 @@
 "name": "りそなＨＤ",
 "limit": 2125,
 "stop": 2015.61,
-"done": false,
+"done": true,
 "low": 2108.5,
 "earn": "up",
 "filled": true,
 "in": "2026-11-18",
 "entry": 2125.05,
-"days": 2,
-"open": true,
-"last": 2083.0
+"days": 3,
+"out": "2026-11-20",
+"exit": 2000.5,
+"why": "stop",
+"ret": -5.96
 },
 {
 "asof": "2026-11-17",
@@ -3255,9 +3331,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 2415.64,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 2432.5
+"last": 2288.0
 },
 {
 "asof": "2026-11-17",
@@ -3271,9 +3347,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 3078.79,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 3077.0
+"last": 2936.0
 },
 {
 "asof": "2026-11-18",
@@ -3281,15 +3357,17 @@
 "name": "三菱ＵＦＪ",
 "limit": 3185,
 "stop": 3025.43,
-"done": false,
+"done": true,
 "low": 3224.0,
 "earn": "up",
 "filled": true,
 "in": "2026-11-19",
 "entry": 3150.0,
-"days": 1,
-"open": true,
-"last": 3197.0
+"days": 2,
+"out": "2026-11-20",
+"exit": 3025.43,
+"why": "stop",
+"ret": -4.05
 },
 {
 "asof": "2026-11-18",
@@ -3303,73 +3381,157 @@
 "filled": true,
 "in": "2026-11-19",
 "entry": 3000.0,
-"days": 1,
+"days": 2,
 "open": true,
-"last": 3077.0
+"last": 2936.0
 },
 {
 "asof": "2026-11-19",
 "code": "6448",
 "name": "ブラザー工業",
 "limit": 4145,
-"stop": 3955,
+"stop": 3958.07,
 "done": false,
 "low": 4154.0,
-"earn": "none"
+"earn": "none",
+"filled": true,
+"in": "2026-11-20",
+"entry": 4147.36,
+"days": 1,
+"open": true,
+"last": 4129.0
 },
 {
 "asof": "2026-11-19",
 "code": "9101",
 "name": "郵船",
 "limit": 6470,
-"stop": 6220,
+"stop": 6211.21,
 "done": false,
 "low": 6543.0,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 6452.0,
+"days": 1,
+"open": true,
+"last": 6590.0
 },
 {
 "asof": "2026-11-19",
 "code": "8750",
 "name": "第一ライフ",
 "limit": 1718,
-"stop": 1644,
+"stop": 1644.71,
 "done": false,
 "low": 1706.0,
-"earn": "up"
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 1714.0,
+"days": 1,
+"open": true,
+"last": 1709.0
 },
 {
 "asof": "2026-11-19",
 "code": "7189",
 "name": "西日本ＦＨ",
 "limit": 4235,
-"stop": 3845,
+"stop": 3848.64,
 "done": false,
 "low": 4052.0,
+"earn": "up",
+"filled": true,
+"in": "2026-11-20",
+"entry": 4236.32,
+"days": 1,
+"open": true,
+"last": 4123.0
+},
+{
+"asof": "2026-11-20",
+"code": "2737",
+"name": "トーメンデバイス",
+"limit": 20540,
+"stop": 18880,
+"done": false,
+"low": 21370.0,
 "earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "6448",
+"name": "ブラザー工業",
+"limit": 4035,
+"stop": 3845,
+"done": false,
+"low": 4129.0,
+"earn": "none"
+},
+{
+"asof": "2026-11-20",
+"code": "9101",
+"name": "郵船",
+"limit": 6470,
+"stop": 6240,
+"done": false,
+"low": 6543.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "8750",
+"name": "第一ライフ",
+"limit": 1678,
+"stop": 1616,
+"done": false,
+"low": 1706.0,
+"earn": "up"
+},
+{
+"asof": "2026-11-20",
+"code": "6178",
+"name": "日本郵政",
+"limit": 2230,
+"stop": 2154,
+"done": false,
+"low": 2251.5,
+"earn": "none"
+},
+{
+"asof": "2026-11-20",
+"code": "7272",
+"name": "ヤマハ発",
+"limit": 1693,
+"stop": 1602,
+"done": false,
+"low": 1668.0,
+"earn": "none"
 }
 ],
 "stats": {
-"n": 32,
+"n": 36,
 "win": 0,
-"avg": -10.05,
-"med": -7.83,
+"avg": -9.53,
+"med": -7.09,
 "pf": 0.0,
 "avg_win": null,
-"avg_loss": -10.05,
+"avg_loss": -9.53,
 "worst": -30.39,
-"days": 5.3,
+"days": 5.2,
 "d2": 31,
-"per_day": -1.9,
+"per_day": -1.83,
 "stops": 100,
 "sells": 0,
 "times": 0,
 "small": 0,
-"big_loss": 62,
-"fill": 50,
+"big_loss": 61,
+"fill": 52,
 "open": 14,
-"open_avg": 6.07,
-"open_up": 10,
-"issued": 96,
+"open_avg": 1.5,
+"open_up": 6,
+"issued": 102,
 "since": "2026-10-01"
 }
 }
