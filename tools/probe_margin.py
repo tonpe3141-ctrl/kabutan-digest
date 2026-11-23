@@ -3,7 +3,8 @@
   python tools/probe_margin.py [コード ...]
 
 Yahoo!ファイナンスの信用残の時系列（/quote/{code}.T/history?styl=margin）を読み、表の見出し・週の数・分割の補正を出す。
-届かない（相手の遮断）のか、読めない（パーサ）のかを切り分ける。JPX の信用残・空売り・投資部門別の配布ファイルに届くかも出す（今は使っていない）。
+届かない（相手の遮断）のか、読めない（パーサ）のかを切り分ける。JPX の信用残・空売り・投資部門別の配布ファイルに届くかも出す。
+財務省の週次（海外投資家の売り買い）と日銀・FOMC の日程（sources/official.py）が届いて読めるかも出す。
 """
 import os
 import re
@@ -51,4 +52,15 @@ for label, url in [("JPX 信用取引残高等", "https://www.jpx.co.jp/markets/
     r = get(url)
     n = len(re.findall(r'href="[^"]+\.(?:xlsx?|csv|pdf)"', r.text)) if r is not None and r.status_code == 200 else 0
     print(f"\n=== {label} === status={getattr(r, 'status_code', None)} 配布ファイルのリンク {n}")
+
+# 公的機関の一次情報（DESIGN.md 37章）: 財務省の週次・日銀と FOMC の日程。届くかと、読めるか
+from dashboard.sources import official as OF       # noqa: E402
+r = get(OF.MOF_WEEK)
+rows = OF.parse_mof_week(r.content.decode("cp932", "replace")) if r is not None and r.status_code == 200 else []
+print(f"\n=== 財務省 週次の対外・対内証券売買 === status={getattr(r, 'status_code', None)} 週 {len(rows)}"
+      + (f"（最後 {rows[-1]['end']} 非居住者の株式 {rows[-1]['nr_stock']:+,.0f}億円）" if rows else "  ⚠️ 読めない（列の位置が変わった？ official.MOF_COLS）"))
+for label, url, fn in [("日銀 会合の日程", OF.BOJ_SCHEDULE, OF.parse_boj), ("FOMC の日程", OF.FOMC_CALENDAR, OF.parse_fomc)]:
+    r = get(url)
+    xs = fn(r.text) if r is not None and r.status_code == 200 else []
+    print(f"\n=== {label} === status={getattr(r, 'status_code', None)} 回 {len(xs)}" + (f"（最後 {xs[-1]['end']}）" if xs else "  ⚠️ 読めない"))
 print("\n完了")
