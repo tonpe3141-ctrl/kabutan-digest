@@ -160,3 +160,58 @@ def investor_weeks(have: set[str], limit: int = 12) -> list[dict]:
         if row:
             out.append(row)
     return out
+
+
+# ---------- 空売り集計（日次。DESIGN.md 38章） ----------
+# https://www.jpx.co.jp/markets/statistics-equities/short-selling/index.html … 当月の日ごとの YYMMDD-m.pdf（市場全体）。
+# 前の月は 00-archives-NN.html（NN=01 が前月、約12か月）。PDF は1枚の表で、文字として読める（pypdf）。
+# 「実注文・空売り（価格規制あり）・空売り（価格規制なし）・合計」の売買代金（百万円）と比率。空売り比率＝規制あり＋なし。
+# 合計は東証の全市場の売買代金（外国株券等を含む概算）。
+SHORT_PAGE = BASE + "/markets/statistics-equities/short-selling/index.html"
+SHORT_ARCHIVE = BASE + "/markets/statistics-equities/short-selling/00-archives-{:02d}.html"
+_SHORT_LINK = re.compile(r'href="([^"]+?/(\d{6})-m\.pdf)"')
+_SHORT_ROW = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日\s+([\d,]+)\s+([\d.]+)%\s+([\d,]+)\s+([\d.]+)%\s+([\d,]+)\s+([\d.]+)%\s+([\d,]+)")
+
+
+def parse_short_text(text: str) -> dict | None:
+    """空売り集計（日次）の PDF の文字 → {date, real, reg, noreg, total（百万円）, ratio（%）}。"""
+    m = _SHORT_ROW.search(text or "")
+    if not m:
+        return None
+    y, mo, d, real, real_p, reg, reg_p, noreg, noreg_p, total = m.groups()
+    try:
+        day = date(int(y), int(mo), int(d)).isoformat()
+    except ValueError:
+        return None
+    reg_p, noreg_p = float(reg_p), float(noreg_p)
+    return {"date": day, "real": _num(real), "reg": _num(reg), "noreg": _num(noreg), "total": _num(total),
+            "reg_pct": reg_p, "noreg_pct": noreg_p, "ratio": round(reg_p + noreg_p, 1)}
+
+
+def _pdf_text(blob: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+        return "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(blob)).pages)
+    except Exception:                       # noqa: BLE001  読めない PDF は欠損として扱う
+        return ""
+
+
+def short_days(have: set[str], archives: int = 0, limit: int = 40) -> list[dict]:
+    """空売り集計の日次のうち、まだ持っていない日を読む（当月のページ＋前の archives か月。新しい順に最大 limit 日）。"""
+    pages = [SHORT_PAGE] + [SHORT_ARCHIVE.format(k) for k in range(1, archives + 1)]
+    links = []
+    for url in pages:
+        html = get_text(url, timeout=20, retries=1) or ""
+        links += _SHORT_LINK.findall(html)
+    out = []
+    for path, ymd in list(dict.fromkeys(links)):
+        iso = f"20{ymd[:2]}-{ymd[2:4]}-{ymd[4:6]}"
+        if iso in have:
+            continue
+        if len(out) >= limit:
+            break
+        res = get(BASE + path if path.startswith("/") else path, timeout=30, retries=1)
+        row = parse_short_text(_pdf_text(res.content)) if res is not None else None
+        if row:
+            out.append(row)
+    return out

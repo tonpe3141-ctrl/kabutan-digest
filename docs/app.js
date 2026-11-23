@@ -1805,12 +1805,18 @@ function indicatorsCard(d) {
   const notes = (v.schedule || []).filter((s) => s.note).map((s) => s.name);
   if (sch.length || notes.length) {
     kids.push(h('div', { class: 'check__lh', text: 'これからの予定（翌朝 7:00 まで）' }));
-    kids.push(h('div', { class: 'ind' }, sch.map((s) => h('div', { class: 'ind__row ind__row--sch' }, [
+    // 重要度の高いものを先に5件だけ出し、残りは畳む（DESIGN.md 38章。マクロの章が長すぎた）
+    const schRow = (s) => h('div', { class: 'ind__row ind__row--sch' }, [
       h('div', { class: 'ind__t' }, [h('span', { class: 'ind__when', text: indAt(s.at).split(' ')[1] }),
         s.imp ? h('span', { class: 'badge badge--' + (s.imp === '高' ? 'warn' : s.imp === '中' ? 'accent' : 'src'), text: '重要度' + s.imp }) : null,
         h('span', { class: 'ind__n', text: s.name })]),
       (s.forecast || s.prior) ? h('div', { class: 'ind__v hint', text: (s.forecast ? `予想 ${s.forecast}` : '予想なし') + (s.prior ? `／前回 ${s.prior}` : '') }) : null,
-    ]))));
+    ]);
+    const rank = (s) => (s.imp === '高' ? 0 : s.imp === '中' ? 1 : 2);
+    const first = sch.map((s, i) => [s, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).slice(0, 5).map((x) => x[1]);
+    const shown = sch.filter((_, i) => first.includes(i)), rest = sch.filter((_, i) => !first.includes(i));
+    kids.push(h('div', { class: 'ind' }, shown.map(schRow)));
+    if (rest.length) kids.push(h('details', { class: 'fold' }, [h('summary', { text: `ほかの予定（${rest.length}本）` }), h('div', { class: 'ind' }, rest.map(schRow))]));
     if (notes.length) kids.push(h('p', { class: 'hint', text: '休場など: ' + notes.join('、') }));
   }
   const wk = v.week;
@@ -2712,8 +2718,10 @@ const TSE_HOLIDAYS = {
   '2027-11-23': '勤労感謝の日', '2027-12-31': '年末の休場',
 };
 /* その日が休場ならその名前（土日は「土日」）。データからも分かる: その日の前場・大引の収集で日経が前営業日の値（stale）なら休場 */
+function tseHolidays() { return { ...TSE_HOLIDAYS, ...(((latestMacroFlow() || {}).holidays) || {}) }; }
 function closedName(iso) {
-  if (TSE_HOLIDAYS[iso]) return TSE_HOLIDAYS[iso];
+  const hol = tseHolidays();
+  if (hol[iso]) return hol[iso] === '休業日' ? '年末年始の休場' : hol[iso];
   const dw = new Date(iso + 'T12:00:00+09:00').getUTCDay();
   if (dw === 0 || dw === 6) return '土日';
   if (DATA && DATA.date === iso) {
@@ -2735,7 +2743,7 @@ function slotWhen(slot) {
 /* 今の時間帯（東証の立会）。休場日（土日・祝日・年末年始）は closed */
 function marketPhase() {
   const n = jstNow();
-  if (n.getDay() === 0 || n.getDay() === 6 || TSE_HOLIDAYS[isoToday()]) return 'closed';
+  if (n.getDay() === 0 || n.getDay() === 6 || tseHolidays()[isoToday()]) return 'closed';
   const m = n.getHours() * 60 + n.getMinutes();
   if (m < 9 * 60) return 'pre';
   if (m < 11 * 60 + 30) return 'am';
@@ -5670,6 +5678,17 @@ function stockView(code) {
       cell('60日', fmtPct(s.r60, 1), null, cls(s.r60)),
       cell('売買代金', isNum(sw.tv) ? `${sw.tv >= 100 ? Math.round(sw.tv) : sw.tv.toFixed(1)}億` : '—', '20日平均'),
     ]));
+    const tk = s.tk;
+    if (tk) {
+      // チャートの位置（DESIGN.md 38章）。事実の並べ替えで、注文・判定には使わない
+      kids.push(h('div', { class: 'plan__grid sd__stats sd__tk' }, [
+        cell('75日線から', fmtPct(tk.dev75, 1), null, cls(tk.dev75)),
+        cell('200日線から', isNum(tk.dev200) ? fmtPct(tk.dev200, 1) : '—', tk.order ? TECH_ORDER[tk.order] : null, cls(tk.dev200)),
+        cell('一目', TECH_KUMO[tk.kumo] || '—', tk.macd ? `MACD ${tk.macd === 'up' ? 'シグナルの上' : 'シグナルの下'}` : null, tk.kumo === 'above' ? 'up' : tk.kumo === 'below' ? 'down' : ''),
+        cell('ボリンジャー', isNum(tk.pb) ? `%b ${tk.pb}` : '—', '0が−2σ・100が+2σ', isNum(tk.pb) && tk.pb < 0 ? 'down' : isNum(tk.pb) && tk.pb > 100 ? 'up' : ''),
+        cell('1年の位置', isNum(tk.pos52) ? `${tk.pos52}%` : '—', `高値から ${fmtPct(tk.from_hi52, 1)}`, ''),
+      ]));
+    }
   }
 
   // ルールでの位置（買う候補を出すのは短期の押し目買いと中期の押し目の2つだけ。1銘柄に1つの計画）
@@ -5746,6 +5765,7 @@ function renderVerify() {
     out.push(phaseProofCard());
     out.push(techProofCard());
     out.push(foreignProofCard());
+    out.push(shortProofCard());
     out.push(overnightProofCard());
     out.push(indicatorsProofCard());
     out.push(crowdProofCard());
@@ -5780,6 +5800,7 @@ const VSEC = {
   'v-hold': '判定ごとの次の5〜20日、利確・損切り・追いかけ売りの比較、売り方',
   'v-phase': '急落・反発・伸びすぎの後の日経（36年）、崩れたら売る・一部利確の損得、市場全体の信用残、答え合わせ',
   'v-tech': 'RSI・ボリンジャー・MACD・一目の雲・移動平均の交差など15の形に入った後の日経（36年）',
+  'v-short': '空売り比率が40%以上・35%未満の日の後の日経（直近1年）',
   'v-foreign': '海外投資家（財務省の週次）の売り・買いが偏った週の後の日経（2008年〜）',
   'v-overnight': '米国が大きく下げた夜の翌朝: 窓の目安の当たり方、寄りで売るか持つか、押し目買いの注文の成績',
   'v-ind': '米国の指標が上振れ・下振れした時、金利・ドル円・株価指数先物がどう動いたか（記録）',
@@ -6609,8 +6630,12 @@ function breadthCard(T) {
     stat('新高値・新安値', `${B.nh}・${B.nl}`, `5日 ${B.nh5}・${B.nl5}`, B.nh >= B.nl ? 'up' : 'down'),
     stat('騰落レシオ(25日)', isNum(B.ratio) ? String(B.ratio) : '—', `今日 上${B.adv}・下${B.dec}`, isNum(B.ratio) ? (B.ratio >= 100 ? 'up' : 'down') : ''),
   ];
+  const BR = B.research;
+  const brLine = BR && BR.lo && BR.lo.all ? h('p', { class: 'hint' }, [rich(
+    `25日線の上の銘柄が${BR.low}%以下に落ち込んだ日${B.zone === 'lo' ? '（いまこの形）' : ''}のあと、日経の20営業日は平均${fmtPct(BR.lo.all.r20, 1)}（${nTxt(BR.lo.all.n, BR.small)}・前半 ${fmtPct(BR.lo.first.r20, 1)}／後半 ${fmtPct(BR.lo.second.r20, 1)}）、` +
+    `${BR.high}%以上${B.zone === 'hi' ? '（いまこの形）' : ''}は${fmtPct(BR.hi.all.r20, 1)}（${nTxt(BR.hi.all.n, BR.small)}）、すべての日は${fmtPct(BR.base.all.r20, 1)}（${BR.from.slice(0, 4)}〜${BR.to.slice(0, 4)}・上げ相場の5年）。`)]) : null;
   return card('市場の内部（何割の銘柄が線の上か）', `${md(B.date)}・約${B.n}銘柄`, [
-    h('div', { class: 'summary__stats pulse__stats--4' }, stats), breadthChart(B),
+    h('div', { class: 'summary__stats pulse__stats--4' }, stats), breadthChart(B), brLine,
   ], `日足キャッシュの約${B.n}銘柄（売買代金の上位と日経225。今の顔ぶれだけで数えている）。新高値・新安値は直近${(T.rules || {}).nh_days || 250}営業日の終値の最高・最低を更新した銘柄の数。` +
     '騰落レシオは25日の値上がりの数÷値下がりの数（温度計の騰落レシオは日経225の採用銘柄だけで数えていて、ここと少し違います）。', false, 'tc-breadth');
 }
@@ -6674,6 +6699,20 @@ function techProofCard() {
       h('thead', {}, h('tr', {}, ['形', '回数', '5日後', '20日後', 'プラス', '前半', '後半', '値幅'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
       h('tbody', {}, rows),
     ])),
+    (() => {
+      const BR = ((T.breadth || {}).research);
+      if (!BR) return null;
+      const r = (label, x) => h('tr', {}, [h('th', { text: label }), h('td', { class: 'num', text: nTxt((x.all || {}).n, BR.small) }),
+        h('td', { class: 'num ' + cls((x.all || {}).r20), text: pctx((x.all || {}).r20) }), h('td', { class: 'num', text: `${(x.all || {}).p20 ?? '—'}%` }),
+        h('td', { class: 'num ' + cls((x.first || {}).r20), text: pctx((x.first || {}).r20) }), h('td', { class: 'num ' + cls((x.second || {}).r20), text: pctx((x.second || {}).r20) })]);
+      return h('div', {}, [
+        h('div', { class: 'check__lh', text: `市場の内部: 25日線の上の銘柄の割合が端に入った日（${BR.from}〜${BR.to}・510銘柄・今の顔ぶれだけ。前半は ${BR.split} の前まで。閾値は結果を見る前に決めた）` }),
+        h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+          h('thead', {}, h('tr', {}, ['', '回数', '20日後', 'プラス', '前半', '後半'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+          h('tbody', {}, [r('すべての日', BR.base), r(`${BR.low}%以下`, BR.lo), r(`${BR.high}%以上`, BR.hi)]),
+        ])),
+      ]);
+    })(),
     h('details', { class: 'fold' }, [h('summary', { text: '形の定義' }), h('ul', { class: 'reasons' }, (R.signals || []).map((s) => h('li', { text: `${s.name}: ${s.def}（最後は ${s.last || '—'}）` })))]),
     h('p', { class: 'hint', text: '見方: どの形も「すべての日」との差は20日で ±1ポイント前後と小さく、前半と後半で向きが変わる形も多い。売られすぎ（RSI 30割れ・−2σ割れ）の後は平均では弱くなかったが、' +
       'そのまま下げ続けた例も含む。形はチャートの位置を言葉にするための物差しで、注文の条件には使っていません（買う候補は押し目買いの2つのルールだけ）。' }),
@@ -6758,10 +6797,136 @@ function meetingsLine(M) {
   if (!bits.length) return null;
   return h('div', { class: 'meet' }, [h('b', { text: '次の会合 ' }), ...bits.map((t) => h('span', { class: 'meet__i', text: t }))]);
 }
+/* ---- 金利の中身（DESIGN.md 38章）: 市場が見込む政策金利の目安（短期金利 − 政策金利の実勢）と、米10年の実質金利・期待インフレ ---- */
+function ratesInsideCard() {
+  const F = latestMacroFlow() || {};
+  const P = F.policy, R = F.real;
+  if (!P && !R) return null;
+  const kids = [];
+  if (P) {
+    kids.push(h('div', { class: 'check__lh', text: '市場が見込む政策金利の変化（目安）' }));
+    (P.rows || []).forEach((c) => {
+      kids.push(h('div', { class: 'pol' }, [
+        h('div', { class: 'pol__h' }, [h('b', { text: c.label }), h('span', { class: 'hint', text: `${c.base_label} ${c.base.toFixed(3)}%（${md(c.base_date)}）` + (c.target ? `・誘導目標 ${c.target[0]}〜${c.target[1]}%` : '') })]),
+        ...(c.rows || []).map((r) => {
+          const w = Math.abs(r.hikes) < 0.5 ? 'ほぼ据え置き' : `約${Math.abs(r.hikes).toFixed(0)}回分の${r.hikes > 0 ? '利上げ' : '利下げ'}`;
+          const bar = h('span', { class: 'pol__bar' }, [h('i', { class: r.spread >= 0 ? 'pol__up' : 'pol__dn' })]);
+          bar.firstChild.style.width = Math.min(100, Math.abs(r.spread) / (P.hike * 4) * 100) + '%';
+          return h('div', { class: 'pol__row' }, [h('span', { class: 'pol__k', text: `${r.leg} ${r.rate.toFixed(3)}%` }), bar,
+            h('span', { class: 'pol__v num ' + cls(r.spread), text: `${fmtSigned(r.spread, 2)}%` }), h('span', { class: 'pol__w', text: w + (isNum(r.d20) ? `（20日 ${r.d20 > 0 ? '+' : ''}${r.d20}bp）` : '') })]);
+        }),
+      ]));
+    });
+  }
+  if (R) {
+    kids.push(h('div', { class: 'check__lh', text: '米10年の中身: 実質金利と期待インフレ' }));
+    kids.push(h('div', { class: 'summary__stats' }, [
+      stat('実質金利（TIPS）', `${R.real.toFixed(2)}%`, `20日 ${R.real_d20 > 0 ? '+' : ''}${R.real_d20}bp・1年の${R.real_pos}%`, cls(R.real_d20)),
+      stat('期待インフレ', `${R.be.toFixed(2)}%`, `20日 ${R.be_d20 > 0 ? '+' : ''}${R.be_d20}bp・1年の${R.be_pos}%`, cls(R.be_d20)),
+      stat('名目（米10年）', `${R.nom.toFixed(2)}%`, md(R.asof), ''),
+    ]));
+  }
+  const txt = [P && P.text, R && R.text].filter(Boolean).join('');
+  if (txt) kids.splice(0, 0, h('p', { class: 'rd__b' }, [rich(txt)]));
+  return card('金利の中身', '政策金利の見込み・実質金利', kids,
+    `見込みの目安は、6か月・2年の国債の金利と政策金利の実勢（日銀の無担保コール翌日物・NY 連銀の実効 FF 金利。どちらも公表値）の差を ${P ? P.hike : 0.25}% で割った回数。` +
+    '国債の金利には期間のプレミアムや需給も入るので、FF 金利先物・OIS の「織り込み確率」とは違う目安です（FF 金利の織り込みは見立ての材料にある記事の数字）。' +
+    '実質金利は米10年物価連動債（TIPS）の利回り、期待インフレは名目との差（CNBC 日足）。予測ではありません。', false, 'mc-rates');
+}
+
+/* ---- 規模別・スタイル別（業種と銘柄の章） ---- */
+function sizeStyleCard() {
+  const Z = (latestMacroFlow() || {}).size;
+  if (!Z || !(Z.rows || []).length) return null;
+  const head = h('div', { class: 'ss__r ss__r--h' }, ['', '1日', '5日', '20日', 'TOPIX比 20日', '60日の比'].map((t) => h('span', { text: t })));
+  const rows = Z.rows.map((r) => h('div', { class: 'ss__r' }, [
+    h('span', { class: 'ss__k', text: r.label }),
+    ...[r.r1, r.r5, r.r20].map((v) => h('span', { class: 'num ' + cls(v), text: pctx(v) })),
+    h('span', { class: 'num ' + cls(r.rel20), text: isNum(r.rel20) ? fmtSigned(r.rel20, 1) : '—' }),
+    h('span', {}, [miniLine(r.spark, { w: 56, h: 18, tone: (r.rel60 || 0) >= 0 ? 'up' : 'down' })]),
+  ]));
+  return card('規模別・スタイル別', `${md(Z.asof)}の引け`, [
+    h('p', { class: 'rd__b' }, [rich(Z.text)]), h('div', { class: 'ss' }, [head, ...rows]),
+  ], 'TOPIX の規模別（Core30・Large70・Mid400・Small）とスタイル（バリュー・グロース）、東証グロース市場指数、東証REIT指数（CNBC 日足）。TOPIX比は同じ期間の TOPIX との差（ポイント）、線は TOPIX との比の60日。', false, 'sc-size');
+}
+
+/* ---- 空売り比率と売買代金（局面と温度の章。JPX の空売り集計） ---- */
+function shortCard() {
+  const Q = (latestMacroFlow() || {}).short;
+  if (!Q) return null;
+  const R = Q.research || {}, th = R.th || [40, 35];
+  const ser = Q.series || [];
+  // 数字はタイルに1回だけ（文の Q.text は Routine の要約用）
+  const kids = [];
+  kids.push(h('div', { class: 'summary__stats pulse__stats--4' }, [
+    stat('空売り比率', `${Q.ratio.toFixed(1)}%`, `価格規制あり ${Q.reg}%・なし ${Q.noreg}%`, Q.ratio >= th[0] ? 'down' : ''),
+    stat('5日平均', `${Q.r5.toFixed(1)}%`, `${Q.n_days}日で低いほうから${Q.rank}%`, ''),
+    stat('売買代金', isNum(Q.total) ? `${(Q.total / 1e6).toFixed(2)}兆円` : '—', '東証の全市場', ''),
+    stat('20日平均比', isNum(Q.total) && isNum(Q.total_avg20) ? `${Math.round(Q.total / Q.total_avg20 * 100)}%` : '—', isNum(Q.total_avg20) ? `平均 ${(Q.total_avg20 / 1e6).toFixed(2)}兆円` : null, ''),
+  ]));
+  if (ser.length > 5) {
+    const W = 340, H = 70, M = 4;
+    const xs = ser.map((r) => r.ratio), lo = Math.min(...xs, th[1]) - 1, hi = Math.max(...xs, th[0]) + 1;
+    const X = (i) => M + i * (W - 2 * M - 26) / (ser.length - 1), Y = (v) => M + (hi - v) / (hi - lo) * (H - 2 * M);
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'cv__svg', role: 'img', 'aria-label': '空売り比率の推移' });
+    th.forEach((v) => { svg.appendChild(sv('line', { x1: M, x2: W - 26, y1: Y(v), y2: Y(v), class: 'tc__today' })); svg.appendChild(sv('text', { x: W - 24, y: Y(v) + 3, class: 'cv__tick', text: v + '%' })); });
+    svg.appendChild(sv('path', { d: xs.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(''), class: 'tc__rsi' }));
+    kids.push(h('div', { class: 'check__lh', text: `空売り比率（${md(ser[0].d)}〜${md(ser[ser.length - 1].d)}）` }), svg);
+  }
+  const hi = R.high, b = R.base;
+  if (hi && b) {
+    kids.push(h('p', { class: 'hint' }, [rich(`直近1年で空売り比率が${th[0]}%以上の日のあと、日経の20営業日は平均${fmtPct(hi.r20, 1)}（${nTxt(hi.n, R.small)}・プラス${hi.p20}%）、` +
+      `すべての日は${fmtPct(b.r20, 1)}。1年だけで期間の前半・後半を分けられず、日が続くので回数は重なっている。`)]));
+  }
+  kids.push(h('button', { class: 'linkbtn', type: 'button', text: '空売り比率のあとの日経（検証）›', onclick: () => openChapter('verify', { anchor: 'v-short' }) }));
+  return card('空売り比率と売買代金', `${md(Q.date)}・JPX 空売り集計`, kids,
+    'JPX「空売り集計（日次）」の PDF から。空売り比率＝価格規制あり＋なしの空売りの売買代金÷合計。信用取引の売りを含む。売買代金は外国株券等を含む全市場の概算。' +
+    '公表は取引日の夕方以降なので、大引の更新では前の営業日までのことが多い。空売りが多いことは売りの偏り（買い戻しの燃料にもなる）を言うだけで、予測ではありません。', false, 'sec-short');
+}
+function shortProofCard() {
+  const Q = (latestMacroFlow() || {}).short;
+  const R = Q && Q.research;
+  if (!R) return card('空売り比率のあと（JPX・直近1年）', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-short');
+  const th = R.th || [40, 35];
+  const row = (label, a) => h('tr', {}, [h('th', { text: label }), h('td', { class: 'num', text: a ? nTxt(a.n, R.small) : '—' }),
+    h('td', { class: 'num ' + cls(a && a.r20), text: a ? pctx(a.r20) : '—' }), h('td', { class: 'num', text: a ? a.p20 + '%' : '—' })]);
+  return card('空売り比率のあと（JPX・直近1年）', `${R.from}〜`, [
+    h('div', { class: 'check__lh', text: `空売り比率が ${th[0]}%以上・${th[1]}%未満の日から20営業日後の日経平均（閾値は結果を見る前に決めた。日は重なる）` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['', '日数', '20日後', 'プラス'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, [row('すべての日', R.base), row(`${th[0]}%以上`, R.high), row(`${th[1]}%未満`, R.low)]),
+    ])),
+    h('p', { class: 'hint', text: 'JPX が日々の PDF を出しているのは約1年分だけで、前半・後半に分けて確かめられない。毎日の収集で日数を足していき、2年たったら前半・後半で並べ直す。' }),
+  ], null, false, 'v-short');
+}
 function macroFlowCards() {
   const F = latestMacroFlow();
   if (!F) return [];
-  return [['連動', () => linkCard(F.link)], ['海外投資家', () => foreignCard(F.foreign)]];
+  return [['金利とお金の流れ', () => flowTabsCard(F)]];
+}
+/* 金利の中身・連動・海外勢を1枚のタブに（DESIGN.md 38章。3枚に分けるとマクロの章が 6,300px になった）。選んだタブはこの端末で覚える */
+const LS_FLOWTAB = 'md.flowtab';
+function flowTabsCard(F) {
+  const parts = [['rates', '金利の中身', () => ratesInsideCard()], ['link', '何に連動', () => linkCard(F.link)], ['foreign', '海外勢の売買', () => foreignCard(F.foreign)]]
+    .map(([k, l, fn]) => [k, l, safe(l, fn)]).filter((x) => x[2]);
+  if (!parts.length) return null;
+  let cur = null;
+  try { cur = localStorage.getItem(LS_FLOWTAB); } catch (e) { /* 無視 */ }
+  if (!parts.some((p) => p[0] === cur)) cur = parts[0][0];
+  const bodies = parts.map(([k, , el]) => {
+    const head = el.querySelector('.card__head');
+    if (head) head.remove();
+    const b = h('div', { class: 'ft__body', id: el.id || null }, [...el.childNodes]);
+    b.dataset.k = k;
+    b.hidden = k !== cur;
+    return b;
+  });
+  const seg = segmented(parts.map(([k, l]) => [k, l]), (k) => {
+    bodies.forEach((b) => { b.hidden = b.dataset.k !== k; });
+    try { localStorage.setItem(LS_FLOWTAB, k); } catch (e) { /* 無視 */ }
+  }, cur);
+  seg.classList.add('seg--sm');
+  return noclamp(card('金利とお金の流れ', '政策金利の見込み・連動・海外勢', [seg, ...bodies], null, false, 'mc-flow'));
 }
 
 /* ==================== 分析の章（DESIGN.md 34章） ====================
@@ -7024,7 +7189,7 @@ const CH_CARDS = {
   sector(slot) {
     const d = (slot && slotData(slot)) || {};
     if (!slot) return [card('業種と銘柄', null, h('div', { class: 'empty', text: '前場（11:40ごろ）の更新から出ます。寄り前は米国からの連想を値動きの章で。' }))];
-    return [['業種の騰落', () => sectorsTodayCard(d)], ['テーマ', () => themeCard(d.theme_flow)], ['資金の移り先', rotationCard],
+    return [['業種の騰落', () => sectorsTodayCard(d)], ['規模別・スタイル別', sizeStyleCard], ['テーマ', () => themeCard(d.theme_flow)], ['資金の移り先', rotationCard],
       ['日経225ヒートマップ', () => heatmapCard(d.constituents, d.breadth)], ['ランキング', () => rankingCard(d)]];
   },
   news() { return renderNews(); },
@@ -7034,7 +7199,7 @@ const CH_CARDS = {
     return [['マクロ環境', () => macroCard(d, (DATA.slots[slot] || {}).updated_at)], ...macroFlowCards(), ['経済指標', () => indicatorsCard(d)]];
   },
   tech() { return techCards(); },
-  phase(ls) { return [['局面と対処', () => phaseCard(latestPhaseData(ls))], ['相場温度', thermoCard]]; },
+  phase(ls) { return [['局面と対処', () => phaseCard(latestPhaseData(ls))], ['空売り比率と売買代金', shortCard], ['相場温度', thermoCard]]; },
   strength() { return renderSectors(); },
   trend() { return renderTrend(); },
   verify() { return renderVerify(); },
@@ -7572,6 +7737,11 @@ function showView(view, anchor) {
     if (vs) vs.open = true;
     const cl = target.closest('.is-clamped');
     if (cl) { const b = cl.querySelector(':scope > .clamp__more'); if (b) b.click(); }
+    // タブの中（金利とお金の流れ）なら、そのタブを開く
+    if (target.classList.contains('ft__body') && target.hidden) {
+      const btn = target.parentElement && target.parentElement.querySelector(`.seg__btn[data-k="${target.dataset.k}"]`);
+      if (btn) btn.click();
+    }
     requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: 'instant' }));
   } else window.scrollTo({ top: 0, behavior: 'instant' });
 }

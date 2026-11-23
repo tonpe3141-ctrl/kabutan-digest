@@ -1531,3 +1531,23 @@ details.rd--fold > .rd > .rd__t { display: none; }
 .lk__k--l::before { border: 1.3px solid var(--text-dim); width: 7px; height: 7px; }
 .meet { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 8px 10px; margin-bottom: 8px; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; }
 .meet__i { white-space: normal; }
+
+/* ==================== 金利の中身・規模別・空売り（DESIGN.md 38章） ==================== */
+.pol { padding: 6px 0 8px; border-top: 1px solid var(--border); }
+.pol:first-of-type { border-top: 0; }
+.pol__h { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; margin-bottom: 4px; }
+.pol__row { display: grid; grid-template-columns: 7.6em 1fr 4.2em; gap: 2px 8px; align-items: center; font-size: 12.5px; padding: 3px 0; }
+.pol__w { grid-column: 1 / -1; color: var(--text-dim); font-size: 11.5px; }
+.pol__bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.pol__bar i { display: block; height: 100%; border-radius: 4px; }
+.pol__up { background: var(--up); }
+.pol__dn { background: var(--down); }
+.pol__v { font-weight: 750; text-align: right; }
+.ss { display: grid; font-size: 12px; }
+.ss__r { display: grid; grid-template-columns: 1fr 3.6em 3.6em 3.8em 4.2em 56px; gap: 4px; align-items: center; padding: 5px 0; border-top: 1px solid var(--border); }
+.ss__r > span:not(.ss__k) { text-align: right; }
+.ss__r--h { border-top: 0; font-size: 10.5px; color: var(--text-faint); font-weight: 650; }
+.ss__k { font-size: 11.5px; }
+.ss .ml { width: 56px; height: 18px; }
+@media (max-width: 380px) { .ss__r { grid-template-columns: 1fr 3.4em 3.4em 3.6em 3.8em; } .ss__r > span:last-child { display: none; } }
+.sd__tk { margin-top: 6px; }

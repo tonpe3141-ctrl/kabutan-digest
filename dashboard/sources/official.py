@@ -140,3 +140,73 @@ def meetings() -> dict:
     except Exception:                       # noqa: BLE001
         pass
     return out
+
+
+# ---------- 政策金利の実勢（DESIGN.md 38章） ----------
+# 日銀「無担保コールO/N物レート」 https://www.boj.or.jp/statistics/market/short/mutan/index.htm
+#   当日の速報（mp/mpYYYYMMDD.xlsx）と前営業日までの確報（md/YYYY/mdYYYYMMDD.xlsx。直近5日）。行「平均」の値（%）。
+# NY 連銀「EFFR（実効 FF 金利）」 https://markets.newyorkfed.org/api/rates/unsecured/effr/last/N.json（誘導目標の上限・下限つき）
+BOJ_CALL = "https://www.boj.or.jp/statistics/market/short/mutan/index.htm"
+NYFED_EFFR = "https://markets.newyorkfed.org/api/rates/unsecured/effr/last/{n}.json"
+JPX_HOLIDAYS = "https://www.jpx.co.jp/corporate/about-jpx/calendar/index.html"
+_CALL_LINK = re.compile(r'href="([^"]+/d_release/m[pd]/(?:\d{4}/)?m([pd])(\d{8})\.xlsx)"')
+
+
+def parse_call_xlsx(sheets: list) -> float | None:
+    for rows in sheets or []:
+        for r in rows:
+            if len(r) >= 3 and r[1] and str(r[1]).startswith("平均"):
+                return _num(str(r[2]))
+    return None
+
+
+def boj_call(have: set[str]) -> list[dict]:
+    """[{date, rate}]。確報（md）を速報（mp）より優先する。"""
+    from .jpx import read_xlsx
+    html = get_text(BOJ_CALL) or ""
+    out = {}
+    for path, kind, ymd in _CALL_LINK.findall(html):
+        # 確報は前営業日の分。ファイル名は掲載日なので、中の見出しの日付を読む
+        res = get("https://www.boj.or.jp" + path if path.startswith("/") else path, timeout=20, retries=1)
+        if res is None:
+            continue
+        sheets = read_xlsx(res.content)
+        title = next((str(r[0]) for rows in sheets for r in rows[:5] if r and r[0] and "コール" in str(r[0])), "")
+        m = re.search(r"(\d{1,2})月(\d{1,2})日", unicodedata.normalize("NFKC", title))
+        rate = parse_call_xlsx(sheets)
+        if not m or rate is None:
+            continue
+        y = int(ymd[:4]) - (1 if int(m.group(1)) > int(ymd[4:6]) else 0)
+        day = date(y, int(m.group(1)), int(m.group(2))).isoformat()
+        if day in out and out[day]["final"]:
+            continue
+        out[day] = {"date": day, "rate": rate, "final": kind == "d"}
+    return sorted((v for k, v in out.items() if k not in have or v["final"]), key=lambda r: r["date"])
+
+
+def effr(n: int = 10) -> list[dict]:
+    try:
+        res = get(NYFED_EFFR.format(n=n), timeout=20)
+        js = res.json() if res is not None else {}
+    except ValueError:
+        return []
+    out = []
+    for r in js.get("refRates") or []:
+        if r.get("effectiveDate") and isinstance(r.get("percentRate"), (int, float)):
+            out.append({"date": r["effectiveDate"], "rate": r["percentRate"], "lo": r.get("targetRateFrom"), "hi": r.get("targetRateTo")})
+    return sorted(out, key=lambda r: r["date"])
+
+
+def parse_jpx_holidays(html: str) -> dict:
+    """JPX の休業日一覧 → {日付: 名前}。土日の「休業日」は外さない（年末年始の1/2・1/3も載る）。"""
+    t = unicodedata.normalize("NFKC", _plain(html))
+    out = {}
+    for y, mo, d, name in re.findall(r"(20\d\d)/(\d\d)/(\d\d)\([月火水木金土日]\)\s+(\S+)", t):
+        out[f"{y}-{mo}-{d}"] = name.replace("※", "")
+    return out
+
+
+def jpx_holidays() -> dict:
+    res = get(JPX_HOLIDAYS, timeout=20)
+    # 文字コードの宣言がヘッダに無く、requests の推定（ISO-8859-1）だと日本語が化けるので UTF-8 で読む
+    return parse_jpx_holidays(res.content.decode("utf-8", "replace")) if res is not None else {}

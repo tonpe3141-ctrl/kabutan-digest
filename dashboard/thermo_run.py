@@ -15,7 +15,7 @@ import json
 import os
 from datetime import date, timedelta
 
-from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, supply as SU, swing as W, thermo as T
+from . import bars as bars_mod, crowd as CW, hold as HD, sectors as X, spill as SP, store, supply as SU, swing as W, technical as TK, thermo as T
 from .config import MARGIN_FETCH_MAX, MARGIN_GIVE_UP, MARGIN_PATH, SWING_TRACK_PATH, THERMO_PATH, THERMO_TRACK_PATH
 from . import ledger as ledger_mod
 from .ledger import load_ledger
@@ -381,6 +381,13 @@ def run(slot: str, target_date: date, payload: dict, sessions: list[dict], fetch
             stock_rows[code]["jk"] = {k: v for k, v in jk_rows[code].items() if k != "asof"}
         if code in mg_rows:
             stock_rows[code]["mg"] = mg_rows[code]
+        # チャートの位置（DESIGN.md 38章。銘柄シートに出す。注文・判定には使わない）
+        try:
+            tk = TK.stock_tech((ohlc.get("stocks") or {}).get(code))
+        except Exception:                       # noqa: BLE001  1銘柄の失敗で止めない
+            tk = None
+        if tk:
+            stock_rows[code]["tk"] = tk
 
     def pick_list(kind, key_fn, limit, reverse=False):
         rows = [dict(code=c, **r) for c, r in stock_rows.items() if kind in r["cls"]]

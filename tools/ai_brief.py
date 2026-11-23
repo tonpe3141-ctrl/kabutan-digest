@@ -635,6 +635,10 @@ def technical(b: Brief, d: dict):
     if br:
         b.add(f"市場の内部（約{br.get('n')}銘柄）: 25日線の上 {br.get('p25')}%（1年で低い方から{br.get('p25_rank')}%）・200日線の上 {br.get('p200')}%・"
               f"新高値 {br.get('nh')}・新安値 {br.get('nl')}・騰落レシオ25日 {br.get('ratio')}")
+    brr = (br.get("research") or {}) if br else {}
+    if brr.get("lo"):
+        b.add(f"  根拠（{brr.get('from')}〜、510銘柄）: 25日線の上が{brr.get('low')}%以下の日のあと20日 {brr['lo']['all']['r20']}%（{brr['lo']['all']['n']}回・少ない）、"
+              f"{brr.get('high')}%以上 {brr['hi']['all']['r20']}%、すべての日 {brr['base']['all']['r20']}%" + (f"｜いま {br.get('zone')}" if br.get("zone") else ""))
     nt = ((t.get("topix") or {}).get("nt")) or {}
     if nt:
         b.add(f"NT倍率 {nt.get('now')}（20日 {nt.get('d20')}・1年の{nt.get('pos1y')}%の位置）")
@@ -654,6 +658,20 @@ def macro_flow(b: Brief, d: dict):
     if fo:
         b.add(f"海外投資家（財務省・週次）: {fo.get('facts')}")
         b.add(f"  根拠: {fo.get('evidence')}")
+    po = mf.get("policy") or {}
+    if po:
+        b.add(f"政策金利の見込み（目安。短期国債 − 政策金利の実勢。織り込み確率ではない）: {po.get('text')}")
+    rl = mf.get("real") or {}
+    if rl:
+        b.add(f"米10年 {rl.get('nom')}% = 実質 {rl.get('real')}%（20日 {rl.get('real_d20')}bp・1年の{rl.get('real_pos')}%）＋期待インフレ {rl.get('be')}%（20日 {rl.get('be_d20')}bp）")
+    sz = mf.get("size") or {}
+    if sz:
+        b.add("規模別・スタイル別（20日・TOPIX比）: " + "・".join(f"{r['label']} {r.get('r20')}%（{r.get('rel20'):+}）" for r in sz.get("rows") or [] if r.get("rel20") is not None))
+    sh = mf.get("short") or {}
+    if sh:
+        rs = sh.get("research") or {}
+        hi, bs = rs.get("high") or {}, rs.get("base") or {}
+        b.add(f"空売り比率・売買代金（JPX）: {sh.get('text')} 根拠: 直近1年で40%以上の日のあと20日 {hi.get('r20')}%（{hi.get('n')}日）、すべての日 {bs.get('r20')}%（1年だけ）")
     mt = mf.get("meetings") or {}
     for k in ("boj", "fomc"):
         m = mt.get(k)
