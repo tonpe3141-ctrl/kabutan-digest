@@ -63,4 +63,13 @@ for label, url, fn in [("日銀 会合の日程", OF.BOJ_SCHEDULE, OF.parse_boj)
     r = get(url)
     xs = fn(r.text) if r is not None and r.status_code == 200 else []
     print(f"\n=== {label} === status={getattr(r, 'status_code', None)} 回 {len(xs)}" + (f"（最後 {xs[-1]['end']}）" if xs else "  ⚠️ 読めない"))
+from dashboard.sources import jpx as JPX         # noqa: E402
+sd = JPX.short_days(set(), limit=1)
+print(f"\n=== JPX 空売り集計（日次 PDF） === {sd[0] if sd else '⚠️ 読めない（PDF の表の並びが変わった？ jpx._SHORT_ROW）'}")
+cl = OF.boj_call(set())
+print(f"\n=== 日銀 無担保コール === {cl[-1] if cl else '⚠️ 読めない'}")
+ef = OF.effr(2)
+print(f"\n=== NY 連銀 EFFR === {ef[-1] if ef else '⚠️ 読めない'}")
+hol = OF.jpx_holidays()
+print(f"\n=== JPX 休業日 === {len(hol)}日" + ("" if len(hol) >= 10 else "  ⚠️ 読めない"))
 print("\n完了")

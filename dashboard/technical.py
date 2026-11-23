@@ -45,6 +45,16 @@ LEVEL_MERGE = 0.25          # 0.25% より近い節目はまとめる
 BREADTH_DAYS = 130          # 市場の内部の図の日数
 NH_DAYS = 250               # 新高値・新安値: 直近250営業日の終値の最高・最低を更新
 
+# 市場の内部の検証（tools/research_breadth.py。2026-11-23、510銘柄の4年の四本値。今の採用銘柄だけ＝生存者の偏り）。
+# 25日線より上の銘柄の割合が 20%以下・80%以上に入った日（10営業日以内の続きは同じ出来事）から20営業日後の日経平均。閾値は結果を見る前に決めた
+BREADTH_LOW, BREADTH_HIGH = 20, 80
+BREADTH_4Y = {
+    "from": "2021-10-07", "to": "2026-10-22", "split": "2024-04-12",
+    "base": {"all": {"n": 1233, "r20": 1.38, "p20": 60}, "first": {"n": 616, "r20": 1.03, "p20": 56}, "second": {"n": 617, "r20": 1.72, "p20": 64}},
+    "lo": {"all": {"n": 15, "r20": 4.0, "p20": 87}, "first": {"n": 10, "r20": 3.89, "p20": 90}, "second": {"n": 5, "r20": 4.22, "p20": 80}},
+    "hi": {"all": {"n": 16, "r20": 0.52, "p20": 56}, "first": {"n": 10, "r20": 0.88, "p20": 50}, "second": {"n": 6, "r20": -0.08, "p20": 67}},
+}
+
 # 形（その形に入った日）。key → (名前, 定義)
 SIGNALS = {
     "rsi_lo": ("RSI が30を割った", f"RSI({RSI_N}) が {RSI_LO:.0f} 未満になった日（前日は {RSI_LO:.0f} 以上）"),
@@ -470,12 +480,36 @@ def breadth(ohlc: dict | None) -> dict | None:
         return round(100 * sum(1 for x in past if x < xs[i]) / len(past)) if past and xs[i] is not None else None
 
     i = n - 1
+    zone = "lo" if p25[i] is not None and p25[i] <= BREADTH_LOW else "hi" if p25[i] is not None and p25[i] >= BREADTH_HIGH else None
     return {
-        "date": dates[-1], "n": len(stocks),
+        "date": dates[-1], "n": len(stocks), "zone": zone, "research": {**BREADTH_4Y, "low": BREADTH_LOW, "high": BREADTH_HIGH, "small": SMALL},
         "p25": p25[i], "p25_rank": rank(p25, i), "p200": p200[i], "p200_rank": rank(p200, i),
         "nh": nh[i], "nl": nl[i], "nh5": sum(nh[i - 4:i + 1]), "nl5": sum(nl[i - 4:i + 1]),
         "adv": adv[i], "dec": dec[i], "ratio": ratio[i], "ratio_rank": rank(ratio, i),
         "series": {"d": dates[a:], "p25": p25[a:], "p200": p200[a:], "nh": nh[a:], "nl": nl[a:], "ratio": ratio[a:]},
+    }
+
+
+# ---------- 個別株（銘柄シートの「チャートの位置」） ----------
+
+def stock_tech(rows: list) -> dict | None:
+    """日足キャッシュの1銘柄（[始, 高, 安, 終, 出来高] の並び。欠けは None）→ 線の並び・75/200日線から・%b・雲・1年の位置。"""
+    xs = [["", r[0], r[1], r[2], r[3]] for r in rows or [] if r and all(isinstance(v, (int, float)) and v > 0 for v in r[:4])]
+    if len(xs) < 80:
+        return None
+    S = Ind(xs)
+    i, c = S.n - 1, S.c[-1]
+    up, lo_ = S.bb_up[i], S.bb_lo[i]
+    top, bot = S.cloud_top[i], S.cloud_bot[i]
+    w = min(250, S.n)
+    hi52, lo52 = max(S.h[-w:]), min(S.l[-w:])
+    return {
+        "dev75": _dev(c, S.ma[75][i]), "dev200": _dev(c, S.ma[200][i]) if S.n >= 200 else None,
+        "order": S.order(i) if S.n >= 200 else None,
+        "pb": None if up is None or up == lo_ else round((c - lo_) / (up - lo_) * 100),
+        "kumo": None if top is None else "above" if c > top else "below" if c < bot else "in",
+        "pos52": round((c - lo52) / (hi52 - lo52) * 100) if hi52 > lo52 else None,
+        "from_hi52": round((c / hi52 - 1) * 100, 1), "macd": None if S.hist[i] is None else ("up" if S.hist[i] >= 0 else "down"),
     }
 
 

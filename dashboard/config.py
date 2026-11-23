@@ -256,6 +256,18 @@ MACRO_BAR_SYMBOLS = [
     {"key": "jp30y",  "symbol": "JP30Y",  "label": "日本30年債", "foreign": True},
     {"key": "gold",   "symbol": "@GC.1",  "label": "金",         "foreign": True},
     {"key": "copper", "symbol": "@HG.1",  "label": "銅",         "foreign": True},
+    # 以下は DESIGN.md 38章: 市場が見込む政策金利の目安（短期金利 − 政策金利の実勢）・実質金利と期待インフレ・規模別とスタイル別
+    {"key": "us6m",   "symbol": "US6M",     "label": "米6か月",     "foreign": True},
+    {"key": "jp6m",   "symbol": "JP6M",     "label": "日本6か月",   "foreign": True},
+    {"key": "us10r",  "symbol": "US10YTIP", "label": "米10年実質",  "foreign": True},
+    {"key": "core30", "symbol": ".TOPXC",   "label": "TOPIX Core30", "foreign": False},
+    {"key": "large70", "symbol": ".TOPXL",  "label": "TOPIX Large70", "foreign": False},
+    {"key": "mid400", "symbol": ".TOPXM",   "label": "TOPIX Mid400", "foreign": False},
+    {"key": "small",  "symbol": ".TOPXS",   "label": "TOPIX Small", "foreign": False},
+    {"key": "value",  "symbol": ".TOPXV",   "label": "TOPIX バリュー", "foreign": False},
+    {"key": "growth", "symbol": ".TOPXG",   "label": "TOPIX グロース", "foreign": False},
+    {"key": "mothers", "symbol": ".MTHR",   "label": "グロース市場", "foreign": False},
+    {"key": "reit",   "symbol": ".TREIT",   "label": "東証REIT",    "foreign": False},
 ]
 
 # ==================== マクロ環境（dashboard/macro.py、DESIGN.md 20章） ====================

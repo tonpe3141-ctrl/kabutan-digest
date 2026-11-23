@@ -2554,6 +2554,42 @@ def test_technical():
     check("FOMC が先に無ければ出さない", "fomc" in mv, False)
 
 
+def test_primary_more():
+    """空売り集計・無担保コール・休業日・政策金利の目安・規模別・銘柄のテクニカル（DESIGN.md 38章）。"""
+    print("\n[空売り・政策金利・規模別・休業日]")
+    from dashboard import macro_flow as M, technical as T
+    from dashboard.sources import jpx, official as O
+    txt = ("空売り集計（日次）\n2026/11/20\n売買代金\n(a)\n比率\n2026年11月20日 5,856,806 61.5% 2,854,594 30.0% 810,075 8.5% 9,521,475\n（注１）")
+    r = jpx.parse_short_text(txt)
+    check("空売り集計: 比率は規制あり＋なし", (r["date"], r["ratio"], r["total"]), ("2026-11-20", 38.5, 9521475.0))
+    check("空売り集計: 読めない文字", jpx.parse_short_text("月間 2026年10月 1 2 3"), None)
+    h = O.parse_jpx_holidays("<td>2026/11/23（月）</td><td>勤労感謝の日</td><td>2026/09/22（火）</td><td>休日※</td><td>2027/01/02（土）</td><td>休業日</td>")
+    check("JPX の休業日", h, {"2026-11-23": "勤労感謝の日", "2026-09-22": "休日", "2027-01-02": "休業日"})
+    check("無担保コールの平均", O.parse_call_xlsx([[["無担保コール"], [None, "平均\nAverage", "1.228"], [None, "最高", "1.25"]]]), 1.228)
+    days = [f"2026-{m:02d}-{d:02d}" for m in range(1, 12) for d in range(1, 29)][:260]
+    bm = {"jp6m": {"d": days, "c": [1.45] * 260}, "jp2y": {"d": days, "c": [1.70] * 240 + [1.85] * 20},
+          "us6m": {"d": days, "c": [3.9] * 260}, "us2y": {"d": days, "c": [3.6] * 260}}
+    pv = M.policy_view(bm, {"call": [{"date": "2026-01-01", "rate": 1.25}], "effr": [{"date": "2026-01-01", "rate": 3.88, "lo": 3.75, "hi": 4.0}]})
+    jp, us = pv["rows"]
+    check("日本: 2年 − コール = +0.60%（約2回の利上げ）・20日で +15bp", (jp["rows"][1]["spread"], jp["rows"][1]["hikes"], jp["rows"][1]["d20"]), (0.6, 2.4, 15))
+    check("米国: 2年 − EFFR = −0.28%（約1回の利下げ）", (us["rows"][1]["spread"], us["rows"][1]["hikes"]), (-0.28, -1.1))
+    check("見込みの文", "日本は2年で約2回分の利上げ" in pv["text"] and "米国は2年で約1回分の利下げ" in pv["text"], True)
+    tp = [100 + i * 0.1 for i in range(100)]
+    sm = [100 + i * 0.3 for i in range(100)]
+    ss = M.size_style({"topix": {"d": days[:100], "c": tp}, "small": {"d": days[:100], "c": sm}, "core30": {"d": days[:100], "c": tp}})
+    by = {r["key"]: r for r in ss["rows"]}
+    check("規模別: 小型が TOPIX を上回る", by["small"]["rel20"] > 0 and abs(by["core30"]["rel20"]) < 1e-9, True)
+    check("規模別の文", "小型が強い" in ss["text"], True)
+    sv = M.short_view({"short": [{"date": days[i], "ratio": 42.0 if i % 2 else 34.0, "total": 9e6} for i in range(30)]},
+                      [[d, 1, 1, 1, 100 + i] for i, d in enumerate(days[:60])])
+    check("空売り比率の分け方（40%以上・35%未満）", (sv["research"]["high"]["n"], sv["research"]["low"]["n"], sv["research"]["base"]["n"]), (15, 15, 30))
+    rows = [[100 + i, 101 + i, 99 + i, 100.5 + i, 1000] for i in range(260)]
+    tk = T.stock_tech(rows)
+    check("銘柄のテクニカル: 上げ続けた銘柄は上昇の並び・雲の上・1年の高値の近く",
+          (tk["order"], tk["kumo"], tk["pos52"] >= 95, tk["dev200"] > 0), ("up", "above", True, True))
+    check("銘柄のテクニカル: 足りなければ出さない", T.stock_tech(rows[:50]), None)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -2589,6 +2625,7 @@ if __name__ == "__main__":
     test_indicators()
     test_attrib()
     test_technical()
+    test_primary_more()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")
