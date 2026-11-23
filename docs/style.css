@@ -1472,3 +1472,62 @@ details.rd--fold > .rd > .rd__t { display: none; }
 @media (prefers-reduced-motion: reduce) { .iconbtn.is-busy svg { animation: none; opacity: .5; } }
 .check__sum { font-weight: 700; margin: 0 0 8px; }
 .today__total { margin-left: 6px; font-weight: 750; }
+
+/* ==================== テクニカル（DESIGN.md 37章） ==================== */
+.tc__svg { touch-action: pan-y; }
+.tc__mon { stroke: var(--border); stroke-width: 1; stroke-dasharray: 1 3; }
+.tc__today { stroke: var(--text-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+.tc__kumo { fill: var(--accent); opacity: .13; }
+.tc__bb { fill: var(--text-faint); opacity: .09; }
+.tc__ma200 { fill: none; stroke: var(--warn); stroke-width: 1.2; opacity: .85; }
+.tc__wk { stroke-width: 1; }
+.tc__wk--up { stroke: var(--up); }
+.tc__wk--dn { stroke: var(--down); }
+.tc__up { fill: var(--up); }
+.tc__dn { fill: var(--down); }
+.tc__lvl { stroke: var(--text-dim); stroke-width: 2; }
+.tc__rsiband { fill: var(--surface-2); }
+.tc__rsi { fill: none; stroke: var(--accent); stroke-width: 1.3; }
+.tc__plab { fill: var(--text-dim); font-size: 9.5px; font-weight: 650; }
+.tc__k::before { content: ""; display: inline-block; width: 14px; height: 8px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+.tc__k--bb::before { background: var(--text-faint); opacity: .3; }
+.tc__k--kumo::before { background: var(--accent); opacity: .3; }
+.tc__k--lvl::before { width: 10px; height: 0; border-top: 2px solid var(--text-dim); border-radius: 0; }
+.tc__k--ma200::before { border-top: 1.5px solid var(--warn); }
+.br__p25 { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.br__p200 { fill: none; stroke: var(--warn); stroke-width: 1.3; }
+.br__k--p25::before { height: 0; border-top: 2px solid var(--accent); border-radius: 0; }
+.br__k--p200::before { height: 0; border-top: 2px solid var(--warn); border-radius: 0; }
+.tk { display: grid; gap: 0; }
+.tk__row { display: grid; grid-template-columns: 6.2em 7.2em 1fr; gap: 2px 8px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.tk__row:first-child { border-top: 0; }
+.tk__k { color: var(--text-dim); font-size: 12px; }
+.tk__v { font-weight: 750; }
+.tk__s { color: var(--text-dim); font-size: 11.5px; line-height: 1.45; }
+@media (max-width: 380px) { .tk__row { grid-template-columns: 6em 1fr; } .tk__s { grid-column: 1 / -1; } }
+.tact { padding: 8px 0; border-top: 1px solid var(--border); }
+.tact:first-child { border-top: 0; padding-top: 0; }
+.tact__h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.tact__h b { font-size: 14px; }
+.tact__d { font-size: 11.5px; color: var(--text-dim); }
+.tact__def { margin: 2px 0 4px; }
+.tact__r { margin: 0; font-size: 13px; line-height: 1.6; }
+.lvl { display: grid; }
+.lvl__row { display: grid; grid-template-columns: 5.4em 4.4em 1fr; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px dashed var(--border); font-size: 12.5px; }
+.lvl__p { font-weight: 750; }
+.lvl__l { color: var(--text-dim); font-size: 11.5px; }
+.lvl__row--round .lvl__p { color: var(--text-dim); font-weight: 600; }
+.lvl__now { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 8px; margin: 2px -8px; border-radius: 8px; background: var(--accent-soft); font-weight: 800; }
+.nt { margin-top: 10px; }
+.nt__t { font-size: 12.5px; margin-bottom: 4px; }
+.nt .ml { width: 100%; height: 48px; }
+.lk__lab { fill: var(--text); font-size: 10.5px; }
+.lk__conn { stroke: var(--text-faint); stroke-width: 1.5; }
+.lk__long { fill: var(--surface); stroke: var(--text-dim); stroke-width: 1.3; }
+.lk__short.lk--up { fill: var(--up); }
+.lk__short.lk--dn { fill: var(--down); }
+.lk__k::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+.lk__k--s::before { background: var(--text); }
+.lk__k--l::before { border: 1.3px solid var(--text-dim); width: 7px; height: 7px; }
+.meet { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 8px 10px; margin-bottom: 8px; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; }
+.meet__i { white-space: normal; }

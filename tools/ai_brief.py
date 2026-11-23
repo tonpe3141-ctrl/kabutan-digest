@@ -609,6 +609,58 @@ def phase(b: Brief, d: dict, slot: str):
                   + (f"・5日後 {pct(a.get('r5'))}" if 'r5' in a else "") + (f"・20日後 {pct(a.get('r20'))}" if 'r20' in a else ""))
 
 
+def technical(b: Brief, d: dict):
+    """テクニカル（technical.py）。日経の線・勢い・雲・節目・市場の内部と、いまの形のあとの36年の分布。数字は付け直さない。"""
+    t = d.get("technical") or {}
+    st = t.get("state") or {}
+    if not st:
+        return
+    b.h(f"テクニカル（{t.get('asof')} の引けまで。形は事実、分布は過去の同じ形のあと。予測ではない）")
+    b.add(f"見出し: {t.get('headline')}")
+    mas = "・".join(f"{m['n']}日線 {num(m.get('v'))}（{'上' if m.get('above') else '下'}・{pct(m.get('dev'))}・{m.get('slope')}）" for m in st.get("mas") or [])
+    ic, bb = st.get("ichimoku") or {}, st.get("bb") or {}
+    mc = st.get("macd_cross") or {}
+    b.add(f"{mas}｜並び {st.get('order')} {st.get('order_days')}日目｜RSI14 {st.get('rsi')}｜%b {bb.get('pb')}・バンド幅は1年で狭い方から{bb.get('bw_rank')}%｜"
+          f"MACD {'シグナルの上' if (st.get('hist') or 0) >= 0 else 'シグナルの下'}（{mc.get('date')}に{mc.get('kind')}）｜"
+          f"一目 {ic.get('kumo')}・三役 {ic.get('sanyaku') or 'なし'}・雲のねじれ {ic.get('twist') or 'なし'}日先｜1年の位置 {st.get('pos52')}%（高値から {pct(st.get('from_hi52'))}）｜ATR {st.get('atr_pct')}%")
+    lv = t.get("levels") or []
+    if lv:
+        b.add("節目: " + "／".join(f"{num(x['price'])} {x['label']}（{pct(x['dist'])}）" for x in lv[:10]))
+    base = ((t.get("research") or {}).get("base") or {}).get("all") or {}
+    for a in t.get("active") or []:
+        x, f, s2 = a.get("all") or {}, a.get("first") or {}, a.get("second") or {}
+        b.add(f"いまの形: {a.get('name')}（{a.get('date')}）→ 20日後 {pct(x.get('r20'))}（全日 {pct(base.get('r20'))}）・プラス{x.get('p20')}%・{x.get('n')}回・"
+              f"前半 {pct(f.get('r20'))}／後半 {pct(s2.get('r20'))}")
+    br = t.get("breadth") or {}
+    if br:
+        b.add(f"市場の内部（約{br.get('n')}銘柄）: 25日線の上 {br.get('p25')}%（1年で低い方から{br.get('p25_rank')}%）・200日線の上 {br.get('p200')}%・"
+              f"新高値 {br.get('nh')}・新安値 {br.get('nl')}・騰落レシオ25日 {br.get('ratio')}")
+    nt = ((t.get("topix") or {}).get("nt")) or {}
+    if nt:
+        b.add(f"NT倍率 {nt.get('now')}（20日 {nt.get('d20')}・1年の{nt.get('pos1y')}%の位置）")
+
+
+def macro_flow(b: Brief, d: dict):
+    """連動（相関）・海外投資家（財務省の週次）・日銀と FOMC の日程（macro_flow.py）。"""
+    mf = d.get("macro_flow") or {}
+    if not mf:
+        return
+    b.h("マクロの流れ（相関は原因とは限らない。海外勢の偏りの後の分布は過去の数字）")
+    lk = mf.get("link") or {}
+    if lk:
+        b.add("日経との相関（60日／1年）: " + "・".join(f"{r['label']} {r['c60']:+.2f}／{r['c250']:+.2f}" + (f"（{r['shift']}）" if r.get("shift") else "")
+                                                   for r in lk.get("rows") or []))
+    fo = mf.get("foreign") or {}
+    if fo:
+        b.add(f"海外投資家（財務省・週次）: {fo.get('facts')}")
+        b.add(f"  根拠: {fo.get('evidence')}")
+    mt = mf.get("meetings") or {}
+    for k in ("boj", "fomc"):
+        m = mt.get(k)
+        if m:
+            b.add(f"次の{m.get('label')}: {m.get('start')}〜{m.get('end')}（日本で結果 {m.get('jp_result')}・あと{m.get('days')}日）")
+
+
 def extras(b: Brief, d: dict, slot: str, date: str):
     if slot == "taibike":
         try:
@@ -633,6 +685,9 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
     d = s.get("data") or {}
     b = Brief()
     b.add(f"# {slot} {latest.get('date')} 収集 {s.get('updated_at')}（数字はここと同じものだけを書く）")
+    nk = ((d.get("indices") or {}).get("nikkei") or {})
+    if slot != "preopen" and nk.get("stale"):
+        b.add(f"**今日は東証の休場日。指数・業種・ランキングは前の営業日（{nk.get('asof')}）の引けのもの。今日の値動きとして書かない。**")
     if slot == "preopen":
         preopen_session(b, d)
         world_preopen(b, d)
@@ -643,7 +698,9 @@ def build(slot: str, limit: int) -> tuple[str, dict]:
         why(b, d)
         indicators(b, d)
     phase(b, d, slot)
+    technical(b, d)
     macro(b, d)
+    macro_flow(b, d)
     thermo(b, d, d.get("picks") or {})
     earnings(b, d)
     newsflow(b, d)

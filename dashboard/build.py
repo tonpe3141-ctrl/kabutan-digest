@@ -15,7 +15,7 @@ import traceback
 from datetime import date, datetime, timedelta
 from statistics import median
 
-from . import analyze, attrib, bars as bars_mod, commentary, earnings as earnings_mod, indicators as ind_mod, ledger as ledger_mod, macro as macro_mod, names, newsflow, overnight, phase as phase_mod, picks as picks_mod, store, themes as themes_mod, thermo_run, trend
+from . import analyze, attrib, bars as bars_mod, commentary, earnings as earnings_mod, indicators as ind_mod, ledger as ledger_mod, macro as macro_mod, macro_flow, names, newsflow, overnight, phase as phase_mod, picks as picks_mod, store, technical, themes as themes_mod, thermo_run, trend
 from .config import (
     INTRADAY_SYMBOLS, JP_INDICES, MACRO_SYMBOLS, OVERNIGHT_FUTURES, OVERNIGHT_NAMES, RANKING_PAGES, SLOTS, SPARK_POINTS, SWING_TRACK_PATH,
     THERMO_PATH, US_INDICES, US_SECTOR_ETFS, WORLD_INDICES,
@@ -628,6 +628,14 @@ def run(slot: str, target_date: date | None = None) -> dict:
         hist_patch[slot]["phase"] = {"primary": ph["primary"], "headline": ph["headline"], "asof": ph["asof"]}
         print(f"    ✅ {ph['label']}: {ph['headline']}")
 
+    # テクニカル（移動平均の並び・RSI・MACD・ボリンジャー・一目均衡表・節目・市場の内部と、各形のあとの36年の分布。DESIGN.md 37章）。
+    # 局面が今日の日足まで足した index_long.json を読む。注文・候補は変えない
+    print("  [テクニカル] 日経の位置・節目・市場の内部と、各形のあとの分布を数えています...")
+    payload["technical"] = _safe("テクニカル", lambda: technical.run(slot, target_date.isoformat(), bars_mod.load().get("macro")))
+    if payload["technical"]:
+        hist_patch[slot]["technical"] = {"headline": payload["technical"]["headline"], "asof": payload["technical"]["asof"]}
+        print(f"    ✅ {payload['technical']['headline']}（いまの形 {len(payload['technical']['active'])}）")
+
     # 経済指標（結果・予想・前回と、発表の前後の値動き）と、値動きの分解（寄与度・時間の流れ・同じ時間の動き）。DESIGN.md 31章
     print("  [指標] 経済指標の結果・予定を読み、発表の前後の値動きを測っています...")
     payload["indicators"] = _safe("経済指標", lambda: _indicators(slot, target_date, payload))
@@ -666,6 +674,12 @@ def run(slot: str, target_date: date | None = None) -> dict:
         bars_mod.load().get("macro"), payload.get("macro"), payload.get("press"), payload.get("kabutan")))
     if payload["macro_view"]:
         hist_patch[slot]["macro_headline"] = payload["macro_view"]["headline"]
+    # マクロの流れ: 日経は何に連動しているか・海外投資家の売り買い（財務省・週次）・日銀と FOMC の日程（DESIGN.md 37章）
+    if slot == "taibike":
+        _safe("財務省の週次・会合の日程", lambda: _refresh_official(target_date))
+    payload["macro_flow"] = _safe("マクロの流れ", lambda: macro_flow.build(
+        bars_mod.load().get("macro"), phase_mod._read(phase_mod.FLOWS_PATH, {}),
+        (phase_mod._read(phase_mod.LONG_PATH, {}) or {}).get("n225"), target_date.isoformat())) or None
 
     # 決算から読む（会社の説明・決算速報・類似銘柄・業種の風向き）。理由づけは Routine が ai_earnings に書く
     print("  [決算] 決算・修正の開示を読んでいます...")
@@ -695,6 +709,15 @@ def run(slot: str, target_date: date | None = None) -> dict:
 
     print(f"\n✅ {slot} を更新しました → {store.latest_path()}")
     return payload
+
+
+def _refresh_official(target_date: date) -> None:
+    """財務省の週次と日銀・FOMC の日程を flows.json に足す（局面が JPX の需給を書いたあと）。"""
+    flows = phase_mod._read(phase_mod.FLOWS_PATH, {}) or {}
+    msg = macro_flow.refresh(flows, target_date.isoformat())
+    if msg:
+        phase_mod._write(phase_mod.FLOWS_PATH, flows)
+        print(f"    ✅ {msg}")
 
 
 def _indicators(slot: str, target_date: date, payload: dict) -> dict | None:

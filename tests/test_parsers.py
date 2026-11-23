@@ -2486,6 +2486,74 @@ def test_attrib():
     check("定時の記事は最後", s0["events"][-1]["text"].startswith("時事通信: 〔東京株式〕"), True)
 
 
+def test_technical():
+    """テクニカル（DESIGN.md 37章）: 指標の計算・形の判定・節目・市場の内部・財務省の週次・日銀と FOMC の日程。"""
+    print("\n[テクニカル・一次情報]")
+    import math
+    from dashboard import macro_flow, technical as T
+    from dashboard.sources import official as O
+    # 上げ続けて最後に急落する系列: 上昇の並び → 最後は −2σ 割れ・RSI 低下
+    rows, p = [], 1000.0
+    for i in range(400):
+        p *= 1.003 + (0.004 * math.sin(i / 9) if i < 300 else 0)
+        rows.append([f"D{i:04d}", p, p * 1.01, p * 0.99, p])
+    for k in range(3):
+        p *= 0.94
+        rows.append([f"D{400 + k:04d}", p * 1.05, p * 1.06, p, p])
+    S = T.Ind(rows)
+    check("RSI は 0〜100", all(0 <= v <= 100 for v in S.rsi if v is not None), True)
+    check("急落で RSI が30未満", S.rsi[-1] < 30, True)
+    check("急落で −2σ を下回る", S.c[-1] < S.bb_lo[-1], True)
+    check("上げの途中は上昇の並び", S.order(390), "up")
+    check("雲は26日前の先行スパン", (S.cloud_top[300], S.cloud_bot[300]) ==
+          (max(S.span_a[274], S.span_b[274]), min(S.span_a[274], S.span_b[274])), True)
+    out = T.build({"n225": rows})
+    st = out["state"]
+    check("見出しに線と雲とRSI", out["headline"], "日経は200日線の上・雲の下。RSI 17（売られすぎの域）")
+    check("節目は高い順・今の値の ±12%", all(a["price"] >= b["price"] for a, b in zip(out["levels"], out["levels"][1:]))
+          and all(abs(x["dist"]) <= T.LEVEL_RANGE for x in out["levels"]), True)
+    check("いまの形に −2σ割れ", "bb_lo" in [a["key"] for a in out["active"]], True)
+    check("形の数", len(out["research"]["signals"]), len(T.SIGNALS))
+    check("先の雲は26日分", len(st["ahead"]), T.ICHI_K)
+    check("図は130日", len(out["chart"]["c"]), T.CHART_DAYS)
+    # 市場の内部: 3銘柄 × 300日（上げ・下げ・横ばい）
+    n = 300
+    ohlc = {"dates": [f"D{i:04d}" for i in range(n)], "stocks": {}}
+    for j, g in enumerate((1.003, 0.997, 0.995)):
+        for k in range(10):
+            c = 100.0
+            rws = []
+            for i in range(n):
+                c *= g * (1 + 0.001 * ((i + k) % 3 - 1))
+                rws.append([c, c, c, c, 100])
+            ohlc["stocks"][f"{j}{k:03d}"] = rws
+    br = T.breadth(ohlc)
+    check("市場の内部は数えられない（50銘柄未満）", br, None)
+    for j in range(3):
+        for k in range(10, 20):
+            ohlc["stocks"][f"{j}{k:03d}"] = ohlc["stocks"][f"{j}{k - 10:03d}"]
+    br = T.breadth(ohlc)
+    check("25日線の上は上げの銘柄（1/3）", br["p25"], 33)
+    check("新高値は上げの銘柄・新安値は下げの銘柄", (br["nh"], br["nl"]), (20, 40))
+    # 財務省の週次（Shift_JIS・全角の数字。年をまたぐ週）
+    csv_text = ("期間,a\n"
+                "2025．12．28〜 1．3,\"1,000 \",\"900 \",100 ,1,1,50 ,0,0,0,0,0,\"5,000 \",\"5,200 \",\"-200 \",1,1,300 ,0,0,0,0,0\n"
+                "2026．1．4〜1．10,1,1,-5 ,1,1,-7 ,0,0,0,0,0,10,4,6 ,1,1,9 ,0,0,0,0,0\n")
+    mw = O.parse_mof_week(csv_text)
+    check("財務省の週次: 年をまたぐ週の終わり", mw[0]["end"], "2026-01-03")
+    check("財務省の週次: 列", (mw[0]["nr_stock"], mw[0]["nr_bond"], mw[0]["res_stock"], mw[0]["res_bond"]), (-200.0, 300.0, 100.0, 50.0))
+    check("財務省の週次: 2週", len(mw), 2)
+    boj = O.parse_boj("<h3>2026年</h3><table><caption>2026年 表 2026年 金融政策決定会合</caption><tr><td>1月22日（木）・23日（金）</td></tr>"
+                      "<tr><td>4月30日（木）・5月1日（金）</td></tr></table>")
+    check("日銀の会合", boj, [{"start": "2026-01-22", "end": "2026-01-23"}, {"start": "2026-04-30", "end": "2026-05-01"}])
+    fomc = O.parse_fomc("<h4>2024 FOMC Meetings</h4><p>April/May 30-1</p><p>June 11-12*</p><h4>2025 FOMC Meetings</h4><p>January 28-29</p>")
+    check("FOMC の日程（月をまたぐ回・見通しの印）", [(x["start"], x["end"], x["sep"]) for x in fomc],
+          [("2024-04-30", "2024-05-01", False), ("2024-06-11", "2024-06-12", True), ("2025-01-28", "2025-01-29", False)])
+    mv = macro_flow.meetings_view({"boj": boj, "fomc": fomc}, "2026-01-20")
+    check("次の日銀はあと3日", (mv["boj"]["end"], mv["boj"]["days"]), ("2026-01-23", 3))
+    check("FOMC が先に無ければ出さない", "fomc" in mv, False)
+
+
 if __name__ == "__main__":
     test_names()
     test_ranking()
@@ -2520,6 +2588,7 @@ if __name__ == "__main__":
     test_overnight()
     test_indicators()
     test_attrib()
+    test_technical()
     print()
     if failures:
         print(f"❌ {len(failures)} 件失敗: {', '.join(failures)}")

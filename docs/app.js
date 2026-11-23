@@ -1436,7 +1436,7 @@ function phaseCard(d) {
   } else {
     kids.push(h('button', { class: 'more', type: 'button', text: '36年の検証を見る ›', onclick: () => selectView('verify', 'v-phase') }));
   }
-  return noclamp(card('局面と対処', ph.stale ? `${md(ph.asof)}の引け（今日の日足なし）` : `${md(ph.asof)}の引けまで`, kids,
+  return noclamp(card('局面と対処', ph.stale ? `${md(ph.asof)}の引け${staleTag(true)}` : `${md(ph.asof)}の引けまで`, kids,
     '36年の日経平均で同じ形を数えた過去の分布で、予測ではありません。形の定義と件数・前半（〜2007）／後半（2008〜）は検証の章に。注文・買い候補は変えていません。売買を推奨するものではありません。',
     false, 'sec-phase'));
 }
@@ -1774,6 +1774,8 @@ function indicatorsCard(d) {
   const main = rows.filter((r) => major.has(r.country));
   const other = rows.filter((r) => !major.has(r.country));
   const kids = [];
+  const mt = meetingsLine((latestMacroFlow() || {}).meetings);
+  if (mt) kids.push(mt);
   if (v.headline) kids.push(h('p', { class: 'phase__head', text: v.headline }));
   // 発表時刻ごとにまとめ、反応はその下に1回だけ
   const groups = [];
@@ -2697,10 +2699,43 @@ const tickDown = (p) => {
   return Math.floor(p / t + 1e-9) * t;
 };
 
-/* 今の時間帯（東証の立会）。祝日は分からないので平日で数える */
+/* 東証の休場日（土日のほかの祝日・年末年始）。年に1回、翌年の分を足す（DESIGN.md 37章）。
+   以前は「祝日は分からないので平日で数える」で、11/23（勤労感謝の日）も「引けのあと: 大引の更新で次の営業日の注文が出ます」と出ていた */
+const TSE_HOLIDAYS = {
+  '2026-01-01': '元日', '2026-01-02': '年始の休場', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日', '2026-02-23': '天皇誕生日',
+  '2026-03-20': '春分の日', '2026-04-29': '昭和の日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日', '2026-05-06': '振替休日',
+  '2026-07-20': '海の日', '2026-08-11': '山の日', '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+  '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日', '2026-12-31': '年末の休場',
+  '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日', '2027-02-23': '天皇誕生日', '2027-03-22': '振替休日',
+  '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日', '2027-05-05': 'こどもの日', '2027-07-19': '海の日',
+  '2027-08-11': '山の日', '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日', '2027-11-03': '文化の日',
+  '2027-11-23': '勤労感謝の日', '2027-12-31': '年末の休場',
+};
+/* その日が休場ならその名前（土日は「土日」）。データからも分かる: その日の前場・大引の収集で日経が前営業日の値（stale）なら休場 */
+function closedName(iso) {
+  if (TSE_HOLIDAYS[iso]) return TSE_HOLIDAYS[iso];
+  const dw = new Date(iso + 'T12:00:00+09:00').getUTCDay();
+  if (dw === 0 || dw === 6) return '土日';
+  if (DATA && DATA.date === iso) {
+    const nk = ((slotData('taibike') || slotData('zenba') || {}).indices || {}).nikkei;
+    if (nk && nk.stale) return '休場';
+  }
+  return null;
+}
+/* 前場・大引の区分が休場日の収集なら「休場（11/20の引け）」を添える（中身は前の営業日のもの） */
+function staleTag(stale) { return stale ? (closedName(isoToday()) ? '（今日は休場）' : '（今日の日足なし）') : ''; }
+function slotWhen(slot) {
+  if (!slot) return null;
+  const base = `${SLOT_LABEL[slot]} ${slotTime(slot)}`;
+  const nk = ((slotData(slot) || {}).indices || {}).nikkei;
+  if (slot !== 'preopen' && nk && nk.stale && nk.asof) return `${base}・休場（${md(nk.asof)}の引け）`;
+  return base;
+}
+
+/* 今の時間帯（東証の立会）。休場日（土日・祝日・年末年始）は closed */
 function marketPhase() {
   const n = jstNow();
-  if (n.getDay() === 0 || n.getDay() === 6) return 'closed';
+  if (n.getDay() === 0 || n.getDay() === 6 || TSE_HOLIDAYS[isoToday()]) return 'closed';
   const m = n.getHours() * 60 + n.getMinutes();
   if (m < 9 * 60) return 'pre';
   if (m < 11 * 60 + 30) return 'am';
@@ -5709,6 +5744,8 @@ function renderVerify() {
     out.push(ruleCard());
     out.push(holdProofCard());
     out.push(phaseProofCard());
+    out.push(techProofCard());
+    out.push(foreignProofCard());
     out.push(overnightProofCard());
     out.push(indicatorsProofCard());
     out.push(crowdProofCard());
@@ -5742,6 +5779,8 @@ const VSEC = {
   'v-rule': 'ルールの中身と決めた経緯（入口・指値・損切り・売り・並べ方）',
   'v-hold': '判定ごとの次の5〜20日、利確・損切り・追いかけ売りの比較、売り方',
   'v-phase': '急落・反発・伸びすぎの後の日経（36年）、崩れたら売る・一部利確の損得、市場全体の信用残、答え合わせ',
+  'v-tech': 'RSI・ボリンジャー・MACD・一目の雲・移動平均の交差など15の形に入った後の日経（36年）',
+  'v-foreign': '海外投資家（財務省の週次）の売り・買いが偏った週の後の日経（2008年〜）',
   'v-overnight': '米国が大きく下げた夜の翌朝: 窓の目安の当たり方、寄りで売るか持つか、押し目買いの注文の成績',
   'v-ind': '米国の指標が上振れ・下振れした時、金利・ドル円・株価指数先物がどう動いたか（記録）',
   'v-supply': '上値のしこり（価格帯別の出来高）と信用残ごとの、その後の値動き',
@@ -6301,15 +6340,439 @@ function stackBar(parts, o = {}) {
   ]);
 }
 
+/* ==================== テクニカル（DESIGN.md 37章） ====================
+   日経平均がチャートの上でどこにいるか（移動平均の並び・RSI・MACD・ボリンジャーバンド・一目均衡表）・節目・市場の内部（約510銘柄）と、
+   各形に入った日のあとに過去36年で何が起きたか（dashboard/technical.py）。事実の並べ替えと過去の分布で、買い・売りのシグナルとは呼ばない。
+   注文の条件・並べ方には使わない。 */
+function latestTech() {
+  for (const s of [latestSlot(), 'taibike', 'zenba', 'preopen']) { const d = s && slotData(s); if (d && d.technical) return d.technical; }
+  return null;
+}
+function latestMacroFlow() {
+  for (const s of [latestSlot(), 'taibike', 'zenba', 'preopen']) { const d = s && slotData(s); if (d && d.macro_flow && Object.keys(d.macro_flow).length) return d.macro_flow; }
+  return null;
+}
+const TECH_SLOPE = { up: '上向き', down: '下向き', flat: '横ばい' };
+const TECH_KUMO = { above: '雲の上', in: '雲の中', below: '雲の下' };
+const TECH_ORDER = { up: '上昇の並び', down: '下落の並び', mixed: '並びは混在' };
+const yen0 = (v) => (isNum(v) ? Math.round(v).toLocaleString('ja-JP') : '—');
+
+/* ローソク足（130日）＋25・75・200日線＋±2σの帯＋一目の雲（26日先まで）＋右端の節目。下に RSI と MACD のヒストグラム */
+function techChart(T) {
+  const ch = T.chart || {};
+  const n = (ch.c || []).length;
+  if (n < 20) return null;
+  const ahead = ((T.state || {}).ahead || []);
+  const N = n + ahead.length;
+  const box = h('div', { class: 'tc' });
+  const ro = h('div', { class: 'cv__ro' });
+  box.appendChild(ro);
+  const W = 340, H = 214, ML = 2, MR = 46, MT = 8, MB = 18, RH = 40, GH = 40, GAP = 10;
+  const yBase = H - MB;
+  const vals = [];
+  for (let i = 0; i < n; i++) [ch.h[i], ch.l[i], ch.bb_up[i], ch.bb_lo[i], ch.ma25[i], ch.ma75[i]].forEach((v) => isNum(v) && vals.push(v));
+  // 雲・200日線は遠ければ目盛りを広げすぎないよう、終値の ±15% の中だけ入れる
+  const cNow = ch.c[n - 1];
+  const near = (v) => isNum(v) && Math.abs(v / cNow - 1) < 0.15;
+  for (let i = 0; i < n; i++) [ch.top[i], ch.bot[i], ch.ma200[i]].forEach((v) => near(v) && vals.push(v));
+  ahead.forEach(([a, b]) => [a, b].forEach((v) => near(v) && vals.push(v)));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.05;
+  lo -= pad; hi += pad;
+  const X = (i) => ML + (i + 0.5) * (W - ML - MR) / N;
+  const Y = (v) => MT + (hi - v) / (hi - lo) * (yBase - MT);
+  const clampY = (v) => Math.max(MT, Math.min(yBase, Y(v)));
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H + GAP + RH + GAP + GH}`, class: 'cv__svg tc__svg', role: 'img',
+    'aria-label': `日経平均の日足（${ch.d[0]}〜${ch.d[n - 1]}）と移動平均・ボリンジャーバンド・一目均衡表の雲、RSI、MACD` });
+  const defs = sv('defs');
+  const clip = sv('clipPath', { id: 'tcclip' }, [sv('rect', { x: 0, y: MT, width: W - MR, height: yBase - MT })]);
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+  const step = niceStep(hi - lo);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    svg.appendChild(sv('line', { x1: ML, x2: W - MR, y1: Y(v), y2: Y(v), class: 'cv__grid' }));
+    if (Math.abs(Y(v) - Y(cNow)) > 11) svg.appendChild(sv('text', { x: W - MR + 4, y: Y(v) + 3, class: 'cv__tick', text: Math.round(v).toLocaleString('ja-JP') }));
+  }
+  // 月の目盛り
+  let prev = null;
+  ch.d.forEach((iso, i) => {
+    const key = iso.slice(0, 7);
+    if (key === prev) return;
+    const first = prev === null;
+    prev = key;
+    if (first) return;
+    svg.appendChild(sv('line', { x1: X(i) - 1, x2: X(i) - 1, y1: MT, y2: yBase, class: 'tc__mon' }));
+    svg.appendChild(sv('text', { x: X(i), y: H - 5, class: 'cv__tick', 'text-anchor': 'middle', text: `${Number(iso.slice(5, 7))}月` }));
+  });
+  if (ahead.length) {
+    svg.appendChild(sv('line', { x1: X(n) - 2, x2: X(n) - 2, y1: MT, y2: yBase, class: 'tc__today' }));
+    svg.appendChild(sv('text', { x: X(n + ahead.length / 2), y: H - 5, class: 'cv__tick', 'text-anchor': 'middle', text: '26日先の雲' }));
+  }
+  const g = sv('g', { 'clip-path': 'url(#tcclip)' });
+  // 雲（過去の分は描かれた位置、今日のあとは先行スパン）。A>B は上昇の雲、A<B は下落の雲
+  const cloud = [];
+  for (let i = 0; i < n; i++) if (isNum(ch.top[i])) cloud.push([i, ch.top[i], ch.bot[i]]);
+  ahead.forEach(([a, b], k) => cloud.push([n + k, Math.max(a, b), Math.min(a, b)]));
+  if (cloud.length > 1) {
+    const top = cloud.map(([i, t]) => `${X(i).toFixed(1)},${Y(t).toFixed(1)}`);
+    const bot = cloud.slice().reverse().map(([i, , b]) => `${X(i).toFixed(1)},${Y(b).toFixed(1)}`);
+    g.appendChild(sv('path', { d: 'M' + top.join('L') + 'L' + bot.join('L') + 'Z', class: 'tc__kumo' }));
+  }
+  // ±2σの帯
+  const band = [];
+  for (let i = 0; i < n; i++) if (isNum(ch.bb_up[i])) band.push(i);
+  if (band.length > 1) {
+    const up = band.map((i) => `${X(i).toFixed(1)},${Y(ch.bb_up[i]).toFixed(1)}`);
+    const dn = band.slice().reverse().map((i) => `${X(i).toFixed(1)},${Y(ch.bb_lo[i]).toFixed(1)}`);
+    g.appendChild(sv('path', { d: 'M' + up.join('L') + 'L' + dn.join('L') + 'Z', class: 'tc__bb' }));
+  }
+  const pathOf = (arr) => {
+    let p = '', pen = false;
+    arr.forEach((v, i) => { if (!isNum(v)) { pen = false; return; } p += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); pen = true; });
+    return p;
+  };
+  g.appendChild(sv('path', { d: pathOf(ch.ma200), class: 'tc__ma200' }));
+  g.appendChild(sv('path', { d: pathOf(ch.ma75), class: 'cv__ma75' }));
+  g.appendChild(sv('path', { d: pathOf(ch.ma25), class: 'cv__ma25' }));
+  // ローソク足（上昇=赤・下落=青）
+  const bw = Math.max(1, (W - ML - MR) / N * 0.62);
+  for (let i = 0; i < n; i++) {
+    const o = ch.o[i], c = ch.c[i];
+    if (![o, c, ch.h[i], ch.l[i]].every(isNum)) continue;
+    const up = c >= o;
+    g.appendChild(sv('line', { x1: X(i), x2: X(i), y1: Y(ch.h[i]), y2: Y(ch.l[i]), class: up ? 'tc__wk tc__wk--up' : 'tc__wk tc__wk--dn' }));
+    g.appendChild(sv('rect', { x: X(i) - bw / 2, y: Y(Math.max(o, c)), width: bw, height: Math.max(0.8, Math.abs(Y(o) - Y(c))), class: up ? 'tc__up' : 'tc__dn' }));
+  }
+  svg.appendChild(g);
+  // 右端の節目（今の値の上下 3つずつ）
+  const lv = (T.levels || []);
+  const above = lv.filter((x) => x.above).slice(-3), below = lv.filter((x) => !x.above).slice(0, 3);
+  above.concat(below).forEach((x) => {
+    // 切りのいい値と、今の値に近すぎる節目（0.5%以内）は印にしない（右端が詰まって読めないため。一覧は節目のカード）
+    if (!isNum(x.price) || x.price > hi || x.price < lo || x.kind === 'round' || Math.abs(x.dist) < 0.5) return;
+    svg.appendChild(sv('line', { x1: W - MR - 10, x2: W - MR, y1: Y(x.price), y2: Y(x.price), class: 'tc__lvl' }));
+  });
+  svg.appendChild(sv('circle', { cx: X(n - 1), cy: Y(cNow), r: 2.6, class: 'cv__now' }));
+  svg.appendChild(sv('text', { x: W - MR + 4, y: Y(cNow) + 3, class: 'cv__nowlab', text: yen0(cNow) }));
+  // RSI（0〜100。30と70の線）
+  const r0 = H + GAP, RY = (v) => r0 + (100 - v) / 100 * RH;
+  svg.appendChild(sv('rect', { x: ML, y: RY(70), width: W - MR - ML, height: RY(30) - RY(70), class: 'tc__rsiband' }));
+  [30, 70].forEach((v) => {
+    svg.appendChild(sv('line', { x1: ML, x2: W - MR, y1: RY(v), y2: RY(v), class: 'cv__grid' }));
+    svg.appendChild(sv('text', { x: W - MR + 4, y: RY(v) + 3, class: 'cv__tick', text: String(v) }));
+  });
+  const rsiPath = [];
+  (ch.rsi || []).forEach((v, i) => { if (isNum(v)) rsiPath.push(`${rsiPath.length ? 'L' : 'M'}${X(i).toFixed(1)},${RY(v).toFixed(1)}`); });
+  svg.appendChild(sv('path', { d: rsiPath.join(''), class: 'tc__rsi' }));
+  svg.appendChild(sv('text', { x: ML + 2, y: r0 + 9, class: 'tc__plab', text: `RSI(14) ${isNum((T.state || {}).rsi) ? T.state.rsi.toFixed(0) : '—'}` }));
+  // MACD のヒストグラム（MACD − シグナル）
+  const m0 = H + GAP + RH + GAP;
+  const hs = (ch.hist || []).filter(isNum);
+  const hm = Math.max(1, ...hs.map(Math.abs));
+  const MY = (v) => m0 + GH / 2 - v / hm * (GH / 2 - 2);
+  svg.appendChild(sv('line', { x1: ML, x2: W - MR, y1: MY(0), y2: MY(0), class: 'cv__grid' }));
+  (ch.hist || []).forEach((v, i) => {
+    if (!isNum(v)) return;
+    svg.appendChild(sv('rect', { x: X(i) - bw / 2, width: bw, y: Math.min(MY(0), MY(v)), height: Math.max(0.6, Math.abs(MY(v) - MY(0))), class: v >= 0 ? 'mb__up' : 'mb__dn' }));
+  });
+  svg.appendChild(sv('text', { x: ML + 2, y: m0 + 9, class: 'tc__plab', text: 'MACD − シグナル' }));
+  // 読み取り（既定は最新日。なぞるとその日）
+  const setRo = (i) => {
+    ro.textContent = '';
+    ro.appendChild(h('b', { text: `${md(ch.d[i])}(${wd(ch.d[i])}) ` }));
+    ro.appendChild(h('span', { class: 'num', text: yen0(ch.c[i]) }));
+    if (i > 0 && isNum(ch.c[i - 1])) ro.appendChild(h('span', { class: 'num ' + cls(ch.c[i] - ch.c[i - 1]), text: ` ${fmtPct((ch.c[i] / ch.c[i - 1] - 1) * 100)}` }));
+    const bits = [['始', ch.o[i]], ['高', ch.h[i]], ['安', ch.l[i]]].map(([k, v]) => `${k} ${yen0(v)}`);
+    if (isNum((ch.rsi || [])[i])) bits.push(`RSI ${ch.rsi[i].toFixed(0)}`);
+    if (isNum(ch.ma25[i])) bits.push(`25日線 ${fmtPct((ch.c[i] / ch.ma25[i] - 1) * 100, 1)}`);
+    bits.forEach((t) => ro.appendChild(h('span', { class: 'cv__rob', text: t })));
+  };
+  setRo(n - 1);
+  const cross = sv('line', { x1: 0, x2: 0, y1: MT, y2: m0 + GH, class: 'cv__cross', visibility: 'hidden' });
+  svg.appendChild(cross);
+  const pick = (ev) => {
+    const b = svg.getBoundingClientRect();
+    const px = (ev.clientX - b.left) / b.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.floor((px - ML) / ((W - ML - MR) / N))));
+    cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.setAttribute('visibility', 'visible');
+    setRo(i);
+  };
+  svg.addEventListener('pointerdown', pick);
+  svg.addEventListener('pointermove', pick);
+  svg.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); setRo(n - 1); });
+  box.appendChild(h('div', { class: 'cv__plot' }, [svg]));
+  box.appendChild(h('div', { class: 'cv__legend' }, [
+    h('span', { class: 'cv__k cv__k--ma25', text: '25日線' }), h('span', { class: 'cv__k cv__k--ma75', text: '75日線' }),
+    h('span', { class: 'cv__k tc__k--ma200', text: '200日線' }), h('span', { class: 'tc__k tc__k--bb', text: '±2σ' }),
+    h('span', { class: 'tc__k tc__k--kumo', text: '一目の雲' }), h('span', { class: 'tc__k tc__k--lvl', text: '右端の印＝節目' }),
+  ]));
+  return box;
+}
+
+/* いまの位置: 線・勢い・バンド・一目・1年の位置を1行ずつ */
+function techStateRows(st) {
+  const rows = [];
+  const row = (k, v, sub, tone) => rows.push(h('div', { class: 'tk__row' }, [h('span', { class: 'tk__k', text: k }),
+    h('span', { class: 'tk__v num ' + (tone || '') , text: v }), sub ? h('span', { class: 'tk__s' }, [rich(sub)]) : null]));
+  (st.mas || []).forEach((m) => {
+    if (!isNum(m.v)) return;
+    row(`${m.n}日線`, yen0(m.v), `${m.above ? '上' : '下'}にいる（線から ${fmtPct(m.dev, 1)}）・${TECH_SLOPE[m.slope] || '—'}`, m.above ? 'up' : 'down');
+  });
+  row('並び', TECH_ORDER[st.order] || '—', `${st.order_days}日目`, st.order === 'up' ? 'up' : st.order === 'down' ? 'down' : '');
+  row('RSI(14)', isNum(st.rsi) ? st.rsi.toFixed(0) : '—', st.rsi_zone === 'lo' ? `30未満（売られすぎの域）${st.rsi_days}日目` : st.rsi_zone === 'hi' ? `70以上（買われすぎの域）${st.rsi_days}日目` : '30〜70', st.rsi_zone === 'lo' ? 'down' : st.rsi_zone === 'hi' ? 'up' : '');
+  const mc = st.macd_cross;
+  row('MACD', isNum(st.hist) ? (st.hist >= 0 ? 'シグナルの上' : 'シグナルの下') : '—', mc ? `${md(mc.date)}に${mc.kind === 'gc' ? '上' : '下'}に交差（${mc.days}日前）` : null, cls(st.hist));
+  const bb = st.bb || {};
+  row('ボリンジャー', isNum(bb.pb) ? `%b ${bb.pb}` : '—', `+2σ ${yen0(bb.up)}・中心 ${yen0(bb.mid)}・−2σ ${yen0(bb.lo)}。幅は1年で狭いほうから${bb.bw_rank ?? '—'}%`, isNum(bb.pb) && bb.pb < 0 ? 'down' : isNum(bb.pb) && bb.pb > 100 ? 'up' : '');
+  const ic = st.ichimoku || {};
+  row('一目均衡表', TECH_KUMO[ic.kumo] || '—', `転換線 ${yen0(ic.tenkan)}・基準線 ${yen0(ic.kijun)}・雲 ${yen0(ic.bot)}〜${yen0(ic.top)}` +
+    (ic.sanyaku === 'good' ? '・三役好転' : ic.sanyaku === 'bad' ? '・三役逆転' : '') + (ic.twist ? `・雲は${ic.twist}日先でねじれる` : ''), ic.kumo === 'above' ? 'up' : ic.kumo === 'below' ? 'down' : '');
+  row('1年の位置', isNum(st.pos52) ? `${st.pos52}%` : '—', `高値 ${yen0(st.hi52)}（${md(st.hi52_date)}）から ${fmtPct(st.from_hi52, 1)}・安値 ${yen0(st.lo52)}から ${fmtPct(st.from_lo52, 1)}`, '');
+  row('値幅（ATR14）', isNum(st.atr) ? `${yen0(st.atr)}円` : '—', isNum(st.atr_pct) ? `1日の値幅の目安は株価の ${st.atr_pct.toFixed(1)}%` : null, '');
+  return h('div', { class: 'tk' }, rows);
+}
+
+/* 形のあとの分布の1行: 「20日後 +1.1%（全日 +0.4%）・プラス57%・183回・前半 +0.4%／後半 +1.7%」 */
+function techDist(s, base, small) {
+  const a = (s && s.all) || {}, f = (s && s.first) || {}, sc = (s && s.second) || {}, b = (base && base.all) || {};
+  const bf = (base && base.first) || {}, bs = (base && base.second) || {};
+  if (!a.n) return '例がありません';
+  const sq = s.key === 'squeeze';
+  return sq
+    ? `20日後の値幅（上下を問わない）の平均 ${a.abs20?.toFixed(1)}%（全日 ${b.abs20?.toFixed(1)}%）・${nTxt(a.n, small)}`
+    : `20日後 ${pctx(a.r20)}（全日 ${pctx(b.r20)}）・プラス${a.p20}%（全日 ${b.p20}%）・${nTxt(a.n, small)}。前半 ${pctx(f.r20)}（全日 ${pctx(bf.r20)}）／後半 ${pctx(sc.r20)}（全日 ${pctx(bs.r20)}）`;
+}
+function techActiveCard(T) {
+  const R = T.research || {}, act = T.active || [];
+  const kids = [];
+  if (!act.length) {
+    kids.push(h('p', { class: 'hint', text: 'この5営業日に入った形はありません。形の一覧と過去の分布は検証の章にあります。' }));
+  } else {
+    act.forEach((a) => kids.push(h('div', { class: 'tact' }, [
+      h('div', { class: 'tact__h' }, [h('b', { text: a.name }), h('span', { class: 'tact__d', text: a.days ? `${md(a.date)}（${a.days}営業日前）` : `${md(a.date)}（直近の引け）` })]),
+      h('div', { class: 'tact__def hint', text: a.def }),
+      h('p', { class: 'tact__r' }, [rich(techDist(a, R.base, R.small))]),
+    ])));
+  }
+  kids.push(h('button', { class: 'linkbtn', type: 'button', text: `${(R.signals || []).length}の形の一覧と過去の分布（検証）›`, onclick: () => openChapter('verify', { anchor: 'v-tech' }) }));
+  return noclamp(card('いまの形と、過去の同じ形のあと', `日経平均 ${R.from || ''}〜`, kids,
+    `形に入った日（${R.gap || 10}営業日以内の続きは同じ出来事）から20営業日後の日経平均を、すべての日と並べています。前半は ${R.split || '2008-01-01'} の前まで。` +
+    '平均の差は小さく、同じ形でも上げた時と下げた時の両方があります。予測ではなく、注文の条件にも使っていません。', false, 'tc-active'));
+}
+function techLevelsCard(T) {
+  const st = T.state || {}, lv = T.levels || [];
+  if (!lv.length) return null;
+  const above = lv.filter((x) => x.above), below = lv.filter((x) => !x.above);
+  const line = (x) => h('div', { class: 'lvl__row lvl__row--' + x.kind }, [
+    h('span', { class: 'lvl__p num', text: yen0(x.price) }), h('span', { class: 'lvl__d num ' + cls(x.dist), text: fmtPct(x.dist, 1) }),
+    h('span', { class: 'lvl__l', text: x.label })]);
+  return card('節目（上と下にある値）', `今 ${yen0(st.close)}`, [
+    h('div', { class: 'lvl' }, [...above.map(line), h('div', { class: 'lvl__now' }, [h('span', { class: 'num', text: `今 ${yen0(st.close)}` }), h('span', { class: 'hint', text: `1日の値幅の目安 ±${yen0(st.atr)}円` })]), ...below.map(line)]),
+  ], '線（25・75・200日）・ボリンジャーバンド・一目の雲と基準線・60日と1年の高値安値・千円の切りのいい値を、今の値から ±12% の中で並べたもの（0.25%より近いものはまとめた）。' +
+    '過去の値の並べ替えで、そこで止まる・抜けると言うものではありません。', false, 'tc-levels');
+}
+function breadthChart(B) {
+  const s = B.series || {};
+  const n = (s.p25 || []).length;
+  if (n < 20) return null;
+  const W = 340, H = 120, ML = 2, MR = 30, MT = 6, LH = 80, BH = 30;
+  const X = (i) => ML + (i + 0.5) * (W - ML - MR) / n;
+  const Y = (v) => MT + (100 - v) / 100 * LH;
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H + 8}`, class: 'cv__svg', role: 'img', 'aria-label': '25日線・200日線より上の銘柄の割合と、新高値・新安値の数' });
+  [0, 50, 100].forEach((v) => {
+    svg.appendChild(sv('line', { x1: ML, x2: W - MR, y1: Y(v), y2: Y(v), class: 'cv__grid' }));
+    svg.appendChild(sv('text', { x: W - MR + 4, y: Y(v) + 3, class: 'cv__tick', text: v + '%' }));
+  });
+  const path = (arr) => { let p = '', pen = false; arr.forEach((v, i) => { if (!isNum(v)) { pen = false; return; } p += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); pen = true; }); return p; };
+  svg.appendChild(sv('path', { d: path(s.p200), class: 'br__p200' }));
+  svg.appendChild(sv('path', { d: path(s.p25), class: 'br__p25' }));
+  const b0 = MT + LH + 8 + BH / 2;
+  const mx = Math.max(5, ...(s.nh || []).filter(isNum), ...(s.nl || []).filter(isNum));
+  const bw = Math.max(1, (W - ML - MR) / n * 0.62);
+  svg.appendChild(sv('line', { x1: ML, x2: W - MR, y1: b0, y2: b0, class: 'cv__grid' }));
+  for (let i = 0; i < n; i++) {
+    const u = s.nh[i] || 0, d = s.nl[i] || 0;
+    if (u) svg.appendChild(sv('rect', { x: X(i) - bw / 2, width: bw, y: b0 - u / mx * (BH / 2), height: u / mx * (BH / 2), class: 'mb__up' }));
+    if (d) svg.appendChild(sv('rect', { x: X(i) - bw / 2, width: bw, y: b0, height: d / mx * (BH / 2), class: 'mb__dn' }));
+  }
+  svg.appendChild(sv('text', { x: W - MR + 4, y: b0 + 3, class: 'cv__tick', text: '新高安' }));
+  return h('div', {}, [svg, h('div', { class: 'cv__legend' }, [
+    h('span', { class: 'tc__k br__k--p25', text: '25日線より上' }), h('span', { class: 'tc__k br__k--p200', text: '200日線より上' }),
+    h('span', { class: 'cv__k cv__k--tick', text: '新高値（上）・新安値（下）の数' })])]);
+}
+function breadthCard(T) {
+  const B = T.breadth;
+  if (!B) return null;
+  const stats = [
+    stat('25日線より上', `${B.p25}%`, `1年で低いほうから${B.p25_rank ?? '—'}%`, B.p25 >= 50 ? 'up' : 'down'),
+    stat('200日線より上', `${B.p200}%`, `1年で低いほうから${B.p200_rank ?? '—'}%`, B.p200 >= 50 ? 'up' : 'down'),
+    stat('新高値・新安値', `${B.nh}・${B.nl}`, `5日 ${B.nh5}・${B.nl5}`, B.nh >= B.nl ? 'up' : 'down'),
+    stat('騰落レシオ(25日)', isNum(B.ratio) ? String(B.ratio) : '—', `今日 上${B.adv}・下${B.dec}`, isNum(B.ratio) ? (B.ratio >= 100 ? 'up' : 'down') : ''),
+  ];
+  return card('市場の内部（何割の銘柄が線の上か）', `${md(B.date)}・約${B.n}銘柄`, [
+    h('div', { class: 'summary__stats pulse__stats--4' }, stats), breadthChart(B),
+  ], `日足キャッシュの約${B.n}銘柄（売買代金の上位と日経225。今の顔ぶれだけで数えている）。新高値・新安値は直近${(T.rules || {}).nh_days || 250}営業日の終値の最高・最低を更新した銘柄の数。` +
+    '騰落レシオは25日の値上がりの数÷値下がりの数（温度計の騰落レシオは日経225の採用銘柄だけで数えていて、ここと少し違います）。', false, 'tc-breadth');
+}
+function topixCard(T) {
+  const tp = T.topix;
+  if (!tp) return null;
+  const nt = tp.nt || {};
+  const kids = [h('div', { class: 'summary__stats pulse__stats--4' }, [
+    stat('TOPIX', fmtPct(tp.chg), fmtNum(tp.close, 0), cls(tp.chg)),
+    ...((tp.mas || []).map((m) => stat(`${m.n}日線から`, fmtPct(m.dev, 1), TECH_SLOPE[m.slope] || null, cls(m.dev)))),
+  ])];
+  if (isNum(nt.now)) {
+    kids.push(h('div', { class: 'nt' }, [
+      h('div', { class: 'nt__t' }, [h('b', { text: 'NT倍率 ' }), h('span', { class: 'num', text: nt.now.toFixed(2) + '倍' }),
+        h('span', { class: 'num ' + cls(nt.d20), text: `　20日 ${fmtSigned(nt.d20, 2)}` }),
+        h('span', { class: 'hint', text: `　1年 ${nt.lo1y}〜${nt.hi1y}（${nt.pos1y}%の位置）` })]),
+      miniLine(nt.spark, { w: 340, h: 48, tone: 'nk' }),
+    ]));
+  }
+  return card('TOPIX と NT倍率', `${md(tp.date)}・RSI(14) ${isNum(tp.rsi) ? tp.rsi.toFixed(0) : '—'}・1年の高値から ${fmtPct(tp.from_hi52, 1)}`, kids,
+    'NT倍率は日経平均÷TOPIX。上がると日経（値がさ株・半導体の比重が大きい）が、下がると TOPIX（銀行・内需の比重が大きい）が相対的に強い。線は130営業日。', false, 'tc-topix');
+}
+function techCards() {
+  const T = latestTech();
+  if (!T) return [card('テクニカル', null, h('div', { class: 'empty', text: 'テクニカルは次の自動更新（寄り前・前場・大引）から出ます。' }))];
+  const R = T.rules || {};
+  return [
+    ['チャート', () => card('日経平均の日足', `${md(T.asof)}の引けまで${staleTag(T.stale)}`, techChart(T),
+      `ローソク足は上昇=赤・下落=青。線は25・75・200日の移動平均、帯はボリンジャーバンド（${(R.bb || [20, 2])[0]}日・±${(R.bb || [20, 2])[1]}σ）、` +
+      `面は一目均衡表の雲（${(R.ichimoku || [9, 26, 52]).join('・')}。今日の右は26日先まで）。下は RSI(${(R.rsi || [14])[0]}) と MACD（${(R.macd || [12, 26, 9]).join('・')}）のシグナルとの差。指でなぞるとその日の値。`, false, 'tc-chart')],
+    ['読み', () => noclamp(card('読み', h('span', { class: 'badge badge--src', text: 'ルールベース' }), readSecs((T.reading || []).map((r) => ({ title: r.title, body: r.text })), 'tcr'),
+      '図と表の数字を機械的に文章にしたもの（同じ数字からは同じ文章）。線の並びや雲の位置は事実で、上がる・下がるの予測ではありません。', false, 'tc-read'))],
+    ['いまの形', () => techActiveCard(T)],
+    ['節目', () => techLevelsCard(T)],
+    ['いまの位置', () => card('いまの位置（線・勢い・バンド・雲）', `${md(T.asof)}・${yen0((T.state || {}).close)}`, techStateRows(T.state || {}), null, false, 'tc-state')],
+    ['市場の内部', () => breadthCard(T)],
+    ['TOPIX と NT倍率', () => topixCard(T)],
+  ];
+}
+/* 検証の章: 15の形のあとの分布（36年） */
+function techProofCard() {
+  const T = latestTech();
+  const R = T && T.research;
+  if (!R) return card('テクニカルの形のあと（36年）', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-tech');
+  const b = R.base || {};
+  const cell = (v, base) => h('td', { class: 'num ' + cls(v), text: pctx(v) + (isNum(v) && isNum(base) ? '' : '') });
+  const rows = [];
+  rows.push(h('tr', { class: 'is-base' }, [h('th', { text: 'すべての日（比べる相手）' }), h('td', { class: 'num', text: ((b.all || {}).n || 0).toLocaleString('ja-JP') + '日' }),
+    cell((b.all || {}).r5), cell((b.all || {}).r20), h('td', { class: 'num', text: `${(b.all || {}).p20 ?? '—'}%` }),
+    cell((b.first || {}).r20), cell((b.second || {}).r20), h('td', { class: 'num', text: pctx((b.all || {}).abs20) })]));
+  (R.signals || []).forEach((s) => {
+    const a = s.all || {}, f = s.first || {}, sc = s.second || {};
+    const same = isNum(f.r20) && isNum(sc.r20) && isNum((b.first || {}).r20) && isNum((b.second || {}).r20)
+      ? (f.r20 > b.first.r20 && sc.r20 > b.second.r20 ? 'up' : f.r20 < b.first.r20 && sc.r20 < b.second.r20 ? 'down' : '') : '';
+    rows.push(h('tr', {}, [h('th', { text: s.name + (same === 'up' ? ' ▲' : same === 'down' ? ' ▼' : '') }), h('td', { class: 'num', text: nTxt(a.n, R.small) }),
+      cell(a.r5), cell(a.r20), h('td', { class: 'num', text: isNum(a.p20) ? a.p20 + '%' : '—' }), cell(f.r20), cell(sc.r20), h('td', { class: 'num', text: pctx(a.abs20) })]));
+  });
+  return card('テクニカルの形のあと（36年）', `日経平均 ${R.from}〜${R.to}`, [
+    h('div', { class: 'check__lh', text: `形に入った日（${R.gap}営業日以内の続きは同じ出来事）から5日後・20日後の日経平均。前半は ${R.split} の前まで。▲▼は前半・後半とも「すべての日」より上／下だった形。値幅は20日後の騰落の絶対値の平均（向きを問わない）` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['形', '回数', '5日後', '20日後', 'プラス', '前半', '後半', '値幅'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, rows),
+    ])),
+    h('details', { class: 'fold' }, [h('summary', { text: '形の定義' }), h('ul', { class: 'reasons' }, (R.signals || []).map((s) => h('li', { text: `${s.name}: ${s.def}（最後は ${s.last || '—'}）` })))]),
+    h('p', { class: 'hint', text: '見方: どの形も「すべての日」との差は20日で ±1ポイント前後と小さく、前半と後半で向きが変わる形も多い。売られすぎ（RSI 30割れ・−2σ割れ）の後は平均では弱くなかったが、' +
+      'そのまま下げ続けた例も含む。形はチャートの位置を言葉にするための物差しで、注文の条件には使っていません（買う候補は押し目買いの2つのルールだけ）。' }),
+  ], null, false, 'v-tech');
+}
+
+/* マクロの章: 何に連動しているか・海外投資家（財務省・週次）・日銀と FOMC の日程 */
+function linkCard(L) {
+  if (!L || !(L.rows || []).length) return null;
+  const R = L.rules || {};
+  const W = 340, rowH = 22, H = L.rows.length * rowH + 18, x0 = 128, x1 = W - 36;
+  const X = (v) => x0 + (v + 1) / 2 * (x1 - x0);
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'cv__svg', role: 'img', 'aria-label': '日経平均と各指標の相関（60日と1年）' });
+  [-1, -0.5, 0, 0.5, 1].forEach((v) => {
+    svg.appendChild(sv('line', { x1: X(v), x2: X(v), y1: 4, y2: H - 14, class: v === 0 ? 'tc__today' : 'cv__grid' }));
+    svg.appendChild(sv('text', { x: X(v), y: H - 3, class: 'cv__tick', 'text-anchor': 'middle', text: v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v) }));
+  });
+  L.rows.forEach((r, k) => {
+    const y = 6 + k * rowH + rowH / 2;
+    svg.appendChild(sv('text', { x: 2, y: y + 4, class: 'lk__lab', text: r.label }));
+    svg.appendChild(sv('line', { x1: X(r.c250), x2: X(r.c60), y1: y, y2: y, class: 'lk__conn' }));
+    svg.appendChild(sv('circle', { cx: X(r.c250), cy: y, r: 3.2, class: 'lk__long' }, [sv('title', { text: `1年 ${r.c250}` })]));
+    svg.appendChild(sv('circle', { cx: X(r.c60), cy: y, r: 4.2, class: 'lk__short ' + (r.c60 >= 0 ? 'lk--up' : 'lk--dn') }, [sv('title', { text: `60日 ${r.c60}` })]));
+    svg.appendChild(sv('text', { x: x1 + 6, y: y + 4, class: 'cv__tick', text: (r.c60 >= 0 ? '+' : '') + r.c60.toFixed(2) }));
+  });
+  const beta = L.rows.filter((r) => isNum(r.beta60) && Math.abs(r.c60) >= 0.3).map((r) => `${r.label.replace('（前夜）', '')} ${r.per}で ${fmtPct(r.beta60, 2)}`);
+  return card('日経はいま何に連動しているか', `相関・${L.asof ? md(L.asof) : ''}まで`, [
+    h('p', { class: 'rd__b' }, [rich(L.text)]),
+    svg,
+    h('div', { class: 'cv__legend' }, [h('span', { class: 'lk__k lk__k--s', text: `直近${R.short || 60}日` }), h('span', { class: 'lk__k lk__k--l', text: `1年（${R.long || 250}日）` })]),
+    beta.length ? h('p', { class: 'hint', text: `直近60日の感応度（日経の平均の動き）: ${beta.join('・')}` }) : null,
+  ], `日経平均の1日の騰落と、各指標の1日の変化（金利は bp）の相関。米国の系列は東京の寄りの前に終わった日に合わせています（前夜）。相関は一緒に動いた度合いで、原因とは限りません。` +
+    `60日と1年の差が ${R.change || 0.2} 以上なら「強まった・弱まった」と書いています。`, false, 'mc-link');
+}
+function foreignCard(F) {
+  if (!F) return null;
+  const R = F.research || {};
+  const ws = F.weeks || [];
+  const kids = [h('p', { class: 'rd__b' }, [rich(F.facts || F.text)])];
+  if (F.so) kids.push(h('p', { class: 'rd__so' }, [rich(F.so)]));
+  if (F.evidence) kids.push(h('p', { class: 'hint' }, [rich(F.evidence)]));
+  if (ws.length) {
+    const W = 340, H = 86, M = 14;
+    const mx = Math.max(1, ...ws.map((w) => Math.abs(w.v)));
+    const bw = (W - 8) / ws.length;
+    const Y0 = H / 2;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H + 12}`, class: 'cv__svg', role: 'img', 'aria-label': '海外投資家の日本株の売り買い（週）' });
+    svg.appendChild(sv('line', { x1: 0, x2: W, y1: Y0, y2: Y0, class: 'cv__grid' }));
+    ws.forEach((w, i) => {
+      const hh = Math.abs(w.v) / mx * (H / 2 - M / 2);
+      svg.appendChild(sv('rect', { x: 4 + i * bw + bw * 0.15, width: bw * 0.7, y: w.v >= 0 ? Y0 - hh : Y0, height: Math.max(0.8, hh), class: w.v >= 0 ? 'mb__up' : 'mb__dn' }, [sv('title', { text: `${w.end} ${Math.round(w.v).toLocaleString('ja-JP')}億円` })]));
+    });
+    svg.appendChild(sv('text', { x: 4, y: H + 10, class: 'cv__tick', text: md(ws[0].end) }));
+    svg.appendChild(sv('text', { x: W - 4, y: H + 10, class: 'cv__tick', 'text-anchor': 'end', text: md(ws[ws.length - 1].end) }));
+    kids.push(h('div', { class: 'check__lh', text: `海外投資家の日本株（週・${ws.length}週。上が買い越し、下が売り越し）` }), svg);
+  }
+  kids.push(h('button', { class: 'linkbtn', type: 'button', text: '偏った週のあとの日経（検証）›', onclick: () => openChapter('verify', { anchor: 'v-foreign' }) }));
+  return noclamp(card('海外投資家の売り買い（財務省・週次）', `${md(F.asof)}までの週・${md(F.pub)}公表`, kids,
+    '財務省「対外及び対内証券売買契約等の状況（週次・指定報告機関ベース）」の非居住者の株式・投資ファンド持分（取得−処分）。毎週木曜に前の週の分が出ます。' +
+    'JPX の投資部門別（東証プライムの現物）とは対象と期間が違います。予測ではなく、注文の条件にも使っていません。', false, 'mc-foreign'));
+}
+function foreignProofCard() {
+  const F = (latestMacroFlow() || {}).foreign;
+  const R = F && F.research;
+  if (!R) return card('海外投資家の売り買いのあと（財務省・週次）', null, h('div', { class: 'empty', text: '検証は次の収集から出ます' }), null, false, 'v-foreign');
+  const row = (label, s) => h('tr', {}, [h('th', { text: label }),
+    ...['all', 'first', 'second'].flatMap((k) => { const a = (s || {})[k] || {}; return [h('td', { class: 'num', text: isNum(a.n) ? `${a.n}週` : '—' }), h('td', { class: 'num ' + cls(a.r20), text: pctx(a.r20) }), h('td', { class: 'num', text: isNum(a.p20) ? a.p20 + '%' : '—' })]; })]);
+  return card('海外投資家の売り買いのあと（財務省・週次）', `${R.from}〜`, [
+    h('div', { class: 'check__lh', text: `4週の合計が直近3年（${R.win}週）の中で下から／上から${R.edge}%の週。公表の木曜の引けから${R.h}営業日の日経平均。前半は ${R.split} の前まで。週は重なる（続けて端にいれば毎週数える）` }),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'bt' }, [
+      h('thead', {}, h('tr', {}, ['', '全期間', '20日後', 'プラス', '前半', '20日後', 'プラス', '後半', '20日後', 'プラス'].map((t, i) => h('th', { text: t, style: i ? null : 'text-align:left' })))),
+      h('tbody', {}, [row('すべての週', R.base), row('売りが偏った', R.lo), row('買いが偏った', R.hi)]),
+    ])),
+    h('p', { class: 'hint', text: '見方: 海外勢の売りが偏った週のあとも、日経は前半・後半とも「すべての週」より弱くなかった。売り越しのニュースを見て売る根拠にはならない。' }),
+  ], null, false, 'v-foreign');
+}
+function meetingsLine(M) {
+  if (!M) return null;
+  const bits = [];
+  if (M.boj) bits.push(`日銀 ${md(M.boj.start)}・${md(M.boj.end)}（結果は${md(M.boj.jp_result)}昼ごろ、あと${M.boj.days}日）`);
+  if (M.fomc) bits.push(`FOMC ${md(M.fomc.start)}・${md(M.fomc.end)}（結果は日本の${md(M.fomc.jp_result)}未明、あと${M.fomc.days}日${M.fomc.sep ? '・見通しの公表あり' : ''}）`);
+  if (!bits.length) return null;
+  return h('div', { class: 'meet' }, [h('b', { text: '次の会合 ' }), ...bits.map((t) => h('span', { class: 'meet__i', text: t }))]);
+}
+function macroFlowCards() {
+  const F = latestMacroFlow();
+  if (!F) return [];
+  return [['連動', () => linkCard(F.link)], ['海外投資家', () => foreignCard(F.foreign)]];
+}
+
 /* ==================== 分析の章（DESIGN.md 34章） ====================
    分析は9つの章。どの章も同じ形で読む: 章の名前と時刻 → 結論の見出し → 要は → 主な数字 → 図 → 読み → 根拠 → 「次の章」。
    以前は目次を押すと市況の長い1枚（大引で約9,300px）の途中へ跳んでいた。いまは章ごとに1枚で、読み終えたら次の章へ進める。
    中身のカード（見立て・寄与度・局面・マクロ・業種・ニュース・検証）は以前と同じものを、置き場所だけ章に分けた（1つの情報は1か所）。
    区分（寄り前・前場・大引）で中身が変わる章（値動き・業種と銘柄・マクロと指標）だけ、章の頭で区分を切り替える。 */
-const CHAPTERS = ['review', 'move', 'sector', 'news', 'macro', 'phase', 'strength', 'trend', 'verify'];
-const CH_NAME = { review: '振り返り', move: '値動き', sector: '業種と銘柄', news: 'ニュース・決算', macro: 'マクロと指標',
+const CHAPTERS = ['review', 'move', 'sector', 'news', 'macro', 'tech', 'phase', 'strength', 'trend', 'verify'];
+const CH_NAME = { review: '振り返り', move: '値動き', sector: '業種と銘柄', news: 'ニュース・決算', macro: 'マクロと指標', tech: 'テクニカル',
   phase: '局面と温度', strength: '業種の強弱', trend: '推移・週報', verify: '検証' };
-const CH_SUB = { review: '要は・構え・教訓', move: '何がどう動いたか', sector: '今日どこが動いたか', news: '材料と決算', macro: '金利・為替・商品・指標',
+const CH_SUB = { review: '要は・構え・教訓', move: '何がどう動いたか', sector: '今日どこが動いたか', news: '材料と決算', macro: '金利・為替・商品・指標・海外勢', tech: '線・勢い・節目・市場の内部',
   phase: '過去の同じ形と相場の温度', strength: '何週も続く強さ', trend: '指数と日々の記録', verify: 'ルールは効いているか' };
 const CH_SLOTS = { move: ['preopen', 'zenba', 'taibike'], sector: ['zenba', 'taibike'], macro: ['preopen', 'zenba', 'taibike'] };
 // 以前の画面・見出しの id から章へ（「根拠を見る ›」などの跳び先はそのまま使う）
@@ -6321,7 +6784,7 @@ const ANCHOR_CH = {
   'sec-macro': 'macro', 'sec-ind': 'macro',
   'sec-phase': 'phase', 'sec-temp': 'phase',
 };
-const ANCHOR_PREFIX = [['rv-', 'review'], ['nw-', 'news'], ['sc-', 'strength'], ['tr-', 'trend'], ['v-', 'verify']];
+const ANCHOR_PREFIX = [['rv-', 'review'], ['tc-', 'tech'], ['mc-', 'macro'], ['nw-', 'news'], ['sc-', 'strength'], ['tr-', 'trend'], ['v-', 'verify']];
 const VIEW_CH = { news: 'news', sectors: 'strength', verify: 'verify' };
 function chapterOf(view, anchor) {
   if (anchor && ANCHOR_CH[anchor]) return ANCHOR_CH[anchor];
@@ -6399,7 +6862,7 @@ const CH_INFO = {
       const line = (((d.why || {}).path || {}).line || []).map((p) => p.v);
       mini = line.length > 3 ? miniLine(line, { zero: 0, extra: [0], tone: line[line.length - 1] >= 0 ? 'up' : 'down' }) : null;
     }
-    return { title: c.headline || null, dek: (d.ai_commentary || {}).gist || null, when: slot ? `${SLOT_LABEL[slot]} ${slotTime(slot)}` : null,
+    return { title: c.headline || null, dek: (d.ai_commentary || {}).gist || null, when: slotWhen(slot),
       stamp: slot ? `${slot}:${(d.ai_commentary || {}).generated_at || slotTime(slot)}` : null, stats, mini };
   },
   sector(slot) {
@@ -6417,7 +6880,7 @@ const CH_INFO = {
     return {
       title: `${top}が強く、${bot}が弱い`,
       dek: (tf.length ? `資金が向かったテーマ ${tf.join(' ')}。` : '') + (pr && pr.total ? `プライムは上昇 ${pr.up}・下落 ${pr.down}。` : ''),
-      when: `${SLOT_LABEL[slot]} ${slotTime(slot)}`, stamp: `${slot}:${slotTime(slot)}`, stats,
+      when: slotWhen(slot), stamp: `${slot}:${slotTime(slot)}`, stats,
       mini: miniTiles(sj.map((r) => r.v)),
     };
   },
@@ -6437,7 +6900,7 @@ const CH_INFO = {
     return {
       title: (an && an.headline) || (m && m.n ? `市場より大きく動いた${m.n}銘柄の材料` : null),
       dek: ae && ae.headline ? `決算: ${ae.headline}` : null,
-      when: src ? `${SLOT_LABEL[src.slot]} ${slotTime(src.slot)}` : null,
+      when: src ? slotWhen(src.slot) : null,
       stamp: [an && an.generated_at, ae && ae.generated_at, src && slotTime(src.slot)].filter(Boolean).join('|') || null, stats, mini,
     };
   },
@@ -6455,10 +6918,29 @@ const CH_INFO = {
     return {
       title: (ai && ai.headline) || (mv.commentary || {}).headline || mv.headline || null,
       dek: (ai && ai.gist) || (ai && mv.headline && mv.headline !== ai.headline ? `機械の読み: ${mv.headline}` : null) || ind.headline || null,
-      when: slot ? `${SLOT_LABEL[slot]} ${slotTime(slot)}` : null,
+      when: slotWhen(slot),
       stamp: slot ? `${slot}:${(ai && ai.generated_at) || slotTime(slot)}` : null, stats,
       mini: big ? h('div', { class: 'thumb__cap' }, [miniLine(big.spark, { tone: big.d20 >= 0 ? 'up' : 'down' }), h('small', { text: big.label })]) : null,
     };
+  },
+  tech() {
+    const T = latestTech();
+    if (!T) return { title: null };
+    const st = T.state || {}, br = T.breadth || {}, a = (T.active || [])[0], R = T.research || {};
+    const stats = [
+      stat('RSI(14)', isNum(st.rsi) ? st.rsi.toFixed(0) : '—', st.rsi_zone === 'lo' ? '売られすぎの域' : st.rsi_zone === 'hi' ? '買われすぎの域' : '30〜70', st.rsi_zone === 'lo' ? 'down' : st.rsi_zone === 'hi' ? 'up' : ''),
+      stat('25日線から', pctx(((st.mas || []).find((m) => m.n === 25) || {}).dev), TECH_ORDER[st.order] || null, cls(((st.mas || []).find((m) => m.n === 25) || {}).dev)),
+      stat('一目', TECH_KUMO[(st.ichimoku || {}).kumo] || '—', (st.ichimoku || {}).sanyaku === 'good' ? '三役好転' : (st.ichimoku || {}).sanyaku === 'bad' ? '三役逆転' : null,
+        (st.ichimoku || {}).kumo === 'above' ? 'up' : (st.ichimoku || {}).kumo === 'below' ? 'down' : ''),
+    ];
+    if (isNum(br.p25)) stats.push(stat('25日線の上', `${br.p25}%`, `約${br.n}銘柄のうち`, br.p25 >= 50 ? 'up' : 'down'));
+    // 要は: 読みの「だから」を2つ（流れと勢い）。形の分布の数字は「いまの形」のカードに1回だけ出す
+    const so = (T.reading || []).slice(0, 2).map((r) => { const i = String(r.text).lastIndexOf('だから'); return i >= 0 ? r.text.slice(i + 3) : null; }).filter(Boolean);
+    const dek = so.length ? so.map((t) => t.replace(/。$/, '')).join('。') + '。' + (a ? `直近は「${a.name}」に入った（${md(a.date)}）。` : '') : null;
+    void R;
+    const cl = (T.chart || {}).c || [];
+    return { title: T.headline, dek, when: `${md(T.asof)}の引けまで${staleTag(T.stale)}`, stamp: `${T.asof}:${T.slot}`, stats,
+      mini: cl.length > 3 ? miniLine(cl.slice(-90), { tone: cl[cl.length - 1] >= cl[Math.max(0, cl.length - 26)] ? 'up' : 'down' }) : null };
   },
   phase() {
     const ph = latestPhase();
@@ -6474,7 +6956,7 @@ const CH_INFO = {
     const pb = (ph.playbook || [])[0];
     return {
       title: ph.headline, dek: pb ? pb.text : null, badge: [ph.label, PHASE_BADGE[ph.tone] || 'accent'],
-      when: ph.stale ? `${md(ph.asof)}の引け（今日の日足なし）` : `${md(ph.asof)}の引けまで`,
+      when: ph.stale ? `${md(ph.asof)}の引け${staleTag(true)}` : `${md(ph.asof)}の引けまで`,
       stamp: `${ph.asof}:${ph.slot}:${ph.primary}`, stats, mini: mk ? miniGauge(mk.temp) : null,
     };
   },
@@ -6549,8 +7031,9 @@ const CH_CARDS = {
   macro(slot) {
     const d = (slot && slotData(slot)) || {};
     if (!slot) return [card('マクロと指標', null, h('div', { class: 'empty', text: 'まだデータがありません。' }))];
-    return [['マクロ環境', () => macroCard(d, (DATA.slots[slot] || {}).updated_at)], ['経済指標', () => indicatorsCard(d)]];
+    return [['マクロ環境', () => macroCard(d, (DATA.slots[slot] || {}).updated_at)], ...macroFlowCards(), ['経済指標', () => indicatorsCard(d)]];
   },
+  tech() { return techCards(); },
   phase(ls) { return [['局面と対処', () => phaseCard(latestPhaseData(ls))], ['相場温度', thermoCard]]; },
   strength() { return renderSectors(); },
   trend() { return renderTrend(); },
@@ -6789,9 +7272,13 @@ function todayHero() {
   const ph = marketPhase();
   const sw = SW();
   const fresh = sw && sw.asof === isoToday();
+  const hol = closedName(isoToday());
   const todo = ph === 'after'
     ? (fresh ? '引けのあと: 次の営業日の注文と保有の売り時が出ています' : '引けのあと: 大引の更新（夕方）で次の営業日の注文が出ます')
-    : PHASE_TODO[ph];
+    : ph === 'closed' && hol ? `休場日（${hol}）: 次の営業日の注文と売り指値を確かめておく` : PHASE_TODO[ph];
+  // 休場日の収集は中身が前の営業日のもの。「16:49 更新」だけだと今日の大引に見えるので、いつの引けかを書く
+  const nkL = ((d || {}).indices || {}).nikkei;
+  const byWhen = ls && ls !== 'preopen' && nkL && nkL.stale && nkL.asof ? `休場日の収集・${md(nkL.asof)}（${wd(nkL.asof)}）の引けまで` : ls ? slotTime(ls) + ' 更新' : '';
   const stats = todayStats(ls, d);
   const flags = todayFlags();
   return h('section', { class: 'card today__hero', id: 'td-hero' }, [
@@ -6804,7 +7291,7 @@ function todayHero() {
       coverChart({ compact: true, range: '6m' })]),
     stats.length ? h('div', { class: 'summary__stats today__stats' + (stats.length > 3 ? ' pulse__stats--4' : '') }, stats) : null,
     h('div', { class: 'today__by' }, [
-      h('span', { text: by ? `${by}・${ls ? slotTime(ls) + ' 更新' : ''}` : '' }),
+      h('span', { text: by ? `${by}・${byWhen}` : '' }),
       ls ? h('button', { class: 'linkbtn', type: 'button', text: '振り返りを読む ›', onclick: () => openChapter('review') }) : null,
     ]),
   ]);
