@@ -1100,9 +1100,9 @@
     "d1": 0.81,
     "d5": 1.9,
     "d20": -14.24,
-    "last": -21.71,
-    "last_date": "2026-11-20",
-    "excess": -3.55,
+    "last": -19.76,
+    "last_date": "2026-11-24",
+    "excess": -4.81,
     "days": 35,
     "x5": 1.78,
     "x20": -6.02,
@@ -5221,9 +5221,9 @@
     "d1": -1.63,
     "d5": 8.73,
     "d20": null,
-    "last": -7.53,
-    "last_date": "2026-11-24",
-    "excess": -1.83,
+    "last": -10.4,
+    "last_date": "2026-11-20",
+    "excess": -1.15,
     "days": 13,
     "x5": 10.24,
     "x20": null,
@@ -8641,11 +8641,14 @@
     "last": null,
     "last_date": "2026-11-24",
     "excess": null,
-    "days": 0
+    "days": 0,
+    "x5": null,
+    "x20": null
    },
    "status": "watching",
    "notes": "年初来高値と商いで台帳入りしたが、今日は値下がり率上位に売られた。材料は要約に無く、記事での裏付けなし。",
-   "note_url": "https://finance.yahoo.co.jp/news/detail/00eadebbb398cc65ac5ec36000108b4ac142288f"
+   "note_url": "https://finance.yahoo.co.jp/news/detail/00eadebbb398cc65ac5ec36000108b4ac142288f",
+   "tracked_by": "日足"
   }
  ],
  "stats": {
