@@ -2484,7 +2484,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "年初来高値と商いで台帳入り。材料は要約に無く、記事での裏付けなし。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8559,7 +8559,7 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
+   "notes": "前日の下げから大きく反発し、売買代金も上位に。電子部品の業種ぐるみの上げで、個別の材料は見当たらない。",
    "note_url": null,
    "tracked_by": "日足"
   },
@@ -8588,8 +8588,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "年初来高値を更新し（株探）、出来高も急増した。材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/38869e89246977fd61d5f9206fe0e4870b264786",
    "tracked_by": "日足"
   },
   {
@@ -8617,8 +8617,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "場中の11:30に今期経常を13.0%上方修正し、最高益予想を上乗せ。配当も増額し、後場に強含んだ（開示・報道）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/c17577386a3961e0e2c1ee4569da6bdc87da18bf",
    "tracked_by": "日足"
   },
   {
@@ -8644,8 +8644,8 @@
     "days": 0
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null
+   "notes": "年初来高値と商いで台帳入りしたが、今日は値下がり率上位に売られた。材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/00eadebbb398cc65ac5ec36000108b4ac142288f"
   }
  ],
  "stats": {
