@@ -1835,9 +1835,9 @@
 "filled": true,
 "in": "2026-11-17",
 "entry": 3482.5,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 3095.0
+"last": 3080.0
 },
 {
 "asof": "2026-11-17",
@@ -1876,9 +1876,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 3391.61,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 3095.0
+"last": 3080.0
 },
 {
 "asof": "2026-11-18",
@@ -1943,14 +1943,16 @@
 "name": "フリー",
 "limit": 3090,
 "stop": 2251.25,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-11-20",
 "entry": 3094.46,
-"days": 2,
-"open": true,
-"last": 3095.0
+"days": 3,
+"out": "2026-11-25",
+"exit": 3155.0,
+"why": "sell",
+"ret": 1.86
 },
 {
 "asof": "2026-11-19",
@@ -1973,9 +1975,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 1771.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 1755.5
+"last": 1773.5
 },
 {
 "asof": "2026-11-19",
@@ -2000,14 +2002,16 @@
 "name": "日本取引所",
 "limit": 2100,
 "stop": 1902.04,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-11-20",
 "entry": 2080.0,
-"days": 2,
-"open": true,
-"last": 2112.0
+"days": 3,
+"out": "2026-11-25",
+"exit": 2107.88,
+"why": "sell",
+"ret": 1.24
 },
 {
 "asof": "2026-11-20",
@@ -2065,8 +2069,9 @@
 "name": "電通グループ",
 "limit": 3570,
 "stop": 3145,
-"done": false,
-"earn": "mixed"
+"done": true,
+"earn": "mixed",
+"filled": false
 },
 {
 "asof": "2026-11-24",
@@ -2083,8 +2088,9 @@
 "name": "ラインヤフー",
 "limit": 488,
 "stop": 424,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-24",
@@ -2092,8 +2098,9 @@
 "name": "セブン＆アイ",
 "limit": 2083,
 "stop": 1913,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 },
 {
 "asof": "2026-11-24",
@@ -2101,31 +2108,32 @@
 "name": "ＳＵＢＡＲＵ",
 "limit": 2647,
 "stop": 2362,
-"done": false,
-"earn": "none"
+"done": true,
+"earn": "none",
+"filled": false
 }
 ],
 "stats": {
-"n": 59,
-"win": 69,
-"avg": -2.68,
-"med": 0.4,
-"pf": 0.35,
-"avg_win": 2.09,
+"n": 61,
+"win": 70,
+"avg": -2.54,
+"med": 0.43,
+"pf": 0.36,
+"avg_win": 2.06,
 "avg_loss": -13.54,
 "worst": -25.95,
-"days": 4.5,
+"days": 4.4,
 "d2": 15,
-"per_day": -0.6,
-"stops": 22,
-"sells": 69,
+"per_day": -0.58,
+"stops": 21,
+"sells": 70,
 "times": 8,
-"small": 24,
-"big_loss": 29,
-"fill": 42,
-"open": 8,
-"open_avg": -2.87,
-"open_up": 4,
+"small": 23,
+"big_loss": 28,
+"fill": 41,
+"open": 6,
+"open_avg": -4.07,
+"open_up": 3,
 "issued": 169,
 "since": "2026-09-25"
 },
@@ -2143,9 +2151,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 35,
+"days": 36,
 "open": true,
-"last": 2109.0
+"last": 2162.0
 },
 {
 "asof": "2026-10-01",
@@ -2838,9 +2846,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 17,
+"days": 18,
 "open": true,
-"last": 4342.0
+"last": 4439.0
 },
 {
 "asof": "2026-10-29",
@@ -3096,9 +3104,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 22800.0
+"last": 20950.0
 },
 {
 "asof": "2026-11-05",
@@ -3112,9 +3120,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 4700.0
+"last": 4190.0
 },
 {
 "asof": "2026-11-05",
@@ -3128,9 +3136,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 7690.0
+"last": 6830.0
 },
 {
 "asof": "2026-11-05",
@@ -3144,9 +3152,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 27275.0
+"last": 23745.0
 },
 {
 "asof": "2026-11-05",
@@ -3160,9 +3168,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 12,
+"days": 13,
 "open": true,
-"last": 4254.0
+"last": 4157.0
 },
 {
 "asof": "2026-11-05",
@@ -3453,9 +3461,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 4147.36,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 4254.0
+"last": 4157.0
 },
 {
 "asof": "2026-11-19",
@@ -3485,9 +3493,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 1714.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 1748.0
+"last": 1759.0
 },
 {
 "asof": "2026-11-19",
@@ -3501,9 +3509,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 4236.32,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 4253.0
+"last": 4153.0
 },
 {
 "asof": "2026-11-20",
@@ -3591,8 +3599,8 @@
 "big_loss": 61,
 "fill": 49,
 "open": 14,
-"open_avg": 5.31,
-"open_up": 12,
+"open_avg": 1.86,
+"open_up": 7,
 "issued": 102,
 "since": "2026-10-01"
 }
