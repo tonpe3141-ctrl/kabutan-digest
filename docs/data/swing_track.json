@@ -2079,8 +2079,9 @@
 "name": "伊藤忠",
 "limit": 2178,
 "stop": 1947,
-"done": false,
-"earn": "up"
+"done": true,
+"earn": "up",
+"filled": false
 },
 {
 "asof": "2026-11-24",
@@ -3395,9 +3396,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 2415.64,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 2370.5
+"last": 2339.0
 },
 {
 "asof": "2026-11-17",
@@ -3411,9 +3412,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 3078.79,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 3043.0
+"last": 2991.0
 },
 {
 "asof": "2026-11-18",
@@ -3445,9 +3446,9 @@
 "filled": true,
 "in": "2026-11-19",
 "entry": 3000.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 3043.0
+"last": 2991.0
 },
 {
 "asof": "2026-11-19",
@@ -3477,9 +3478,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 6452.0,
-"days": 2,
+"days": 3,
 "open": true,
-"last": 6677.0
+"last": 6636.0
 },
 {
 "asof": "2026-11-19",
@@ -3599,8 +3600,8 @@
 "big_loss": 61,
 "fill": 49,
 "open": 14,
-"open_avg": 1.86,
-"open_up": 7,
+"open_avg": 1.48,
+"open_up": 6,
 "issued": 102,
 "since": "2026-10-01"
 }
