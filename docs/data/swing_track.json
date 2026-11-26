@@ -1,5 +1,5 @@
 {
-"updated_at": "2026-11-25",
+"updated_at": "2026-11-26",
 "orders": [
 {
 "asof": "2026-09-25",
@@ -1835,9 +1835,9 @@
 "filled": true,
 "in": "2026-11-17",
 "entry": 3482.5,
-"days": 6,
+"days": 7,
 "open": true,
-"last": 3080.0
+"last": 3345.0
 },
 {
 "asof": "2026-11-17",
@@ -1871,14 +1871,16 @@
 "name": "フリー",
 "limit": 3390,
 "stop": 2531.25,
-"done": false,
+"done": true,
 "earn": "none",
 "filled": true,
 "in": "2026-11-18",
 "entry": 3391.61,
-"days": 5,
-"open": true,
-"last": 3080.0
+"days": 6,
+"out": "2026-11-26",
+"exit": 3398.39,
+"why": "sell",
+"ret": 0.1
 },
 {
 "asof": "2026-11-18",
@@ -1970,14 +1972,16 @@
 "name": "クラレ",
 "limit": 1776,
 "stop": 1568.82,
-"done": false,
+"done": true,
 "earn": "up",
 "filled": true,
 "in": "2026-11-20",
 "entry": 1771.0,
-"days": 3,
-"open": true,
-"last": 1773.5
+"days": 4,
+"out": "2026-11-26",
+"exit": 1790.5,
+"why": "sell",
+"ret": 1.0
 },
 {
 "asof": "2026-11-19",
@@ -2115,31 +2119,31 @@
 }
 ],
 "stats": {
-"n": 61,
-"win": 70,
-"avg": -2.54,
+"n": 63,
+"win": 71,
+"avg": -2.44,
 "med": 0.43,
-"pf": 0.36,
-"avg_win": 2.06,
+"pf": 0.37,
+"avg_win": 2.0,
 "avg_loss": -13.54,
 "worst": -25.95,
 "days": 4.4,
-"d2": 15,
-"per_day": -0.58,
+"d2": 14,
+"per_day": -0.55,
 "stops": 21,
-"sells": 70,
+"sells": 71,
 "times": 8,
-"small": 23,
-"big_loss": 28,
+"small": 24,
+"big_loss": 27,
 "fill": 41,
-"open": 6,
-"open_avg": -4.07,
-"open_up": 3,
+"open": 4,
+"open_avg": -1.94,
+"open_up": 2,
 "issued": 169,
 "since": "2026-09-25"
 },
 "mid": {
-"updated_at": "2026-11-25",
+"updated_at": "2026-11-26",
 "orders": [
 {
 "asof": "2026-10-01",
@@ -2152,9 +2156,9 @@
 "filled": true,
 "in": "2026-10-02",
 "entry": 2062.88,
-"days": 36,
+"days": 37,
 "open": true,
-"last": 2162.0
+"last": 2149.5
 },
 {
 "asof": "2026-10-01",
@@ -2847,9 +2851,9 @@
 "filled": true,
 "in": "2026-10-29",
 "entry": 3512.93,
-"days": 18,
+"days": 19,
 "open": true,
-"last": 4439.0
+"last": 4305.0
 },
 {
 "asof": "2026-10-29",
@@ -3105,9 +3109,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 20030.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 20950.0
+"last": 21680.0
 },
 {
 "asof": "2026-11-05",
@@ -3121,9 +3125,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4340.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 4190.0
+"last": 4410.0
 },
 {
 "asof": "2026-11-05",
@@ -3137,9 +3141,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 6970.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 6830.0
+"last": 7340.0
 },
 {
 "asof": "2026-11-05",
@@ -3153,9 +3157,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 25485.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 23745.0
+"last": 24830.0
 },
 {
 "asof": "2026-11-05",
@@ -3169,9 +3173,9 @@
 "filled": true,
 "in": "2026-11-06",
 "entry": 4165.0,
-"days": 13,
+"days": 14,
 "open": true,
-"last": 4157.0
+"last": 4242.0
 },
 {
 "asof": "2026-11-05",
@@ -3396,9 +3400,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 2415.64,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 2339.0
+"last": 2341.0
 },
 {
 "asof": "2026-11-17",
@@ -3412,9 +3416,9 @@
 "filled": true,
 "in": "2026-11-18",
 "entry": 3078.79,
-"days": 5,
+"days": 6,
 "open": true,
-"last": 2991.0
+"last": 2980.0
 },
 {
 "asof": "2026-11-18",
@@ -3446,9 +3450,9 @@
 "filled": true,
 "in": "2026-11-19",
 "entry": 3000.0,
-"days": 4,
+"days": 5,
 "open": true,
-"last": 2991.0
+"last": 2980.0
 },
 {
 "asof": "2026-11-19",
@@ -3462,9 +3466,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 4147.36,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 4157.0
+"last": 4242.0
 },
 {
 "asof": "2026-11-19",
@@ -3478,9 +3482,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 6452.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 6636.0
+"last": 6674.0
 },
 {
 "asof": "2026-11-19",
@@ -3494,9 +3498,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 1714.0,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 1759.0
+"last": 1739.0
 },
 {
 "asof": "2026-11-19",
@@ -3510,9 +3514,9 @@
 "filled": true,
 "in": "2026-11-20",
 "entry": 4236.32,
-"days": 3,
+"days": 4,
 "open": true,
-"last": 4153.0
+"last": 4151.0
 },
 {
 "asof": "2026-11-20",
@@ -3600,8 +3604,8 @@
 "big_loss": 61,
 "fill": 49,
 "open": 14,
-"open_avg": 1.48,
-"open_up": 6,
+"open_avg": 2.81,
+"open_up": 9,
 "issued": 102,
 "since": "2026-10-01"
 }
