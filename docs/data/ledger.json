@@ -8695,8 +8695,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "ストップ高で引けた（株探）。創薬ベンチャーのテーマ全体が上昇した日で、個別の材料は要約に無く、記事での裏付けなし。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/d93fd1bc3ec5e64f40db3344e19b9b24ffdcc44e",
    "tracked_by": "日足"
   },
   {
@@ -8724,8 +8724,8 @@
     "x20": null
    },
    "status": "watching",
-   "notes": null,
-   "note_url": null,
+   "notes": "15:30に今期経常を43.7%上方修正し、2期連続の最高益見通し。純利益は据え置き、RPA関連在庫の減損を特別損失に見込む（開示）。",
+   "note_url": "https://finance.yahoo.co.jp/news/detail/1f7a15ea0352de7a3046360a926e76323cf24e0e",
    "tracked_by": "日足"
   }
  ],
